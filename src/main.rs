@@ -1,5 +1,6 @@
-use bittorrent_rustico::config::parser;
+use bittorrent_rustico::run;
 fn main() {
-    parser::parse_from_path("HOLA!");
-    println!("Hello, world!");
+    if let Err(e) = run() {
+        println!("Application error: {}", e);
+    }
 }
