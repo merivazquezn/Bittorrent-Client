@@ -1,7 +1,9 @@
-mod bencode_decoder;
-mod bencode_encoder;
-mod bencode_types;
+mod decoder;
+mod encoder;
+mod errors;
+mod types;
 
-pub use bencode_decoder::decode;
-pub use bencode_encoder::encode;
-pub use bencode_types::*;
+pub use decoder::decode;
+pub use encoder::encode;
+pub use errors::BencodeDecoderError;
+pub use types::BencodeDecodedValue;
