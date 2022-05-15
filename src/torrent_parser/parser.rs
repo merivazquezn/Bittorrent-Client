@@ -2,7 +2,6 @@ pub use super::super::bencode::*;
 use super::super::metainfo::*;
 use super::errors::*;
 use std::collections::HashMap;
-use std::vec::Vec;
 
 ///Receives a byte array and decodes it from Bencode to build a Metainfo Struct.
 //To do:Codificar bytes de Hashmap['info'] devuelta a Bencode y despues a SHA-1 (permitieron importar crate en discord) para info_hash de Metainfo
@@ -32,7 +31,7 @@ pub fn parse_torrent(bytes: &[u8]) -> Result<Metainfo, TorrentParserError> {
 }
 
 fn build_metainfo(
-    _hashmap: HashMap<Vec<u8>, BencodeDecodedValue>,
+    _hashmap: HashMap<String, BencodeDecodedValue>,
 ) -> Result<Metainfo, MetainfoBuildError> {
     let info = Info {
         piece_length: 164,
