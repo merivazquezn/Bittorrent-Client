@@ -1,7 +1,7 @@
 mod decoder;
 mod encoder;
 mod errors;
-mod types;
+pub mod types;
 
 pub use decoder::decode;
 pub use encoder::encode;

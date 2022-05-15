@@ -8,6 +8,8 @@ pub enum BencodeDecoderError {
     DecodeInt(u8),
     /// a string key was expected but got another [`BencodeDecodedValue`] instead as a key instead
     UnexpectedDictionaryKey(BencodeDecodedValue),
+    /// tried to extract the wrong value of bencodeDecodedValue
+    WrongExpectedValue(BencodeDecodedValue, String),
     /// slice of decoded bytes ended before a valid ending token was found
     UnexpectedEndOfStream,
 }
@@ -23,6 +25,13 @@ impl Display for BencodeDecoderError {
             }
             BencodeDecoderError::UnexpectedDictionaryKey(wrong_key) => {
                 write!(f, "Bencoder: Unexpected dictionary key {:?}", wrong_key)
+            }
+            BencodeDecoderError::WrongExpectedValue(actual_value, expected_value) => {
+                write!(
+                    f,
+                    "Bencoder: Expected value was {:?}, but real value is {:?}",
+                    expected_value, actual_value
+                )
             }
         }
     }

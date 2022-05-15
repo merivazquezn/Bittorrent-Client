@@ -1,3 +1,4 @@
+use super::errors::*;
 use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// The type that is returned by the decoder
@@ -10,25 +11,7 @@ use std::collections::HashMap;
 /// use bittorrent_rustico::bencode::BencodeDecodedValue;
 /// let decoded_value = BencodeDecodedValue::String(String::from("hola"));
 ///
-/// if let BencodeDecodedValue::String(value) = decoded_value {
-///     assert_eq!(String::from("hola"), value);
-/// }
-///
-/// let decoded_dict = BencodeDecodedValue::Dictionary(
-///    HashMap::from([
-///       (String::from("key1"), BencodeDecodedValue::String(String::from("value1"))),
-///      (String::from("key2"), BencodeDecodedValue::String(String::from("value2"))),
-///   ])
-/// );
-///
-/// let second_element = decoded_dict.get("key2").unwrap();
-///
-/// if let BencodeDecodedValue::String(value) = second_element {
-///    assert_eq!("value2", value);
-/// } else {
-///     panic!("Expected BencodeDecodedValue::String but got {:?}", second_element);
-/// }
-///
+/// assert_eq!(decoded_value.get_as_string().unwrap(), "hola");
 /// ```
 pub enum BencodeDecodedValue {
     String(String),
@@ -37,12 +20,47 @@ pub enum BencodeDecodedValue {
     Dictionary(HashMap<String, BencodeDecodedValue>),
     End,
 }
+
 impl BencodeDecodedValue {
-    // if bencodeDecodedValue is a dictionary, return the value associated with the key
-    pub fn get(&self, key: &str) -> Option<&BencodeDecodedValue> {
+    // implement all the methods of the matter get_as_string, get_as_integer, get_as_list, get_as_dictionary
+    // and get_as_end
+
+    pub fn get_as_string(&self) -> Result<&String, BencodeDecoderError> {
         match self {
-            BencodeDecodedValue::Dictionary(dictionary) => dictionary.get(key),
-            _ => None,
+            BencodeDecodedValue::String(value) => Ok(value),
+            _ => Err(BencodeDecoderError::WrongExpectedValue(
+                self.clone(),
+                String::from("BencodeDecodedValue::String"),
+            )),
+        }
+    }
+    pub fn get_as_integer(&self) -> Result<&i64, BencodeDecoderError> {
+        match self {
+            BencodeDecodedValue::Integer(value) => Ok(value),
+            _ => Err(BencodeDecoderError::WrongExpectedValue(
+                self.clone(),
+                String::from("BencodeDecodedValue::Integer"),
+            )),
+        }
+    }
+    pub fn get_as_list(&self) -> Result<&Vec<BencodeDecodedValue>, BencodeDecoderError> {
+        match self {
+            BencodeDecodedValue::List(value) => Ok(value),
+            _ => Err(BencodeDecoderError::WrongExpectedValue(
+                self.clone(),
+                String::from("BencodeDecodedValue::List"),
+            )),
+        }
+    }
+    pub fn get_as_dictionary(
+        &self,
+    ) -> Result<&HashMap<String, BencodeDecodedValue>, BencodeDecoderError> {
+        match self {
+            BencodeDecodedValue::Dictionary(value) => Ok(value),
+            _ => Err(BencodeDecoderError::WrongExpectedValue(
+                self.clone(),
+                String::from("BencodeDecodedValue::Dictionary"),
+            )),
         }
     }
 }
