@@ -13,3 +13,15 @@ pub struct RequestParameters {
     pub left: u32,
     pub event: Event,
 }
+
+#[derive(Debug)]
+pub struct Peer {
+    pub ip: String,
+    pub port: i64,
+    pub peer_id: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct TrackerResponse {
+    pub peers: Vec<Peer>,
+}
