@@ -16,9 +16,9 @@ const STRING_START_TOKEN: u8 = b':';
 /// ```
 /// use bittorrent_rustico::bencode::{encode, BencodeDecodedValue};
 ///
-/// let bencode_value = BencodeDecodedValue::String(String::from("hola"));
-/// let encoded_bencode_value = encode(&bencode_value);
-/// assert_eq!(encoded_bencode_value, b"4:hola");
+/// let decoded_value = BencodeDecodedValue::String(b"hola".to_vec());
+/// let encoded_value = encode(&decoded_value);
+/// assert_eq!(encoded_value, b"4:hola");
 ///
 /// ```
 pub fn encode(value: &BencodeDecodedValue) -> Vec<u8> {
@@ -38,11 +38,11 @@ fn encode_integer(integer: i64) -> Vec<u8> {
     bytes
 }
 
-fn encode_string(string: &str) -> Vec<u8> {
+fn encode_string(string: &[u8]) -> Vec<u8> {
     let mut bytes = vec![];
     bytes.extend(string.len().to_string().as_bytes());
     bytes.push(STRING_START_TOKEN);
-    bytes.extend(string.as_bytes());
+    bytes.extend(string);
     bytes
 }
 
@@ -55,7 +55,7 @@ fn encode_list(list: &[BencodeDecodedValue]) -> Vec<u8> {
     bytes
 }
 
-fn encode_dictionary(dictionary: &HashMap<String, BencodeDecodedValue>) -> Vec<u8> {
+fn encode_dictionary(dictionary: &HashMap<Vec<u8>, BencodeDecodedValue>) -> Vec<u8> {
     let mut bytes = vec![DICTIONARY_START_TOKEN];
     let mut items: Vec<_> = dictionary.iter().collect();
     items.sort_by_key(|&(key, _)| key);
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn encode_string() {
         assert_eq!(
-            encode(&BencodeDecodedValue::String(String::from("hola"))),
+            encode(&BencodeDecodedValue::String(b"hola".to_vec())),
             b"4:hola".to_vec()
         );
     }
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn encode_empty_string() {
         assert_eq!(
-            encode(&BencodeDecodedValue::String(String::from(""))),
+            encode(&BencodeDecodedValue::String(b"".to_vec())),
             b"0:".to_vec()
         );
     }
@@ -127,7 +127,7 @@ mod tests {
                 BencodeDecodedValue::Integer(2),
                 BencodeDecodedValue::Integer(3),
             ]),
-            BencodeDecodedValue::String(String::from("hola")),
+            BencodeDecodedValue::String(b"hola".to_vec()),
         ]));
         assert_eq!(encoded, b"li1eli2ei3ee4:holae".to_vec());
     }
@@ -136,12 +136,12 @@ mod tests {
     fn encode_dictionary() {
         let encoded = encode(&BencodeDecodedValue::Dictionary(HashMap::from([
             (
-                String::from("cow"),
-                BencodeDecodedValue::String(String::from("moo")),
+                b"cow".to_vec(),
+                BencodeDecodedValue::String(b"moo".to_vec()),
             ),
             (
-                String::from("spam"),
-                BencodeDecodedValue::String(String::from("eggs")),
+                b"spam".to_vec(),
+                BencodeDecodedValue::String(b"eggs".to_vec()),
             ),
         ])));
         assert_eq!(encoded, b"d3:cow3:moo4:spam4:eggse".to_vec());
@@ -152,18 +152,18 @@ mod tests {
         assert_eq!(
             b"d1:ai123e4:hola4:chau4:testd1:ai123e4:hola4:chauee".to_vec(),
             encode(&BencodeDecodedValue::Dictionary(HashMap::from([
-                (String::from("a"), BencodeDecodedValue::Integer(123)),
+                (b"a".to_vec(), BencodeDecodedValue::Integer(123)),
                 (
-                    String::from("hola"),
-                    BencodeDecodedValue::String(String::from("chau"))
+                    b"hola".to_vec(),
+                    BencodeDecodedValue::String(b"chau".to_vec())
                 ),
                 (
-                    String::from("test"),
+                    b"test".to_vec(),
                     BencodeDecodedValue::Dictionary(HashMap::from([
-                        (String::from("a"), BencodeDecodedValue::Integer(123)),
+                        (b"a".to_vec(), BencodeDecodedValue::Integer(123)),
                         (
-                            String::from("hola"),
-                            BencodeDecodedValue::String(String::from("chau"))
+                            b"hola".to_vec(),
+                            BencodeDecodedValue::String(b"chau".to_vec())
                         ),
                     ]))
                 )

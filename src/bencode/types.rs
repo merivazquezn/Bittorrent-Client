@@ -9,15 +9,15 @@ use std::collections::HashMap;
 /// ```
 /// use std::collections::HashMap;
 /// use bittorrent_rustico::bencode::BencodeDecodedValue;
-/// let decoded_value = BencodeDecodedValue::String(String::from("hola"));
+/// let decoded_value = BencodeDecodedValue::String(b"hola".to_vec());
 ///
-/// assert_eq!(decoded_value.get_as_string().unwrap(), "hola");
+/// assert_eq!(decoded_value.get_as_string().unwrap(), b"hola");
 /// ```
 pub enum BencodeDecodedValue {
-    String(String),
+    String(Vec<u8>),
     Integer(i64),
     List(Vec<BencodeDecodedValue>),
-    Dictionary(HashMap<String, BencodeDecodedValue>),
+    Dictionary(HashMap<Vec<u8>, BencodeDecodedValue>),
     End,
 }
 
@@ -25,7 +25,7 @@ impl BencodeDecodedValue {
     // implement all the methods of the matter get_as_string, get_as_integer, get_as_list, get_as_dictionary
     // and get_as_end
 
-    pub fn get_as_string(&self) -> Result<&String, BencodeDecoderError> {
+    pub fn get_as_string(&self) -> Result<&Vec<u8>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::String(value) => Ok(value),
             _ => Err(BencodeDecoderError::WrongExpectedValue(
@@ -54,7 +54,7 @@ impl BencodeDecodedValue {
     }
     pub fn get_as_dictionary(
         &self,
-    ) -> Result<&HashMap<String, BencodeDecodedValue>, BencodeDecoderError> {
+    ) -> Result<&HashMap<Vec<u8>, BencodeDecodedValue>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::Dictionary(value) => Ok(value),
             _ => Err(BencodeDecoderError::WrongExpectedValue(

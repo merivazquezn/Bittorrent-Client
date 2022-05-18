@@ -58,7 +58,7 @@ pub fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderEr
     Ok(sign * integer)
 }
 
-pub fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<String, BencodeDecoderError> {
+pub fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<Vec<u8>, BencodeDecoderError> {
     let mut length = byte as usize - ('0' as usize);
 
     loop {
@@ -75,10 +75,10 @@ pub fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<String, Benc
         }
     }
 
-    let mut string = String::with_capacity(length);
+    let mut string = vec![];
     for _ in 0..length {
         match bytes.next() {
-            Some(byte) => string.push(*byte as char),
+            Some(byte) => string.push(*byte),
             None => return Err(BencodeDecoderError::UnexpectedEndOfStream),
         }
     }
@@ -101,8 +101,8 @@ pub fn read_list(
 
 pub fn read_dictionary(
     bytes: &mut slice::Iter<u8>,
-) -> Result<HashMap<String, BencodeDecodedValue>, BencodeDecoderError> {
-    let mut dictionary: HashMap<String, BencodeDecodedValue> = HashMap::new();
+) -> Result<HashMap<Vec<u8>, BencodeDecodedValue>, BencodeDecoderError> {
+    let mut dictionary: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
     loop {
         let next_item = decode_and_consume_iterator(bytes)?;
         match next_item {
@@ -203,7 +203,7 @@ mod tests {
     fn decodes_empty_string() {
         assert_eq!(
             decode(b"0:").unwrap(),
-            BencodeDecodedValue::String("".to_string())
+            BencodeDecodedValue::String(b"".to_vec())
         );
     }
 
@@ -211,7 +211,7 @@ mod tests {
     fn decodes_string_with_one_letter() {
         assert_eq!(
             decode(b"1:a").unwrap(),
-            BencodeDecodedValue::String("a".to_string())
+            BencodeDecodedValue::String(b"a".to_vec())
         );
     }
 
@@ -219,14 +219,14 @@ mod tests {
     fn decode_string_with_multiple_letters() {
         assert_eq!(
             decode(b"15:aabaaaaaaaaaaER").unwrap(),
-            BencodeDecodedValue::String(String::from("aabaaaaaaaaaaER"))
+            BencodeDecodedValue::String(b"aabaaaaaaaaaaER".to_vec())
         )
     }
     #[test]
     fn decode_string_reads_only_up_to_length() {
         assert_eq!(
             decode(b"5:aabaaaaaaaaaaER").unwrap(),
-            BencodeDecodedValue::String(String::from("aabaa"))
+            BencodeDecodedValue::String(b"aabaa".to_vec())
         )
     }
 
@@ -283,7 +283,7 @@ mod tests {
         assert_eq!(
             decode(b"d1:ai123ee").unwrap(),
             BencodeDecodedValue::Dictionary(HashMap::from([(
-                String::from("a"),
+                b"a".to_vec(),
                 BencodeDecodedValue::Integer(123)
             )]))
         );
@@ -294,8 +294,8 @@ mod tests {
         assert_eq!(
             decode(b"d4:holai123e4:chaui321ee").unwrap(),
             BencodeDecodedValue::Dictionary(HashMap::from([
-                (String::from("hola"), BencodeDecodedValue::Integer(123)),
-                (String::from("chau"), BencodeDecodedValue::Integer(321)),
+                (b"hola".to_vec(), BencodeDecodedValue::Integer(123)),
+                (b"chau".to_vec(), BencodeDecodedValue::Integer(321)),
             ]))
         );
     }
@@ -305,7 +305,7 @@ mod tests {
     fn decode_list_with_multiple_e() {
         assert_eq!(
             decode(b"l4:eeeee").unwrap(),
-            BencodeDecodedValue::List(vec![BencodeDecodedValue::String(String::from("eeee"))])
+            BencodeDecodedValue::List(vec![BencodeDecodedValue::String(b"eeee".to_vec())])
         );
     }
 
@@ -314,8 +314,8 @@ mod tests {
         assert_eq!(
             decode(b"d4:eeee4:eeeee").unwrap(),
             BencodeDecodedValue::Dictionary(HashMap::from([(
-                String::from("eeee"),
-                BencodeDecodedValue::String(String::from("eeee"))
+                b"eeee".to_vec(),
+                BencodeDecodedValue::String(b"eeee".to_vec())
             )]))
         );
     }
@@ -326,7 +326,7 @@ mod tests {
             decode(b"li100e4:holali20eee").unwrap(),
             BencodeDecodedValue::List(vec![
                 BencodeDecodedValue::Integer(100),
-                BencodeDecodedValue::String(String::from("hola")),
+                BencodeDecodedValue::String(b"hola".to_vec()),
                 BencodeDecodedValue::List(vec![BencodeDecodedValue::Integer(20)])
             ])
         );
@@ -337,18 +337,18 @@ mod tests {
         assert_eq!(
             decode(b"d1:ai123e4:hola4:chau4:testd1:ai123e4:hola4:chauee").unwrap(),
             BencodeDecodedValue::Dictionary(HashMap::from([
-                (String::from("a"), BencodeDecodedValue::Integer(123)),
+                (b"a".to_vec(), BencodeDecodedValue::Integer(123)),
                 (
-                    String::from("hola"),
-                    BencodeDecodedValue::String(String::from("chau"))
+                    b"hola".to_vec(),
+                    BencodeDecodedValue::String(b"chau".to_vec())
                 ),
                 (
-                    String::from("test"),
+                    b"test".to_vec(),
                     BencodeDecodedValue::Dictionary(HashMap::from([
-                        (String::from("a"), BencodeDecodedValue::Integer(123)),
+                        (b"a".to_vec(), BencodeDecodedValue::Integer(123)),
                         (
-                            String::from("hola"),
-                            BencodeDecodedValue::String(String::from("chau"))
+                            b"hola".to_vec(),
+                            BencodeDecodedValue::String(b"chau".to_vec())
                         ),
                     ]))
                 )
