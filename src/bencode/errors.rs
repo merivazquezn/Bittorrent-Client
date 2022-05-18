@@ -6,10 +6,13 @@ use std::fmt::Display;
 pub enum BencodeDecoderError {
     /// an digit from 0 to 9 was expected but got another byte instead
     DecodeInt(u8),
+
     /// a string key was expected but got another [`BencodeDecodedValue`] instead as a key instead
     UnexpectedDictionaryKey(BencodeDecodedValue),
     /// tried to extract the wrong value of bencodeDecodedValue
     WrongExpectedValue(BencodeDecodedValue, String),
+    /// an invalid format for a number was given, for example: 054
+    InvalidInt,
     /// slice of decoded bytes ended before a valid ending token was found
     UnexpectedEndOfStream,
 }
@@ -33,6 +36,7 @@ impl Display for BencodeDecoderError {
                     expected_value, actual_value
                 )
             }
+            BencodeDecoderError::InvalidInt => write!(f, "Bencoder: Invalid integer format"),
         }
     }
 }

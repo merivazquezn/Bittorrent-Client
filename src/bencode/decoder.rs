@@ -38,13 +38,16 @@ pub fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderEr
     let mut integer = 0i64;
     let mut sign = 1i64;
     let mut first_digit = true;
+    let mut is_zero = false;
     loop {
         let byte = bytes.next();
         if let Some(decoded_byte) = byte {
             match *decoded_byte as char {
                 END_TOKEN => break,
                 NEGATIVE_SIGN if first_digit => sign = -1i64,
-                '0'..='9' => integer = integer * 10 + (decoded_byte - b'0') as i64,
+                '0' if first_digit => is_zero = true,
+                '0'..='9' if !is_zero => integer = integer * 10 + (decoded_byte - b'0') as i64,
+                '0'..='9' if is_zero => return Err(BencodeDecoderError::InvalidInt),
                 _ => return Err(BencodeDecoderError::DecodeInt(*decoded_byte)),
             }
         } else {
@@ -173,6 +176,14 @@ mod tests {
         assert!(matches!(
             decode(b"i123f"),
             Err(BencodeDecoderError::DecodeInt(b'f'))
+        ));
+    }
+
+    #[test]
+    fn decode_number_fails_invalid_zeros_on_left() {
+        assert!(matches!(
+            decode(b"i0123e"),
+            Err(BencodeDecoderError::InvalidInt)
         ));
     }
 
