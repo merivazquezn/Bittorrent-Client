@@ -5,6 +5,7 @@ use super::types::RequestParameters;
 use super::types::TrackerResponse;
 use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
+use log::*;
 use native_tls::TlsConnector;
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -15,7 +16,7 @@ const SEPARATOR: &[u8] = b"\r\n\r\n";
 const PEERS: &[u8] = b"peers";
 const IP: &[u8] = b"ip";
 const PORT: &[u8] = b"port";
-const PEER_ID: &[u8] = b"id";
+const PEER_ID: &[u8] = b"peer id";
 
 // from u8 into urlencoded string. any byte not in the set 0-9, a-z, A-Z, '.', '-', '_' and '~', must be encoded using the "%nn" format, where nn is the hexadecimal value of the byte.
 fn to_urlencoded(bytes: &[u8]) -> String {
@@ -107,6 +108,7 @@ fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerRespo
 }
 
 pub fn get_peer_list(parameters: RequestParameters) -> Result<TrackerResponse, TrackerError> {
+    info!("Requesting peer list from tracker");
     let connector = TlsConnector::new()?;
     let stream = TcpStream::connect("torrent.ubuntu.com:443")?;
     let mut stream = connector.connect("torrent.ubuntu.com", stream)?;

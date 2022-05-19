@@ -8,6 +8,7 @@ const DICTIONARY_START_TOKEN: char = 'd';
 const END_TOKEN: char = 'e';
 const STRING_START_TOKEN: char = ':';
 const NEGATIVE_SIGN: char = '-';
+use log::*;
 
 #[allow(dead_code)]
 /// Decodes a bencoded byte slice into a [`BencodeDecodedValue`]
@@ -29,6 +30,7 @@ const NEGATIVE_SIGN: char = '-';
 /// assert_eq!(decoded, BencodeDecodedValue::Integer(454));
 /// ```
 pub fn decode(bytes: &[u8]) -> Result<BencodeDecodedValue, BencodeDecoderError> {
+    info!("Decoding bencoded slice of bytes");
     let mut bytes = bytes.iter();
     let bencoded_value = decode_and_consume_iterator(&mut bytes)?;
     Ok(bencoded_value)
