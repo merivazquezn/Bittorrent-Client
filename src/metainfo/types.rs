@@ -1,16 +1,16 @@
 use std::vec::Vec;
-
-///Bencode-Decoded Metainfo about a torrent file.
+#[derive(Debug)]
+///Bencode-Decoded metainfo file.
 pub struct Metainfo {
-    ///information about the file to download
+    ///contains information about the file to download
     pub info: Info,
-    ///URL-encoded 20 byte SHA-1 hash
+    ///20 byte SHA-1 hash obtained from hashing 'info' dictionary
     pub info_hash: Vec<u8>,
-    ///the announce URL to use for connecting to the tracker
+    ///the announce URL used for connecting to the tracker
     pub announce: String,
 }
-
-///Info Dictionary of a torrent file.
+#[derive(Debug)]
+///Bencode-Decoded Info Dictionary of a metainfo file.
 pub struct Info {
     ///the length in bytes of each single piece
     pub piece_length: u32,
@@ -20,4 +20,21 @@ pub struct Info {
     pub name: String,
     ///the length in bytes of the file to download
     pub length: u64,
+}
+
+impl PartialEq for Info {
+    fn eq(&self, other: &Self) -> bool {
+        self.piece_length == other.piece_length
+            && self.pieces == other.pieces
+            && self.name == other.name
+            && self.length == other.length
+    }
+}
+
+impl PartialEq for Metainfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.info == other.info
+            && self.info_hash == other.info_hash
+            && self.announce == other.announce
+    }
 }
