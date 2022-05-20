@@ -18,7 +18,7 @@ const IP: &[u8] = b"ip";
 const PORT: &[u8] = b"port";
 const PEER_ID: &[u8] = b"peer id";
 
-// from u8 into urlencoded string. any byte not in the set 0-9, a-z, A-Z, '.', '-', '_' and '~', must be encoded using the "%nn" format, where nn is the hexadecimal value of the byte.
+// Transforms a slice of bytes into an url-encoded String
 fn to_urlencoded(bytes: &[u8]) -> String {
     bytes
         .iter()
@@ -32,6 +32,7 @@ fn to_urlencoded(bytes: &[u8]) -> String {
         .collect()
 }
 
+// Maps RequestParameters to a Hashmap where all the values of the type are represented as strings
 fn params_to_dic(params: RequestParameters) -> HashMap<String, String> {
     let mut dictionary = HashMap::new();
     dictionary.insert(
@@ -50,6 +51,7 @@ fn params_to_dic(params: RequestParameters) -> HashMap<String, String> {
     dictionary
 }
 
+// Builds the querystring to use in the tracker request form the RequestParameters struct
 fn parameters_to_querystring(parameters: RequestParameters) -> String {
     let parameters = params_to_dic(parameters);
     let mut querystring = String::new();
@@ -60,17 +62,18 @@ fn parameters_to_querystring(parameters: RequestParameters) -> String {
     querystring
 }
 
+// Gets the actual data from the tracker response, leaving out the HTTP headers
 fn bencode_response(bytes: &[u8]) -> Vec<u8> {
     let start_index = bytes.windows(4).position(|arr| arr == SEPARATOR);
     start_index.map(|i| bytes[i + 4..].to_vec()).unwrap()
 }
 
-// Function that converts a vector of u8 to a utf8 string
+// transforms a slice of bytes into its utf-8 representation
 fn u8_to_string(bytes: &[u8]) -> String {
     str::from_utf8(bytes).unwrap().to_string()
 }
 
-// Function that receives a BencodeDecodedValue and returns a TrackerResponse
+// Builds the TrackerResponse from the bencoded data
 fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerResponse, TrackerError> {
     // Parse decoded response
     let response_dic = bencoded_response.get_as_dictionary()?;
@@ -107,6 +110,41 @@ fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerRespo
     Ok(TrackerResponse { peers: peer_list })
 }
 
+/// Obtains peer list from the tracker
+///
+/// Receives a [`RequestParameters`] struct with the necessary information to make the request
+///
+/// Returns a Result holding:
+///
+/// ## On succes
+/// - [`TrackerResponse`] struct with the peer list and the parsed tracker response
+///
+/// ## On error
+/// - [`TrackerError`] struct with the error type and message
+///
+/// ## Example
+///
+/// ```
+/// use bittorrent_rustico::tracker::{get_peer_list, Event, RequestParameters};
+/// use hex::FromHex;
+///
+/// let info_hash = <[u8; 20]>::from_hex("2c6b6858d61da9543d4231a71db4b1c9264b0685").unwrap();
+/// let peer_id = info_hash;
+/// let params = RequestParameters {
+///        info_hash: info_hash.to_vec(),
+///        peer_id: peer_id.to_vec(),
+///        port: 6881,
+///        uploaded: 0,
+///        downloaded: 0,
+///        left: 0,
+///        event: Event::Started,
+/// };
+///
+/// let response = get_peer_list(params).unwrap();
+///
+/// println!("{:?}", response);
+/// ```
+///
 pub fn get_peer_list(parameters: RequestParameters) -> Result<TrackerResponse, TrackerError> {
     info!("Requesting peer list from tracker");
     let connector = TlsConnector::new()?;
