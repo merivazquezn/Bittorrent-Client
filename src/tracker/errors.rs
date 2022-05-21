@@ -1,5 +1,4 @@
 use crate::bencode::BencodeDecoderError;
-use native_tls;
 use std::fmt::Display;
 use std::fmt::Formatter;
 

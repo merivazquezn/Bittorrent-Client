@@ -1,7 +1,9 @@
 use super::connection;
 use super::errors::TrackerError;
 use crate::metainfo::Metainfo;
+use crate::peer::Peer;
 
+#[allow(dead_code)]
 pub enum Event {
     Started,
     Completed,
@@ -16,14 +18,6 @@ pub struct RequestParameters {
     pub downloaded: u32,
     pub left: u32,
     pub event: Event,
-}
-
-#[derive(Debug)]
-pub struct Peer {
-    // TODO: move to peer module
-    pub ip: String,
-    pub port: i64,
-    pub peer_id: Vec<u8>,
 }
 
 #[derive(Debug)]

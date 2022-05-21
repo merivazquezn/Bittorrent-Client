@@ -1,4 +1,4 @@
-use super::types::*;
+use super::types::BencodeDecodedValue;
 use std::collections::HashMap;
 use std::vec::Vec;
 

@@ -1,4 +1,4 @@
-use super::errors::*;
+use super::errors::ConfigError;
 use std::collections::HashMap;
 use std::fs;
 use std::path;

@@ -1,10 +1,10 @@
 extern crate native_tls;
-use super::errors::*;
-use super::types::Peer;
+use super::errors::TrackerError;
 use super::types::RequestParameters;
 use super::types::TrackerResponse;
 use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
+use crate::peer::Peer;
 use native_tls::TlsConnector;
 use std::collections::HashMap;
 use std::io::{Read, Write};

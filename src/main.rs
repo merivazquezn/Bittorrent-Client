@@ -1,4 +1,4 @@
-use bittorrent_rustico::run_with_torrent;
+use bittorrent_rustico::application::run_with_torrent;
 use log::*;
 use std::env;
 

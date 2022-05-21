@@ -1,4 +1,4 @@
-pub use super::super::bencode::*;
+pub use crate::bencode::BencodeDecoderError;
 use std::fmt::Display;
 #[derive(Debug)]
 ///The error type that is returned if theres a problem parsing the Metainfo

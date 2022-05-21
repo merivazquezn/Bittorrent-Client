@@ -1,5 +1,5 @@
-use super::errors::*;
-use super::types::*;
+use super::errors::BencodeDecoderError;
+use super::types::BencodeDecodedValue;
 use std::collections::HashMap;
 use std::slice;
 const INTEGER_START_TOKEN: char = 'i';
@@ -52,7 +52,7 @@ fn decode_and_consume_iterator(
     }
 }
 
-pub fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderError> {
+fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderError> {
     let mut integer = 0i64;
     let mut sign = 1i64;
     let mut first_digit = true;
@@ -76,7 +76,7 @@ pub fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderEr
     Ok(sign * integer)
 }
 
-pub fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<Vec<u8>, BencodeDecoderError> {
+fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<Vec<u8>, BencodeDecoderError> {
     let mut length = byte as usize - ('0' as usize);
 
     loop {
@@ -103,9 +103,7 @@ pub fn read_string(bytes: &mut slice::Iter<u8>, byte: u8) -> Result<Vec<u8>, Ben
     Ok(string)
 }
 
-pub fn read_list(
-    bytes: &mut slice::Iter<u8>,
-) -> Result<Vec<BencodeDecodedValue>, BencodeDecoderError> {
+fn read_list(bytes: &mut slice::Iter<u8>) -> Result<Vec<BencodeDecodedValue>, BencodeDecoderError> {
     let mut list: Vec<BencodeDecodedValue> = Vec::new();
     loop {
         let next_item = decode_and_consume_iterator(bytes)?;
@@ -117,7 +115,7 @@ pub fn read_list(
     Ok(list)
 }
 
-pub fn read_dictionary(
+fn read_dictionary(
     bytes: &mut slice::Iter<u8>,
 ) -> Result<HashMap<Vec<u8>, BencodeDecodedValue>, BencodeDecoderError> {
     let mut dictionary: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
