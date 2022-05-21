@@ -8,7 +8,6 @@ const DICTIONARY_START_TOKEN: char = 'd';
 const END_TOKEN: char = 'e';
 const STRING_START_TOKEN: char = ':';
 const NEGATIVE_SIGN: char = '-';
-use log::*;
 
 #[allow(dead_code)]
 /// Decodes a bencoded byte slice into a [`BencodeDecodedValue`]
@@ -30,10 +29,27 @@ use log::*;
 /// assert_eq!(decoded, BencodeDecodedValue::Integer(454));
 /// ```
 pub fn decode(bytes: &[u8]) -> Result<BencodeDecodedValue, BencodeDecoderError> {
-    info!("Decoding bencoded slice of bytes");
     let mut bytes = bytes.iter();
     let bencoded_value = decode_and_consume_iterator(&mut bytes)?;
     Ok(bencoded_value)
+}
+
+fn decode_and_consume_iterator(
+    bytes: &mut slice::Iter<u8>,
+) -> Result<BencodeDecodedValue, BencodeDecoderError> {
+    let next_byte = bytes.next();
+    if let Some(byte) = next_byte {
+        match *byte as char {
+            INTEGER_START_TOKEN => read_integer(bytes).map(BencodeDecodedValue::Integer),
+            LIST_START_TOKEN => read_list(bytes).map(BencodeDecodedValue::List),
+            '0'..='9' => read_string(bytes, *byte).map(BencodeDecodedValue::String),
+            DICTIONARY_START_TOKEN => read_dictionary(bytes).map(BencodeDecodedValue::Dictionary),
+            END_TOKEN => Ok(BencodeDecodedValue::End),
+            _ => Err(BencodeDecoderError::UnexpectedEndOfStream),
+        }
+    } else {
+        Err(BencodeDecoderError::UnexpectedEndOfStream)
+    }
 }
 
 pub fn read_integer(bytes: &mut slice::Iter<u8>) -> Result<i64, BencodeDecoderError> {
@@ -116,24 +132,6 @@ pub fn read_dictionary(
         }
     }
     Ok(dictionary)
-}
-
-fn decode_and_consume_iterator(
-    bytes: &mut slice::Iter<u8>,
-) -> Result<BencodeDecodedValue, BencodeDecoderError> {
-    let next_byte = bytes.next();
-    if let Some(byte) = next_byte {
-        match *byte as char {
-            INTEGER_START_TOKEN => read_integer(bytes).map(BencodeDecodedValue::Integer),
-            LIST_START_TOKEN => read_list(bytes).map(BencodeDecodedValue::List),
-            '0'..='9' => read_string(bytes, *byte).map(BencodeDecodedValue::String),
-            DICTIONARY_START_TOKEN => read_dictionary(bytes).map(BencodeDecodedValue::Dictionary),
-            END_TOKEN => Ok(BencodeDecodedValue::End),
-            _ => Err(BencodeDecoderError::UnexpectedEndOfStream),
-        }
-    } else {
-        Err(BencodeDecoderError::UnexpectedEndOfStream)
-    }
 }
 
 #[cfg(test)]

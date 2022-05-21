@@ -1,4 +1,8 @@
+use super::errors::MetainfoParserError;
+use super::parser::parse;
+use std::fs;
 use std::vec::Vec;
+
 #[derive(Debug)]
 ///Bencode-Decoded metainfo file.
 pub struct Metainfo {
@@ -20,6 +24,13 @@ pub struct Info {
     pub name: String,
     ///the length in bytes of the file to download
     pub length: u64,
+}
+
+impl Metainfo {
+    pub fn from_torrent(torrent_path: &str) -> Result<Metainfo, MetainfoParserError> {
+        let torrent_bytes: Vec<u8> = fs::read(torrent_path)?;
+        parse(torrent_bytes.as_slice())
+    }
 }
 
 impl PartialEq for Info {

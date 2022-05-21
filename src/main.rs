@@ -1,6 +1,15 @@
-use bittorrent_rustico::run;
+use bittorrent_rustico::run_with_torrent;
+use log::*;
+use std::env;
+
 fn main() {
-    if let Err(e) = run() {
-        println!("Application error: {}", e);
+    let mut args = env::args().skip(1);
+    match args.next() {
+        Some(torrent_path) => {
+            if let Err(e) = run_with_torrent(&torrent_path) {
+                error!("{}", e);
+            }
+        }
+        None => error!("Please provide torrent path"),
     }
 }

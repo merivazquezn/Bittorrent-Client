@@ -21,22 +21,22 @@ impl Display for BencodeDecoderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BencodeDecoderError::DecodeInt(byte) => {
-                write!(f, "Bencoder: Error decoding byte {} as integer", byte)
+                write!(f, "Error decoding byte {} as integer", byte)
             }
             BencodeDecoderError::UnexpectedEndOfStream => {
-                write!(f, "Bencoder: Unexpected end of stream")
+                write!(f, "Unexpected end of stream")
             }
             BencodeDecoderError::UnexpectedDictionaryKey(wrong_key) => {
-                write!(f, "Bencoder: Unexpected dictionary key {:?}", wrong_key)
+                write!(f, "Unexpected dictionary key {:?}", wrong_key)
             }
             BencodeDecoderError::WrongExpectedValue(actual_value, expected_value) => {
                 write!(
                     f,
-                    "Bencoder: Expected value was {:?}, but real value is {:?}",
+                    "Expected value was {:?}, but real value is {:?}",
                     expected_value, actual_value
                 )
             }
-            BencodeDecoderError::InvalidInt => write!(f, "Bencoder: Invalid integer format"),
+            BencodeDecoderError::InvalidInt => write!(f, "Invalid integer format"),
         }
     }
 }

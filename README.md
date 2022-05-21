@@ -1,4 +1,9 @@
 # 22C1-Polleria-Rustiseria
 
 Bittorrent Client in Rust
-Je :B
+
+example:
+```
+RUST_LOG=info cargo run ubuntu.torrent
+```
+

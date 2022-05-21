@@ -1,32 +1,62 @@
 pub mod bencode;
+pub mod config;
 pub mod metainfo;
 pub mod tracker;
-use hex::FromHex;
+use config::Config;
 use log::*;
-use tracker::Event;
-use tracker::RequestParameters;
+use metainfo::Metainfo;
+use rand::Rng;
+use std::fmt;
+use std::fmt::Display;
 use tracker::*;
 
-fn init_request_parameters(info_hash: Vec<u8>, peer_id: Vec<u8>) -> RequestParameters {
-    // TODO: Should check what values to put on left field
-    RequestParameters {
-        info_hash,
-        peer_id,
-        port: 6881,
-        uploaded: 0,
-        downloaded: 0,
-        left: 0,
-        event: Event::Started,
+const CONFIG_PATH: &str = "config.txt";
+
+pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
+    pretty_env_logger::init();
+    info!("Starting bittorrent client...");
+    let peer_id = rand::thread_rng().gen::<[u8; 20]>();
+    let config = Config::from_path(CONFIG_PATH)?;
+    let metainfo = Metainfo::from_torrent(torrent_path)?;
+    let tracker_service = TrackerService::from_metainfo(metainfo, config.listen_port, &peer_id);
+    let peer_list = tracker_service.get_peers()?;
+    info!("{:?}", peer_list);
+    info!("Exited Bitorrent client successfully");
+    Ok(())
+}
+
+#[derive(Debug)]
+/// The error type that is returned by the application
+pub enum ApplicationError {
+    ConfigError(config::ConfigError),
+    MetainfoError(metainfo::MetainfoParserError),
+    TrackerError(tracker::TrackerError),
+}
+
+impl From<config::ConfigError> for ApplicationError {
+    fn from(error: config::ConfigError) -> Self {
+        ApplicationError::ConfigError(error)
     }
 }
 
-pub fn run() -> Result<(), tracker::TrackerError> {
-    pretty_env_logger::init();
-    info!("hola");
-    let info_hash = <[u8; 20]>::from_hex("2c6b6858d61da9543d4231a71db4b1c9264b0685").unwrap();
-    let peer_id = info_hash;
-    let params: RequestParameters = init_request_parameters(info_hash.to_vec(), peer_id.to_vec());
-    let _res = get_peer_list(params)?;
-    info!("tracker response successfully parsed");
-    Ok(())
+impl From<metainfo::MetainfoParserError> for ApplicationError {
+    fn from(error: metainfo::MetainfoParserError) -> Self {
+        ApplicationError::MetainfoError(error)
+    }
+}
+
+impl From<tracker::TrackerError> for ApplicationError {
+    fn from(error: tracker::TrackerError) -> Self {
+        ApplicationError::TrackerError(error)
+    }
+}
+
+impl Display for ApplicationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApplicationError::ConfigError(error) => write!(f, "Config Error - {}", error),
+            ApplicationError::MetainfoError(error) => write!(f, "Metainfo Error - {}", error),
+            ApplicationError::TrackerError(error) => write!(f, "Tracker Error - {}", error),
+        }
+    }
 }

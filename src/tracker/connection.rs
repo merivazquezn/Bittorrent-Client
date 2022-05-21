@@ -5,7 +5,6 @@ use super::types::RequestParameters;
 use super::types::TrackerResponse;
 use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
-use log::*;
 use native_tls::TlsConnector;
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -17,6 +16,7 @@ const PEERS: &[u8] = b"peers";
 const IP: &[u8] = b"ip";
 const PORT: &[u8] = b"port";
 const PEER_ID: &[u8] = b"peer id";
+const FAILURE_REASON: &[u8] = b"failure reason";
 
 // Transforms a slice of bytes into an url-encoded String
 fn to_urlencoded(bytes: &[u8]) -> String {
@@ -33,7 +33,7 @@ fn to_urlencoded(bytes: &[u8]) -> String {
 }
 
 // Maps RequestParameters to a Hashmap where all the values of the type are represented as strings
-fn params_to_dic(params: RequestParameters) -> HashMap<String, String> {
+fn params_to_dic(params: &RequestParameters) -> HashMap<String, String> {
     let mut dictionary = HashMap::new();
     dictionary.insert(
         "info_hash".to_string(),
@@ -52,7 +52,7 @@ fn params_to_dic(params: RequestParameters) -> HashMap<String, String> {
 }
 
 // Builds the querystring to use in the tracker request form the RequestParameters struct
-fn parameters_to_querystring(parameters: RequestParameters) -> String {
+fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     let parameters = params_to_dic(parameters);
     let mut querystring = String::new();
     for (key, value) in parameters {
@@ -75,13 +75,18 @@ fn u8_to_string(bytes: &[u8]) -> String {
 
 // Builds the TrackerResponse from the bencoded data
 fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerResponse, TrackerError> {
-    // Parse decoded response
     let response_dic = bencoded_response.get_as_dictionary()?;
     let benencoded_peers_list = match response_dic.get(PEERS) {
         Some(peers) => peers.get_as_list()?,
-        None => return Err(TrackerError::InvalidResponse),
+        None => {
+            let error_message = response_dic
+                .get(&FAILURE_REASON.to_vec())
+                .ok_or(TrackerError::InvalidResponse)?
+                .get_as_string()?;
+            let error_message = u8_to_string(error_message);
+            return Err(TrackerError::ResponseError(error_message));
+        }
     };
-
     let mut peer_list: Vec<Peer> = Vec::new();
 
     for value in benencoded_peers_list.iter() {
@@ -110,43 +115,7 @@ fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerRespo
     Ok(TrackerResponse { peers: peer_list })
 }
 
-/// Obtains peer list from the tracker
-///
-/// Receives a [`RequestParameters`] struct with the necessary information to make the request
-///
-/// Returns a Result holding:
-///
-/// ## On succes
-/// - [`TrackerResponse`] struct with the peer list and the parsed tracker response
-///
-/// ## On error
-/// - [`TrackerError`] struct with the error type and message
-///
-/// ## Example
-///
-/// ```
-/// use bittorrent_rustico::tracker::{get_peer_list, Event, RequestParameters};
-/// use hex::FromHex;
-///
-/// let info_hash = <[u8; 20]>::from_hex("2c6b6858d61da9543d4231a71db4b1c9264b0685").unwrap();
-/// let peer_id = info_hash;
-/// let params = RequestParameters {
-///        info_hash: info_hash.to_vec(),
-///        peer_id: peer_id.to_vec(),
-///        port: 6881,
-///        uploaded: 0,
-///        downloaded: 0,
-///        left: 0,
-///        event: Event::Started,
-/// };
-///
-/// let response = get_peer_list(params).unwrap();
-///
-/// println!("{:?}", response);
-/// ```
-///
-pub fn get_peer_list(parameters: RequestParameters) -> Result<TrackerResponse, TrackerError> {
-    info!("Requesting peer list from tracker");
+pub fn get_peer_list(parameters: &RequestParameters) -> Result<TrackerResponse, TrackerError> {
     let connector = TlsConnector::new()?;
     let stream = TcpStream::connect("torrent.ubuntu.com:443")?;
     let mut stream = connector.connect("torrent.ubuntu.com", stream)?;
@@ -167,7 +136,6 @@ pub fn get_peer_list(parameters: RequestParameters) -> Result<TrackerResponse, T
 
     let bytes_after_rn = bencode_response(res.as_slice());
     let decoded: BencodeDecodedValue = decode(bytes_after_rn.as_slice())?;
-
     match parse_response(decoded) {
         Ok(response) => Ok(response),
         Err(error) => Err(error),

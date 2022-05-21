@@ -24,6 +24,7 @@ pub enum TrackerError {
     /// Couldn't read or write message from socket
     IoError(std::io::Error),
 
+    ResponseError(String),
     /// The tracker response was invalid
     InvalidResponse,
 }
@@ -63,10 +64,10 @@ impl Display for TrackerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             TrackerError::CommunicationError(err) => {
-                write!(f, "Falied to send/receive data from tracker: {}", err)
+                write!(f, "Failed to send/receive data from tracker: {}", err)
             }
             TrackerError::BencodingError(error) => {
-                write!(f, "Failed parsing tracker answer: {}", error)
+                write!(f, "Failed bencode-decoded tracker response: {}", error)
             }
             TrackerError::IoError(error) => write!(f, "Failed to read/write data: {}", error),
             TrackerError::InitialConnectionFailure(err) => match err {
@@ -78,6 +79,7 @@ impl Display for TrackerError {
                 }
             },
             TrackerError::InvalidResponse => write!(f, "Tracker response is invalid"),
+            TrackerError::ResponseError(err) => write!(f, "Tracker response error: {}", err),
         }
     }
 }
