@@ -6,6 +6,7 @@ use std::fmt::Display;
 use crate::config::{Config, ConfigError};
 use crate::metainfo::{Metainfo, MetainfoParserError};
 use crate::peer::Peer;
+use crate::tcp_connection::TlsHttpConnection;
 use crate::tracker::{TrackerError, TrackerService};
 
 const CONFIG_PATH: &str = "config.txt";
@@ -41,8 +42,12 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     let peer_id = rand::thread_rng().gen::<[u8; 20]>();
     let config = Config::from_path(CONFIG_PATH)?;
     let metainfo = Metainfo::from_torrent(torrent_path)?;
-    let tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id);
+
+    let connection = TlsHttpConnection::create("torrent.ubuntu.com").unwrap();
+    let mut tracker_service =
+        TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
     let tracker_response = tracker_service.get_peers()?;
+
     if let Some(peer) = tracker_response.peers.get(0) {
         download_from_peer(peer, &peer_id, &metainfo.info_hash);
     }

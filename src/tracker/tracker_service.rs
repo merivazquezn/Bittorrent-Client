@@ -8,12 +8,12 @@ use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
-use native_tls::TlsConnector;
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use crate::tcp_connection::TcpConnection;
+use crate::tcp_connection::TlsHttpConnection;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
+    connection: TlsHttpConnection,
 }
 
 impl TrackerService {
@@ -21,6 +21,7 @@ impl TrackerService {
         metainfo: &Metainfo,
         listen_port: u16,
         peer_id: &[u8; 20],
+        connection: TlsHttpConnection,
     ) -> TrackerService {
         TrackerService {
             request_parameters: RequestParameters {
@@ -33,6 +34,7 @@ impl TrackerService {
                 left: 0,
                 event: Event::Started,
             },
+            connection,
         }
     }
 
@@ -50,7 +52,8 @@ impl TrackerService {
     ///
     /// ## Example
     ///
-    /// ```no_run
+    ///
+    /// ```ignore
     /// use bittorrent_rustico::tracker::TrackerService;
     /// use bittorrent_rustico::config::Config;
     /// use bittorrent_rustico::metainfo::Metainfo;
@@ -66,10 +69,7 @@ impl TrackerService {
     /// println!("{:?}", peer_list);
     /// ```
     ///
-    pub fn get_peers(&self) -> Result<TrackerResponse, TrackerError> {
-        let connector = TlsConnector::new()?;
-        let stream = TcpStream::connect("torrent.ubuntu.com:443")?;
-        let mut stream = connector.connect("torrent.ubuntu.com", stream)?;
+    pub fn get_peers(&mut self) -> Result<TrackerResponse, TrackerError> {
         let mut request = String::new();
 
         request.push_str(&format!(
@@ -80,9 +80,9 @@ impl TrackerService {
         request.push_str("Host: torrent.ubuntu.com");
         request.push_str("\r\n\r\n");
 
-        stream.write_all(request.as_bytes())?;
+        self.connection.write(request.as_bytes()).unwrap();
         let mut res: Vec<u8> = Vec::new();
-        stream.read_to_end(&mut res)?;
+        self.connection.read(&mut res).unwrap();
 
         let bytes_after_rn = bencode_response(res.as_slice());
         let decoded: BencodeDecodedValue = decode(bytes_after_rn.as_slice())?;
