@@ -1,4 +1,3 @@
-extern crate native_tls;
 use super::errors::TrackerError;
 use super::types::RequestParameters;
 use super::types::TrackerResponse;
@@ -96,7 +95,8 @@ fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerRespo
             None => return Err(TrackerError::InvalidResponse),
         };
         let peer_port = match peer_dic.get(PORT) {
-            Some(port) => port.get_as_integer()?,
+            // parse the port as a u16
+            Some(port) => *port.get_as_integer()? as u16,
             None => return Err(TrackerError::InvalidResponse),
         };
         let peer_id = match peer_dic.get(PEER_ID) {
@@ -105,7 +105,7 @@ fn parse_response(bencoded_response: BencodeDecodedValue) -> Result<TrackerRespo
         };
         let peer = Peer {
             ip: u8_to_string(peer_ip),
-            port: *peer_port,
+            port: peer_port,
             peer_id: peer_id.to_vec(),
         };
 
@@ -119,7 +119,6 @@ pub fn get_peer_list(parameters: &RequestParameters) -> Result<TrackerResponse, 
     let connector = TlsConnector::new()?;
     let stream = TcpStream::connect("torrent.ubuntu.com:443")?;
     let mut stream = connector.connect("torrent.ubuntu.com", stream)?;
-
     let mut request = String::new();
 
     request.push_str(&format!(

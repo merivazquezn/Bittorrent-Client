@@ -31,13 +31,13 @@ pub struct TrackerService {
 
 impl TrackerService {
     pub fn from_metainfo(
-        metainfo: Metainfo,
+        metainfo: &Metainfo,
         listen_port: u16,
         peer_id: &[u8; 20],
     ) -> TrackerService {
         TrackerService {
             request_parameters: RequestParameters {
-                info_hash: metainfo.info_hash,
+                info_hash: metainfo.info_hash.clone(),
                 peer_id: peer_id.to_vec(),
                 port: listen_port,
                 // for downloading once, it's ok to set it to 0
@@ -74,7 +74,7 @@ impl TrackerService {
     /// let peer_id = rand::thread_rng().gen::<[u8; 20]>();
     /// let config = Config::from_path(CONFIG_PATH).unwrap();
     /// let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
-    /// let tracker_service = TrackerService::from_metainfo(metainfo, config.listen_port, &peer_id);
+    /// let tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id);
     /// let peer_list = tracker_service.get_peers().unwrap();
     /// println!("{:?}", peer_list);
     /// ```
