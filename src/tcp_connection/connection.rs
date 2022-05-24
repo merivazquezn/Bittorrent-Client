@@ -5,16 +5,16 @@ pub trait TcpConnection {
 }
 
 pub enum TcpConnectionError {
-    WriteError,
-    ReadError,
+    WriteError(String),
+    ReadError(String),
 }
 
 //display
 impl std::fmt::Display for TcpConnectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            TcpConnectionError::WriteError => write!(f, "Write Error"),
-            TcpConnectionError::ReadError => write!(f, "Read Error"),
+            TcpConnectionError::WriteError(error) => write!(f, "Write Error: {}", error),
+            TcpConnectionError::ReadError(error) => write!(f, "Read Error: {}", error),
         }
     }
 }

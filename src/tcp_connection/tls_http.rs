@@ -23,12 +23,12 @@ impl TcpConnection for TlsHttpConnection {
     fn write(&mut self, data: &[u8]) -> Result<(), TcpConnectionError> {
         self.stream
             .write_all(data)
-            .map_err(|_| TcpConnectionError::WriteError)
+            .map_err(|err| TcpConnectionError::WriteError(err.to_string()))
     }
 
     fn read(&mut self, buf: &mut Vec<u8>) -> Result<usize, TcpConnectionError> {
         self.stream
             .read_to_end(buf)
-            .map_err(|_| TcpConnectionError::ReadError)
+            .map_err(|err| TcpConnectionError::ReadError(err.to_string()))
     }
 }
