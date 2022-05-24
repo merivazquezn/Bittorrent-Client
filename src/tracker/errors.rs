@@ -1,21 +1,11 @@
 use crate::bencode::BencodeDecoderError;
+use crate::tcp_connection;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-#[derive(Debug)]
-pub enum TrackerHandshakeError {
-    HandshakeFailure,
-    BlockingError,
-}
-
-#[derive(Debug)]
 /// The error type that is returned when connecting to the tracker
 pub enum TrackerError {
-    /// Couldn't establish a connection to the tracker, failed in the handshake step
-    InitialConnectionFailure(TrackerHandshakeError),
-
-    /// Communication with the tracker failed once established
-    CommunicationError(native_tls::Error),
+    TcpConnectionError(tcp_connection::TcpConnectionError),
 
     /// The Bencode decoder failed to decode the response from the tracker
     BencodingError(BencodeDecoderError),
@@ -26,12 +16,6 @@ pub enum TrackerError {
     ResponseError(String),
     /// The tracker response was invalid
     InvalidResponse,
-}
-
-impl From<native_tls::Error> for TrackerError {
-    fn from(error: native_tls::Error) -> Self {
-        TrackerError::CommunicationError(error)
-    }
 }
 
 impl From<std::io::Error> for TrackerError {
@@ -46,39 +30,32 @@ impl From<BencodeDecoderError> for TrackerError {
     }
 }
 
-impl From<native_tls::HandshakeError<std::net::TcpStream>> for TrackerError {
-    fn from(error: native_tls::HandshakeError<std::net::TcpStream>) -> Self {
-        match error {
-            native_tls::HandshakeError::Failure(_) => {
-                TrackerError::InitialConnectionFailure(TrackerHandshakeError::HandshakeFailure)
-            }
-            native_tls::HandshakeError::WouldBlock(_) => {
-                TrackerError::InitialConnectionFailure(TrackerHandshakeError::BlockingError)
-            }
-        }
+// Implement From <Box<dyn std::error::Error + Send + Sync>> for tracker::errors::TrackerError
+impl<T: Display + Send + Sync + 'static> From<Box<T>> for TrackerError {
+    fn from(error: Box<T>) -> Self {
+        TrackerError::ResponseError(format!("{}", error))
+    }
+}
+
+// implement from TcpConnectionError for TrackerError
+impl From<tcp_connection::TcpConnectionError> for TrackerError {
+    fn from(error: tcp_connection::TcpConnectionError) -> Self {
+        TrackerError::TcpConnectionError(error)
     }
 }
 
 impl Display for TrackerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            TrackerError::CommunicationError(err) => {
-                write!(f, "Failed to send/receive data from tracker: {}", err)
-            }
             TrackerError::BencodingError(error) => {
                 write!(f, "Failed bencode-decoded tracker response: {}", error)
             }
             TrackerError::IoError(error) => write!(f, "Failed to read/write data: {}", error),
-            TrackerError::InitialConnectionFailure(err) => match err {
-                TrackerHandshakeError::HandshakeFailure => {
-                    write!(f, "Failed to handshake with tracker")
-                }
-                TrackerHandshakeError::BlockingError => {
-                    write!(f, "I/O operations with tracker are blocked")
-                }
-            },
             TrackerError::InvalidResponse => write!(f, "Tracker response is invalid"),
             TrackerError::ResponseError(err) => write!(f, "Tracker response error: {}", err),
+            TrackerError::TcpConnectionError(error) => {
+                write!(f, "Failed to use tcp connection: {}", error)
+            }
         }
     }
 }

@@ -64,7 +64,7 @@ fn create_handshake_message(info_hash: &[u8], peer_id: &[u8]) -> Vec<u8> {
 fn peer_communication(peer: &Peer, client_peer_id: &[u8], info_hash: &[u8]) {
     let mut stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port)).unwrap();
     let handshake_message = create_handshake_message(info_hash, client_peer_id);
-    let handshake_message = handshake_message.as_slice();
+    let handshake_message = &handshake_message;
     stream.write_all(handshake_message).unwrap();
     // read exactly 68 bytes from stread and save the bytes in res
     let mut res = [0u8; HANDSHAKE_LENGTH];
@@ -83,8 +83,12 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     let metainfo = Metainfo::from_torrent(torrent_path)?;
 
     let connection = TlsHttpConnection::create("torrent.ubuntu.com").unwrap();
-    let mut tracker_service =
-        TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
+    let mut tracker_service = TrackerService::from_metainfo(
+        &metainfo,
+        config.listen_port,
+        &peer_id,
+        Box::new(connection),
+    );
     let tracker_response = tracker_service.get_peers()?;
 
     if let Some(peer) = tracker_response.peers.get(0) {
@@ -95,7 +99,6 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     Ok(())
 }
 
-#[derive(Debug)]
 /// The error type that is returned by the application
 pub enum ApplicationError {
     ConfigError(ConfigError),

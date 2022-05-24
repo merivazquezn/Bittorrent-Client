@@ -29,7 +29,7 @@ pub struct Info {
 impl Metainfo {
     pub fn from_torrent(torrent_path: &str) -> Result<Metainfo, MetainfoParserError> {
         let torrent_bytes: Vec<u8> = fs::read(torrent_path)?;
-        parse(torrent_bytes.as_slice())
+        parse(&torrent_bytes)
     }
 }
 

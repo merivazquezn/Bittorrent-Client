@@ -20,11 +20,15 @@ impl TlsHttpConnection {
 }
 
 impl TcpConnection for TlsHttpConnection {
-    fn write(&mut self, data: &[u8]) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(self.stream.write_all(data)?)
+    fn write(&mut self, data: &[u8]) -> Result<(), TcpConnectionError> {
+        self.stream
+            .write_all(data)
+            .map_err(|_| TcpConnectionError::WriteError)
     }
 
-    fn read(&mut self, buf: &mut Vec<u8>) -> Result<usize, Box<dyn Error + Send + Sync>> {
-        Ok(self.stream.read_to_end(buf)?)
+    fn read(&mut self, buf: &mut Vec<u8>) -> Result<usize, TcpConnectionError> {
+        self.stream
+            .read_to_end(buf)
+            .map_err(|_| TcpConnectionError::ReadError)
     }
 }

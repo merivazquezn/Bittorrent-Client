@@ -9,11 +9,10 @@ use crate::bencode::*;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
 use crate::tcp_connection::TcpConnection;
-use crate::tcp_connection::TlsHttpConnection;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
-    connection: TlsHttpConnection,
+    connection: Box<dyn TcpConnection>,
 }
 
 impl TrackerService {
@@ -21,7 +20,7 @@ impl TrackerService {
         metainfo: &Metainfo,
         listen_port: u16,
         peer_id: &[u8; 20],
-        connection: TlsHttpConnection,
+        connection: Box<dyn TcpConnection>,
     ) -> TrackerService {
         TrackerService {
             request_parameters: RequestParameters {
@@ -80,12 +79,12 @@ impl TrackerService {
         request.push_str("Host: torrent.ubuntu.com");
         request.push_str("\r\n\r\n");
 
-        self.connection.write(request.as_bytes()).unwrap();
+        self.connection.write(request.as_bytes())?;
         let mut res: Vec<u8> = Vec::new();
-        self.connection.read(&mut res).unwrap();
+        self.connection.read(&mut res)?;
 
-        let bytes_after_rn = bencode_response(res.as_slice());
-        let decoded: BencodeDecodedValue = decode(bytes_after_rn.as_slice())?;
+        let bytes_after_rn = bencode_response(&res);
+        let decoded: BencodeDecodedValue = decode(&bytes_after_rn)?;
         match self.parse_response(decoded) {
             Ok(response) => Ok(response),
             Err(error) => Err(error),

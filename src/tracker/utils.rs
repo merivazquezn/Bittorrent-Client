@@ -20,14 +20,8 @@ fn to_urlencoded(bytes: &[u8]) -> String {
 // Maps RequestParameters to a Hashmap where all the values of the type are represented as strings
 fn params_to_dic(params: &RequestParameters) -> HashMap<String, String> {
     let mut dictionary = HashMap::new();
-    dictionary.insert(
-        "info_hash".to_string(),
-        to_urlencoded(params.info_hash.as_slice()),
-    );
-    dictionary.insert(
-        "peer_id".to_string(),
-        to_urlencoded(params.peer_id.as_slice()),
-    );
+    dictionary.insert("info_hash".to_string(), to_urlencoded(&params.info_hash));
+    dictionary.insert("peer_id".to_string(), to_urlencoded(&params.peer_id));
     dictionary.insert("port".to_string(), params.port.to_string());
     dictionary.insert("uploaded".to_string(), params.uploaded.to_string());
     dictionary.insert("downloaded".to_string(), params.downloaded.to_string());
