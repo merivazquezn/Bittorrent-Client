@@ -28,28 +28,28 @@ impl BencodeDecodedValue {
     pub fn get_as_string(&self) -> Result<&Vec<u8>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::String(value) => Ok(value),
-            _ => Err(BencodeDecoderError::WrongExpectedValue(
-                self.clone(),
-                String::from("BencodeDecodedValue::String"),
-            )),
+            _ => Err(BencodeDecoderError(format!(
+                "Expected a string, but got {:?}",
+                self
+            ))),
         }
     }
     pub fn get_as_integer(&self) -> Result<&i64, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::Integer(value) => Ok(value),
-            _ => Err(BencodeDecoderError::WrongExpectedValue(
-                self.clone(),
-                String::from("BencodeDecodedValue::Integer"),
-            )),
+            _ => Err(BencodeDecoderError(format!(
+                "Expected an integer, but got {:?}",
+                self
+            ))),
         }
     }
     pub fn get_as_list(&self) -> Result<&Vec<BencodeDecodedValue>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::List(value) => Ok(value),
-            _ => Err(BencodeDecoderError::WrongExpectedValue(
-                self.clone(),
-                String::from("BencodeDecodedValue::List"),
-            )),
+            _ => Err(BencodeDecoderError(format!(
+                "Expected a list, but got {:?}",
+                self
+            ))),
         }
     }
     pub fn get_as_dictionary(
@@ -57,10 +57,10 @@ impl BencodeDecodedValue {
     ) -> Result<&HashMap<Vec<u8>, BencodeDecodedValue>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::Dictionary(value) => Ok(value),
-            _ => Err(BencodeDecoderError::WrongExpectedValue(
-                self.clone(),
-                String::from("BencodeDecodedValue::Dictionary"),
-            )),
+            _ => Err(BencodeDecoderError(format!(
+                "Expected a dictionary, but got {:?}",
+                self
+            ))),
         }
     }
 }

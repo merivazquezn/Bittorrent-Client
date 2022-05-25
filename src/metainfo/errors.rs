@@ -4,24 +4,17 @@ use std::fmt::Display;
 ///The error type that is returned if theres a problem parsing the Metainfo
 pub enum MetainfoParserError {
     IoError(std::io::Error),
-    ///There was an error while decoding the bytes received
-    DecodeError(BencodeDecoderError),
     ///A necessary key was not found in the Bencode-Decoded Dictionary
     MetainfoKeyNotFound(String),
-    ///An unexpected value type was found while building the Metainfo struct
-    UnexpectedBencodeDecodedValue(BencodeDecoderError),
+    ///An error occured when decoding the bencoded torrent
+    BencodeError(String),
     //There was a problem parsing a byte array into a String from UTF-8
     UTF8Error,
 }
 
 impl From<BencodeDecoderError> for MetainfoParserError {
     fn from(error: BencodeDecoderError) -> Self {
-        match error {
-            BencodeDecoderError::WrongExpectedValue(_, _) => {
-                MetainfoParserError::UnexpectedBencodeDecodedValue(error)
-            }
-            _ => MetainfoParserError::DecodeError(error),
-        }
+        MetainfoParserError::BencodeError(format!("{}", error))
     }
 }
 
@@ -34,25 +27,11 @@ impl From<std::io::Error> for MetainfoParserError {
 impl Display for MetainfoParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MetainfoParserError::DecodeError(error) => {
-                writeln!(
-                    f,
-                    "BencodeDecoder encountered an error while decoding: {}",
-                    error
-                )
-            }
             MetainfoParserError::MetainfoKeyNotFound(key) => {
                 writeln!(
                     f,
                     "Necessary key '{}' was not in Bencode-Decoded Dictionary",
                     key
-                )
-            }
-            MetainfoParserError::UnexpectedBencodeDecodedValue(error) => {
-                writeln!(
-                    f,
-                    "An unexpected value type was found while building Metainfo: '{}'",
-                    error
                 )
             }
             MetainfoParserError::UTF8Error => {
@@ -63,6 +42,9 @@ impl Display for MetainfoParserError {
             }
             MetainfoParserError::IoError(error) => {
                 writeln!(f, "IO error while reading the file: {}", error)
+            }
+            MetainfoParserError::BencodeError(error) => {
+                writeln!(f, "Bencode error: {}", error)
             }
         }
     }

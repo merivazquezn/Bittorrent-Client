@@ -17,7 +17,8 @@ use std::str::from_utf8;
 ///
 /// ```
 pub fn parse(bytes: &[u8]) -> Result<Metainfo, MetainfoParserError> {
-    let decoded = decode(bytes)?;
+    let decoded = decode(bytes)
+        .map_err(|e| MetainfoParserError::BencodeError(format!("Error decoding bytes: {}", e)))?;
     build_metainfo(decoded.get_as_dictionary()?)
 }
 
@@ -25,12 +26,12 @@ pub fn parse(bytes: &[u8]) -> Result<Metainfo, MetainfoParserError> {
 fn build_metainfo(
     hashmap: &HashMap<Vec<u8>, BencodeDecodedValue>,
 ) -> Result<Metainfo, MetainfoParserError> {
-    let info_key: &Vec<u8> = &b"info".to_vec();
-    let piece_length_key: &Vec<u8> = &b"piece length".to_vec();
-    let pieces_key: &Vec<u8> = &b"pieces".to_vec();
-    let name_key: &Vec<u8> = &b"name".to_vec();
-    let length_key: &Vec<u8> = &b"length".to_vec();
-    let announce_key: &Vec<u8> = &b"announce".to_vec();
+    let info_key = b"info";
+    let piece_length_key = b"piece length";
+    let pieces_key = b"pieces";
+    let name_key = b"name";
+    let length_key = b"length";
+    let announce_key = b"announce";
 
     let info_hashmap_decoded = get_from_bencoded_values_hashmap(hashmap, info_key)?;
     let info_hashmap = info_hashmap_decoded.get_as_dictionary()?;
@@ -68,7 +69,9 @@ fn get_from_bencoded_values_hashmap(
     key: &[u8],
 ) -> Result<BencodeDecodedValue, MetainfoParserError> {
     let value = hashmap.get(key).ok_or_else(|| {
-        MetainfoParserError::MetainfoKeyNotFound(from_utf8(key).unwrap().to_string())
+        MetainfoParserError::MetainfoKeyNotFound(
+            String::from_utf8(key.to_vec()).unwrap_or_else(|_| "non-utf8".to_string()),
+        )
     })?;
     Ok(value.clone())
 }
@@ -127,7 +130,7 @@ mod tests {
         let result = parse(&empty_bytes);
         assert!(matches!(
             result.unwrap_err(),
-            MetainfoParserError::DecodeError(_)
+            MetainfoParserError::BencodeError(_)
         ))
     }
 
@@ -137,7 +140,7 @@ mod tests {
         let result = parse(&invalid_bytes);
         assert!(matches!(
             result.unwrap_err(),
-            MetainfoParserError::DecodeError(_)
+            MetainfoParserError::BencodeError(_)
         ))
     }
 
@@ -157,9 +160,7 @@ mod tests {
         let result = parse(&invalid_bytes);
         assert!(matches!(
             result.unwrap_err(),
-            MetainfoParserError::UnexpectedBencodeDecodedValue(
-                BencodeDecoderError::WrongExpectedValue(_, _)
-            )
+            MetainfoParserError::BencodeError(_)
         ))
     }
 }

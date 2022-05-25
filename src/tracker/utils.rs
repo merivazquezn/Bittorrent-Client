@@ -1,7 +1,5 @@
-use super::constants::*;
 use super::types::RequestParameters;
 use std::collections::HashMap;
-use std::str;
 
 // Transforms a slice of bytes into an url-encoded String
 fn to_urlencoded(bytes: &[u8]) -> String {
@@ -41,13 +39,7 @@ pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     querystring
 }
 
-// Gets the actual data from the tracker response, leaving out the HTTP headers
-pub fn bencode_response(bytes: &[u8]) -> Vec<u8> {
-    let start_index = bytes.windows(4).position(|arr| arr == SEPARATOR);
-    start_index.map(|i| bytes[i + 4..].to_vec()).unwrap()
-}
-
 // transforms a slice of bytes into its utf-8 representation
-pub fn u8_to_string(bytes: &[u8]) -> String {
-    str::from_utf8(bytes).unwrap().to_string()
+pub fn u8_to_string(bytes: &[u8]) -> Option<String> {
+    String::from_utf8(bytes.into()).ok()
 }

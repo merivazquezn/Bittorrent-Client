@@ -17,7 +17,7 @@ pub struct RequestParameters {
     pub event: Event,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TrackerResponse {
     pub peers: Vec<Peer>,
 }

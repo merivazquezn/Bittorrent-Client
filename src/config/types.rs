@@ -30,11 +30,15 @@ impl Config {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```
     /// use std::env;
     /// use bittorrent_rustico::config::Config;
-    /// let config = Config::from_path("config.txt").unwrap();
-    /// assert_eq!(config.listen_port, 6881);
+    /// use std::path::PathBuf;
+    /// let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    /// d.push("src/config/test_files/correct_config.txt");
+    /// let path = d.into_os_string().into_string().unwrap();
+    /// let config = Config::from_path(&path).unwrap();
+    /// assert_eq!(config.listen_port, 4424);
     /// ```
     pub fn from_path(path: &str) -> Result<Config, ConfigError> {
         let content =
@@ -47,29 +51,25 @@ impl Config {
 }
 
 fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, ConfigError> {
-    let listen_port = match config_dict.get(LISTEN_PORT) {
-        Some(port) => port,
-        None => return Err(ConfigError::MissingKey(LISTEN_PORT.to_string())),
-    };
-    let listen_port = listen_port
-        .parse::<u16>()
-        .map_err(ConfigError::InvalidPort)?;
+    let listen_port = config_dict
+        .get(LISTEN_PORT)
+        .ok_or_else(|| ConfigError::MissingKey(LISTEN_PORT.to_string()))?
+        .parse()?;
 
-    let log_path = match config_dict.get(LOG_PATH) {
-        Some(path) => path,
-        None => return Err(ConfigError::MissingKey(LOG_PATH.to_string())),
-    };
-    let download_path = match config_dict.get(DOWNLOAD_PATH) {
-        Some(path) => path,
-        None => return Err(ConfigError::MissingKey(DOWNLOAD_PATH.to_string())),
-    };
+    let log_path = config_dict
+        .get(LOG_PATH)
+        .ok_or_else(|| ConfigError::MissingKey(LOG_PATH.to_string()))?;
+
+    let download_path = config_dict
+        .get(DOWNLOAD_PATH)
+        .ok_or_else(|| ConfigError::MissingKey(DOWNLOAD_PATH.to_string()))?;
 
     validate_path(download_path)?;
     validate_path(log_path)?;
     Ok(Config {
         listen_port,
-        log_path: log_path.to_string(),
-        download_path: download_path.to_string(),
+        log_path: log_path.into(),
+        download_path: download_path.into(),
     })
 }
 

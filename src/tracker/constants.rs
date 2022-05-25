@@ -1,4 +1,3 @@
-pub const SEPARATOR: &[u8] = b"\r\n\r\n";
 pub const PEERS: &[u8] = b"peers";
 pub const IP: &[u8] = b"ip";
 pub const PORT: &[u8] = b"port";

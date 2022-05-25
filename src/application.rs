@@ -1,11 +1,11 @@
-use crate::application_errors::*;
 use log::*;
 use rand::Rng;
 // use all the modules config, peer, tracker, metainfo
+use crate::application_errors::ApplicationError;
 use crate::config::Config;
+use crate::http::HttpsConnection;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
-use crate::tcp_connection::TlsHttpConnection;
 use crate::tracker::TrackerService;
 
 const CONFIG_PATH: &str = "config.txt";
@@ -68,8 +68,6 @@ fn peer_communication(peer: &Peer, client_peer_id: &[u8], info_hash: &[u8]) {
     // read exactly 68 bytes from stread and save the bytes in res
     let mut res = [0u8; HANDSHAKE_LENGTH];
     stream.read_exact(&mut res).unwrap();
-    debug!("handshake msg from peer: {:?}", res);
-
     let message = read_message_from_peer(&mut stream).unwrap();
     debug!("Message from peer: {:?}", message);
 }
@@ -80,13 +78,12 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     let peer_id = rand::thread_rng().gen::<[u8; 20]>();
     let config = Config::from_path(CONFIG_PATH)?;
     let metainfo = Metainfo::from_torrent(torrent_path)?;
-
-    let connection = TlsHttpConnection::create("torrent.ubuntu.com").unwrap();
+    let http_service = HttpsConnection::from_url(&metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &metainfo,
         config.listen_port,
         &peer_id,
-        Box::new(connection),
+        Box::new(http_service),
     );
     let tracker_response = tracker_service.get_peers()?;
 

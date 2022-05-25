@@ -10,13 +10,19 @@ pub enum ConfigError {
     MissingKey(String),
 }
 
+impl From<std::num::ParseIntError> for ConfigError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        ConfigError::InvalidPort(error)
+    }
+}
+
 // implement display for every type of error
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ConfigError::InvalidPort(e) => write!(f, "Invalid port: {}", e),
             ConfigError::InvalidPath(e) => {
-                write!(f, "Could not find directory in path: {}", e)
+                write!(f, "{} is not an existing directory", e)
             }
             ConfigError::MissingKey(key) => write!(f, "Missing key: {}", key),
         }

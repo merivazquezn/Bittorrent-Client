@@ -6,13 +6,13 @@ use super::types::*;
 use super::utils::*;
 use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
+use crate::http::HttpService;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
-use crate::tcp_connection::TcpConnection;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
-    connection: Box<dyn TcpConnection>,
+    http_service: Box<dyn HttpService>,
 }
 
 impl TrackerService {
@@ -20,7 +20,7 @@ impl TrackerService {
         metainfo: &Metainfo,
         listen_port: u16,
         peer_id: &[u8; 20],
-        connection: Box<dyn TcpConnection>,
+        http_service: Box<dyn HttpService>,
     ) -> TrackerService {
         TrackerService {
             request_parameters: RequestParameters {
@@ -33,7 +33,7 @@ impl TrackerService {
                 left: 0,
                 event: Event::Started,
             },
-            connection,
+            http_service,
         }
     }
 
@@ -52,10 +52,11 @@ impl TrackerService {
     /// ## Example
     ///
     ///
-    /// ```ignore
+    /// ```no_run
     /// use bittorrent_rustico::tracker::TrackerService;
     /// use bittorrent_rustico::config::Config;
     /// use bittorrent_rustico::metainfo::Metainfo;
+    /// use bittorrent_rustico::http::HttpsConnection;
     /// use rand::Rng;
     ///
     /// const CONFIG_PATH: &str = "config.txt";
@@ -63,31 +64,19 @@ impl TrackerService {
     /// let peer_id = rand::thread_rng().gen::<[u8; 20]>();
     /// let config = Config::from_path(CONFIG_PATH).unwrap();
     /// let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
-    /// let tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id);
+    /// let mut http_service = HttpsConnection::from_url(&metainfo.announce).unwrap();
+    /// let mut tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, Box::new(http_service));
     /// let peer_list = tracker_service.get_peers().unwrap();
     /// println!("{:?}", peer_list);
     /// ```
-    ///
     pub fn get_peers(&mut self) -> Result<TrackerResponse, TrackerError> {
-        let mut request = String::new();
-
-        request.push_str(&format!(
-            "GET {}?{} HTTP/1.0\r\n",
+        let response: Vec<u8> = self.http_service.get(
             "/announce",
-            parameters_to_querystring(&self.request_parameters)
-        ));
-        request.push_str("Host: torrent.ubuntu.com");
-        request.push_str("\r\n\r\n");
-
-        self.connection.write(request.as_bytes())?;
-        let mut res: Vec<u8> = Vec::new();
-        self.connection.read(&mut res)?;
-
-        let bytes_after_rn = bencode_response(&res);
-        let decoded: BencodeDecodedValue = decode(&bytes_after_rn)?;
-        match self.parse_response(decoded) {
-            Ok(response) => Ok(response),
-            Err(error) => Err(error),
+            &parameters_to_querystring(&self.request_parameters),
+        )?;
+        match self.parse_response(decode(&response)?) {
+            Ok(tracker_response) => Ok(tracker_response),
+            Err(err) => Err(err),
         }
     }
 
@@ -102,10 +91,16 @@ impl TrackerService {
             None => {
                 let error_message = response_dic
                     .get(&FAILURE_REASON.to_vec())
-                    .ok_or(TrackerError::InvalidResponse)?
+                    .ok_or_else(|| {
+                        TrackerError::InvalidResponse("request failed with no reason".to_string())
+                    })?
                     .get_as_string()?;
-                let error_message = u8_to_string(error_message);
-                return Err(TrackerError::ResponseError(error_message));
+                let error_message = u8_to_string(error_message).ok_or_else(|| {
+                    TrackerError::InvalidResponse(
+                        "request failed and returned non utf8 reason".to_string(),
+                    )
+                })?;
+                return Err(TrackerError::InvalidResponse(error_message));
             }
         };
 
@@ -123,19 +118,36 @@ impl TrackerService {
             let peer_dic = value.get_as_dictionary()?;
             let peer_ip = match peer_dic.get(IP) {
                 Some(ip) => ip.get_as_string()?,
-                None => return Err(TrackerError::InvalidResponse),
+                None => {
+                    return Err(TrackerError::InvalidResponse(format!(
+                        "missing ip of peer {:?}",
+                        peer_dic
+                    )))
+                }
             };
             let peer_port = match peer_dic.get(PORT) {
                 // parse the port as a u16
                 Some(port) => *port.get_as_integer()? as u16,
-                None => return Err(TrackerError::InvalidResponse),
+                None => {
+                    return Err(TrackerError::InvalidResponse(format!(
+                        "missing port of peer {:?}",
+                        peer_dic
+                    )))
+                }
             };
             let peer_id = match peer_dic.get(PEER_ID) {
                 Some(peer_id) => peer_id.get_as_string()?,
-                None => return Err(TrackerError::InvalidResponse),
+                None => {
+                    return Err(TrackerError::InvalidResponse(format!(
+                        "missing id of peer {:?}",
+                        peer_dic
+                    )))
+                }
             };
             let peer = Peer {
-                ip: u8_to_string(peer_ip),
+                ip: u8_to_string(peer_ip).ok_or_else(|| {
+                    TrackerError::InvalidResponse(format!("invalid peer ip: {:?}", peer_id))
+                })?,
                 port: peer_port,
                 peer_id: peer_id.to_vec(),
             };
@@ -145,4 +157,75 @@ impl TrackerService {
 
         Ok(peer_list)
     }
+}
+
+// tests
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+    use crate::bencode;
+    use crate::config::Config;
+    use crate::http::MockHttpsConnection;
+    use crate::metainfo::Metainfo;
+    use rand::Rng;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_get_peers_failure_on_not_read_bytes() {
+        const CONFIG_PATH: &str = "config.txt";
+        let torrent_path = "ubuntu.torrent";
+        let peer_id = rand::thread_rng().gen::<[u8; 20]>();
+        let config = Config::from_path(CONFIG_PATH).unwrap();
+        let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
+        let connection = Box::new(MockHttpsConnection { read_bytes: vec![] });
+        let mut tracker_service =
+            TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
+        let result = tracker_service.get_peers();
+        println!("result {:?}", result);
+        assert!(matches!(
+            tracker_service.get_peers(),
+            Err(TrackerError::BencodeError(_))
+        ));
+    }
+
+    #[test]
+    fn test_get_peers_success_on_valid_response_containing_one_peer() {
+        const CONFIG_PATH: &str = "config.txt";
+        let torrent_path = "ubuntu.torrent";
+        let peer_id = rand::thread_rng().gen::<[u8; 20]>();
+        let config = Config::from_path(CONFIG_PATH).unwrap();
+        let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
+        let bencoded_response = BencodeDecodedValue::Dictionary(HashMap::from([(
+            PEERS.to_vec(),
+            BencodeDecodedValue::List(vec![BencodeDecodedValue::Dictionary(HashMap::from([
+                (
+                    IP.to_vec(),
+                    BencodeDecodedValue::String(b"0.0.0.0".to_vec()),
+                ),
+                (PORT.to_vec(), BencodeDecodedValue::Integer(10000)),
+                (
+                    PEER_ID.to_vec(),
+                    BencodeDecodedValue::String([0u8; 20].to_vec()),
+                ),
+            ]))]),
+        )]));
+
+        let connection = Box::new(MockHttpsConnection {
+            read_bytes: bencode::encode(&bencoded_response),
+        });
+        let mut tracker_service =
+            TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
+        assert_eq!(tracker_service.get_peers().unwrap().peers.len(), 1);
+        assert_eq!(
+            tracker_service.get_peers().unwrap().peers[0],
+            Peer {
+                ip: "0.0.0.0".to_string(),
+                port: 10000,
+                peer_id: [0u8; 20].to_vec()
+            }
+        );
+    }
+
+    // agregar tests que chequen la request
 }
