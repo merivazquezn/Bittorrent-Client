@@ -10,9 +10,21 @@ const MESSAGE_ID_SIZE: usize = 1;
 const MESSAGE_LENGTH_SIZE: usize = 4;
 
 #[allow(dead_code)]
-struct Bitfield(Vec<u8>);
+pub struct Bitfield(Vec<u8>);
 
 impl Bitfield {
+    pub fn new() -> Self {
+        Bitfield(vec![])
+    }
+
+    pub fn non_empty(&self) -> bool {
+        !self.0.is_empty()
+    }
+
+    pub fn set_bitfield(&mut self, bitfield: &[u8]) {
+        self.0 = bitfield.to_vec();
+    }
+
     #[allow(dead_code)]
     fn has_piece(&self, index: usize) -> bool {
         let byte_index = index / 8;
@@ -97,6 +109,30 @@ impl PeerMessage {
             id: PeerMessageId::Interested,
             length: INTERESTED_MSG_LENGTH,
             payload: vec![],
+        }
+    }
+
+    // function tan conver a u32 into 4 bytes vector big endian
+    fn u32_to_vec_be(num: u32) -> Vec<u8> {
+        let mut bytes = vec![0; 4];
+        bytes[0] = (num >> 24) as u8;
+        bytes[1] = (num >> 16) as u8;
+        bytes[2] = (num >> 8) as u8;
+        bytes[3] = num as u8;
+        bytes
+    }
+
+    pub fn request(index: u32, begin: u32, length: u32) -> PeerMessage {
+        let mut payload = vec![];
+        // write index as 4 bytes to payload
+        payload.extend_from_slice(&Self::u32_to_vec_be(index));
+        payload.extend_from_slice(&Self::u32_to_vec_be(begin));
+        payload.extend_from_slice(&Self::u32_to_vec_be(length));
+
+        PeerMessage {
+            id: PeerMessageId::Request,
+            length: (payload.len() + 1) as u32,
+            payload,
         }
     }
 }
