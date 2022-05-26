@@ -3,7 +3,7 @@ use super::parser::parse;
 use std::fs;
 use std::vec::Vec;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 ///Bencode-Decoded metainfo file.
 pub struct Metainfo {
     ///contains information about the file to download
@@ -13,7 +13,7 @@ pub struct Metainfo {
     ///the announce URL used for connecting to the tracker
     pub announce: String,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 ///Bencode-Decoded Info Dictionary of a metainfo file.
 pub struct Info {
     ///the length in bytes of each single piece

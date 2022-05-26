@@ -6,7 +6,7 @@ pub mod download_manager;
 pub mod http;
 pub mod metainfo;
 pub mod peer;
-// pub mod tcp;
+pub mod tcp;
 pub mod tracker;
 
 pub mod boxed_result {

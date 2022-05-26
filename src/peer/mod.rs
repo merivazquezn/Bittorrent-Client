@@ -1,2 +1,5 @@
+mod connection;
 mod types;
-pub use types::Peer;
+
+pub use connection::PeerConnection;
+pub use types::{Peer, PeerMessageService, PeerMessageStream};
