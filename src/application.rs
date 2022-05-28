@@ -26,6 +26,7 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
 
     info!("Received peers from tracker succesfully");
 
+    //cambiar a 0 devuelta
     if let Some(peer) = tracker_response.peers.get(0) {
         let peer_message_stream = PeerMessageStream::connect_to_peer(peer).unwrap();
         PeerConnection::new(

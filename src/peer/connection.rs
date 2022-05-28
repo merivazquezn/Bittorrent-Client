@@ -1,8 +1,9 @@
-use log::*;
-// use all the modules config, peer, tracker, metainfo
+use super::errors::PeerConnectionError;
 use super::types::*;
+use super::utils::*;
 use super::Peer;
 use crate::metainfo::Metainfo;
+use log::*;
 
 pub struct PeerConnection {
     _am_choking: bool,
@@ -34,15 +35,6 @@ impl PeerConnection {
         }
     }
 
-    // function that converts a slice of bytes into a u32 be
-    fn vec_be_to_u32(&self, bytes: &[u8]) -> u32 {
-        let mut num = 0;
-        for (i, byte) in bytes.iter().enumerate().take(4) {
-            num += (*byte as u32) << (8 * i);
-        }
-        num
-    }
-
     fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
         let message = self.message_service.wait_for_message()?;
         match message.id {
@@ -52,12 +44,7 @@ impl PeerConnection {
             PeerMessageId::Bitfield => {
                 self.bitfield.set_bitfield(&message.payload);
             }
-            PeerMessageId::Piece => {
-                let _piece_index = self.vec_be_to_u32(&message.payload[0..=4]);
-                let _offset = self.vec_be_to_u32(&message.payload[4..=8]);
-                let block = message.payload[8..].to_vec();
-                debug!("block received length: {}", block.len());
-            }
+            PeerMessageId::Piece => {}
             _ => {
                 return Err("unhandled message".into());
             }
@@ -75,17 +62,56 @@ impl PeerConnection {
         Ok(())
     }
 
-    fn request_pieces(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    // TODO: handlear errores
+    // Requests a block of data of some piece (index refers to the index of the piece).
+    // Data starts from the offset within the piece, and its size is the length requested.
+    // Once a block is recieved, it is checked if it is valid, and if it is, it is returned.
+    fn request_block(
+        &mut self,
+        index: u32,
+        begin: u32,
+        lenght: u32,
+    ) -> Result<Vec<u8>, PeerConnectionError> {
         self.message_service
-            .send_message(&PeerMessage::request(0, 0, 16 * u32::pow(2, 10)))?;
-
+            .send_message(&PeerMessage::request(index, begin, lenght))?;
         loop {
             let message = self.wait_for_message()?;
             if message.id == PeerMessageId::Piece {
-                break;
+                if valid_block(&message.payload, index, begin) {
+                    let block = message.payload[8..].to_vec();
+                    debug!("block received");
+                    break Ok(block);
+                } else {
+                    break Err(PeerConnectionError("Invalid block recieved".to_string()));
+                }
             }
         }
-        Ok(())
+    }
+
+    // Requests a specific piece from the peer.
+    // It does it sequentially, by requesting blocks of data, until the whole piece is recieved.
+    // Once it is complete, we verify its sha1 hash, and return the piece if it is valid.
+    fn request_piece(
+        &mut self,
+        piece_index: u32,
+        block_size: u32,
+    ) -> Result<Vec<u8>, PeerConnectionError> {
+        let mut counter = 0;
+        let mut piece: Vec<u8> = vec![];
+        debug!("requesting piece: {}", piece_index);
+        loop {
+            let block: Vec<u8> = self.request_block(piece_index, counter, block_size)?;
+            piece.extend(block);
+            counter += block_size;
+            if counter >= self.metainfo.info.piece_length {
+                if valid_piece(&piece, piece_index, &self.metainfo) {
+                    debug!("recieved full piece, piece index: {}", piece_index);
+                    break Ok(piece);
+                } else {
+                    break Err(PeerConnectionError("Invalid piece recieved".to_string()));
+                }
+            }
+        }
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -95,16 +121,98 @@ impl PeerConnection {
         self.message_service
             .send_message(&PeerMessage::interested())?;
         self.wait_until_ready()?;
-        self.request_pieces()?;
+        const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
+        self.request_piece(0, BLOCK_SIZE)
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
-
 mod tests {
-    //use super::*;
+    use super::*;
+    use crate::metainfo::Info;
+    use crate::metainfo::Metainfo;
 
-    // #[test]
-    // fn
+    #[test]
+    fn gets_real_piece() {
+        let file = vec![0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        let mut pieces = sha1_of(&file[0..8].to_vec());
+        pieces.extend(sha1_of(&file[8..16].to_vec()));
+
+        let metainfo_mock = Metainfo {
+            announce: "".to_string(),
+            info: Info {
+                piece_length: 8,
+                pieces: pieces,
+                length: 16,
+                name: "".to_string(),
+            },
+            info_hash: vec![],
+        };
+
+        let peer_mock = Peer {
+            ip: "".to_string(),
+            port: 0,
+            peer_id: vec![],
+        };
+        const BLOCK_SIZE: u32 = 2;
+        let peer_message_stream_mock = PeerMessageStreamMock {
+            counter: 0,
+            file: file.clone(),
+            block_size: BLOCK_SIZE,
+        };
+        let mut peer_connection = PeerConnection::new(
+            &peer_mock,
+            &vec![1, 2, 3, 4],
+            &metainfo_mock,
+            Box::new(peer_message_stream_mock),
+        );
+
+        let piece = peer_connection.request_piece(0, BLOCK_SIZE);
+        assert_eq!(file[0..8], piece.unwrap());
+    }
+
+    #[test]
+    fn gets_invalid_block() {
+        let file = vec![0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        let mut pieces = sha1_of(&file[0..8].to_vec());
+        pieces.extend(sha1_of(&file[8..16].to_vec()));
+
+        let metainfo_mock = Metainfo {
+            announce: "".to_string(),
+            info: Info {
+                piece_length: 8,
+                pieces: pieces,
+                length: 16,
+                name: "".to_string(),
+            },
+            info_hash: vec![],
+        };
+
+        let peer_mock = Peer {
+            ip: "".to_string(),
+            port: 0,
+            peer_id: vec![],
+        };
+        const BLOCK_SIZE: u32 = 2;
+        let peer_message_stream_mock = PeerMessageStreamMock {
+            counter: 0,
+            file: file.clone(),
+            block_size: BLOCK_SIZE,
+        };
+        let mut peer_connection = PeerConnection::new(
+            &peer_mock,
+            &vec![1, 2, 3, 4],
+            &metainfo_mock,
+            Box::new(peer_message_stream_mock),
+        );
+
+        assert!(matches!(
+            peer_connection.request_piece(1, BLOCK_SIZE),
+            Err(PeerConnectionError(_))
+        ));
+    }
 }

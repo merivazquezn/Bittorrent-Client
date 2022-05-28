@@ -135,6 +135,27 @@ impl PeerMessage {
             payload,
         }
     }
+    // TODO: handle error
+    pub fn piece(piece_index: u32, offset: u32, block: Vec<u8>) -> PeerMessage {
+        let mut payload = vec![];
+        payload.extend_from_slice(&Self::u32_to_vec_be(piece_index));
+        payload.extend_from_slice(&Self::u32_to_vec_be(offset));
+        payload.extend_from_slice(&block);
+
+        PeerMessage {
+            id: PeerMessageId::Piece,
+            length: (payload.len() + 1) as u32,
+            payload,
+        }
+    }
+
+    pub fn keep_alive() -> PeerMessage {
+        PeerMessage {
+            id: PeerMessageId::Choke,
+            length: 0,
+            payload: vec![],
+        }
+    }
 }
 
 pub struct PeerMessageStream {
@@ -187,7 +208,7 @@ impl PeerMessageService for PeerMessageStream {
         let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
         self.stream.read_exact(&mut handshake_response).unwrap();
         debug!("handshake successful");
-        // todo fijarse que pasa si el handshake no es correcto
+        // TODO: fijarse que pasa si el handshake no es correcto
         Ok(())
     }
 
@@ -198,6 +219,38 @@ impl PeerMessageService for PeerMessageStream {
         bytes.extend_from_slice(&message.payload);
         self.stream.write_all(&bytes).unwrap();
         debug!("message sent: {:?}", message);
+        Ok(())
+    }
+}
+
+pub struct PeerMessageStreamMock {
+    pub counter: u32,
+    pub file: Vec<u8>,
+    pub block_size: u32,
+}
+
+impl PeerMessageService for PeerMessageStreamMock {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
+        let msg = PeerMessage::piece(
+            0,
+            self.counter * self.block_size,
+            self.file[(self.counter * self.block_size) as usize
+                ..(self.block_size + self.counter * self.block_size) as usize]
+                .to_vec(),
+        );
+        self.counter += 1;
+        Ok(msg)
+    }
+
+    fn handshake(
+        &mut self,
+        _info_hash: &[u8],
+        _peer_id: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }
