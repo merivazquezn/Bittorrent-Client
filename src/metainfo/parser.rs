@@ -91,6 +91,17 @@ fn bencode_decoded_bytes_to_string(
 mod tests {
     use super::*;
 
+    fn decode_hex(hex: &str) -> Result<Vec<u8>, String> {
+        let mut bytes = Vec::new();
+        for i in 0..hex.len() / 2 {
+            let s = &hex[i * 2..i * 2 + 2];
+            let byte =
+                u8::from_str_radix(s, 16).map_err(|_| format!("Invalid hex string: {}", s))?;
+            bytes.push(byte);
+        }
+        Ok(bytes)
+    }
+
     #[test]
     fn sample_metainfo() {
         let test_bytes: Vec<u8> = std::fs::read("sample.torrent").unwrap();
@@ -108,9 +119,7 @@ mod tests {
 
         let expected_metainfo: Metainfo = Metainfo {
             info: expected_info,
-            info_hash: hex::decode("d0d14c926e6e99761a2fdcff27b403d96376eff6")
-                .unwrap()
-                .to_vec(),
+            info_hash: decode_hex("d0d14c926e6e99761a2fdcff27b403d96376eff6").unwrap(),
             announce: "udp://tracker.openbittorrent.com:80".to_string(),
         };
 
