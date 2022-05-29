@@ -2,7 +2,7 @@ use crate::metainfo::Metainfo;
 use sha1::{Digest, Sha1};
 
 // Gets sha1 hash of vector u8
-pub fn sha1_of(vec: &Vec<u8>) -> Vec<u8> {
+pub fn sha1_of(vec: &[u8]) -> Vec<u8> {
     let mut hasher = Sha1::new();
     hasher.update(vec);
     hasher.finalize().to_vec()
@@ -19,7 +19,7 @@ pub fn vec_be_to_u32(bytes: &[u8]) -> u32 {
 
 // Validates a piece by comparing its 20 byte sha1 values, to the one found in the pieces field of the info dictionary.
 // To access value of the info dictionary, we use the piece index.
-pub fn valid_piece(piece: &Vec<u8>, piece_index: u32, metainfo: &Metainfo) -> bool {
+pub fn valid_piece(piece: &[u8], piece_index: u32, metainfo: &Metainfo) -> bool {
     const SHA1_LENGTH: usize = 20;
     let real_piece_sha1 =
         metainfo.info.pieces[piece_index as usize..(piece_index as usize + SHA1_LENGTH)].to_vec();

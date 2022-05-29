@@ -1,6 +1,7 @@
 pub use super::super::bencode::*;
 use super::super::metainfo::*;
 use super::errors::*;
+use crate::application_constants::SHA1_LENGTH;
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::str::from_utf8;
@@ -51,6 +52,7 @@ fn build_metainfo(
         info_hash: get_hash(hashmap, info_key),
         announce: bencode_decoded_bytes_to_string(hashmap, announce_key)?,
     };
+    validate(&metainfo)?;
     Ok(metainfo)
 }
 
@@ -85,6 +87,21 @@ fn bencode_decoded_bytes_to_string(
     let value_bytes = value_bytes_decoded.get_as_string()?;
     let value: &str = from_utf8(value_bytes).map_err(|_err| MetainfoParserError::UTF8Error)?;
     Ok(value.to_string())
+}
+
+//Performs basic validation of certain values in Info and Metainfo
+fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
+    let info: &Info = &metainfo.info;
+    if metainfo.announce.is_empty()
+        || info.piece_length == 0
+        || info.pieces.len() % SHA1_LENGTH != 0
+        || info.pieces.is_empty()
+        || info.length == 0
+    {
+        return Err(MetainfoParserError::ValidationError);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -170,6 +187,27 @@ mod tests {
         assert!(matches!(
             result.unwrap_err(),
             MetainfoParserError::BencodeError(_)
+        ))
+    }
+
+    #[test]
+    fn invalid_values() {
+        let invalid_info: Info = Info {
+            piece_length: 65536,
+            pieces: vec![1, 2, 3], //array length is not a multiple of 20!
+            name: "sample.txt".to_string(),
+            length: 20,
+        };
+
+        let invalid_metainfo: Metainfo = Metainfo {
+            info: invalid_info,
+            info_hash: decode_hex("d0d14c926e6e99761a2fdcff27b403d96376eff6").unwrap(),
+            announce: "udp://tracker.openbittorrent.com:80".to_string(),
+        };
+
+        assert!(matches!(
+            validate(&invalid_metainfo).unwrap_err(),
+            MetainfoParserError::ValidationError
         ))
     }
 }

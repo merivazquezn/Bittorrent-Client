@@ -10,6 +10,8 @@ pub enum MetainfoParserError {
     BencodeError(String),
     //There was a problem parsing a byte array into a String from UTF-8
     UTF8Error,
+    //A certain value in Info or Metainfo was invalid
+    ValidationError,
 }
 
 impl From<BencodeDecoderError> for MetainfoParserError {
@@ -45,6 +47,9 @@ impl Display for MetainfoParserError {
             }
             MetainfoParserError::BencodeError(error) => {
                 writeln!(f, "Bencode error: {}", error)
+            }
+            MetainfoParserError::ValidationError => {
+                writeln!(f, "Validation error: A Metainfo or Info value was invalid")
             }
         }
     }
