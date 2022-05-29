@@ -1,6 +1,3 @@
-use log::*;
-use rand::Rng;
-// use all the modules config, peer, tracker, metainfo
 use crate::application_constants::*;
 use crate::application_errors::ApplicationError;
 use crate::config::Config;
@@ -8,6 +5,8 @@ use crate::http::HttpsConnection;
 use crate::metainfo::Metainfo;
 use crate::peer::{PeerConnection, PeerMessageStream};
 use crate::tracker::TrackerService;
+use log::*;
+use rand::Rng;
 
 pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     pretty_env_logger::init();
@@ -26,7 +25,6 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
 
     info!("Received peers from tracker succesfully");
 
-    //cambiar a 0 devuelta
     if let Some(peer) = tracker_response.peers.get(0) {
         let peer_message_stream = PeerMessageStream::connect_to_peer(peer).unwrap();
         PeerConnection::new(

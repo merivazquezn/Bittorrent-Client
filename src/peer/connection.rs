@@ -2,8 +2,12 @@ use super::errors::PeerConnectionError;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
+use crate::download_manager::save_piece_in_disk;
+use crate::download_manager::Piece;
+use crate::logger::Logger;
 use crate::metainfo::Metainfo;
 use log::*;
+use std::thread;
 
 pub struct PeerConnection {
     _am_choking: bool,
@@ -115,6 +119,11 @@ impl PeerConnection {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let (logger, mut worker) = Logger::new("./logs").unwrap();
+        let join_handle = thread::spawn(move || {
+            worker.listen().unwrap();
+        });
+
         self.message_service
             .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
         self.message_service.send_message(&PeerMessage::unchoke())?;
@@ -122,8 +131,21 @@ impl PeerConnection {
             .send_message(&PeerMessage::interested())?;
         self.wait_until_ready()?;
         const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
-        self.request_piece(0, BLOCK_SIZE)
+        let piece_data: Vec<u8> = self
+            .request_piece(0, BLOCK_SIZE)
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)?;
+
+        let piece = Piece {
+            piece_number: 0,
+            data: piece_data,
+        };
+
+        save_piece_in_disk(&piece, "./downloads").unwrap();
+        logger.log_piece(0).unwrap();
+
+        logger.stop_logging().unwrap();
+        join_handle.join().unwrap();
+
         Ok(())
     }
 }

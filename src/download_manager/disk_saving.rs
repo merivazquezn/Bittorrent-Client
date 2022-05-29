@@ -33,7 +33,6 @@ fn create_downloads_directory(path: &str) -> Result<(), DownloadManagerError> {
 /// let mut piece = Piece {
 ///     piece_number: 1,
 ///     data: vec![1, 2, 3],
-///     size_in_bytes: 3,
 /// };
 ///
 /// save_piece_in_disk(&mut piece, "./src/download_manager/test_downloads").unwrap();
@@ -70,11 +69,9 @@ mod tests {
     #[test]
     fn saves_little_piece_in_disk_content_is_correct() {
         let piece_number = 1;
-        let piece_length: u64 = 1;
         let mut piece = Piece {
             piece_number,
             data: Vec::new(),
-            size_in_bytes: piece_length,
         };
 
         piece.data.push(1);
@@ -102,7 +99,6 @@ mod tests {
         let mut piece = Piece {
             piece_number,
             data: Vec::new(),
-            size_in_bytes: piece_length,
         };
 
         for i in 0..piece_length {
@@ -128,11 +124,9 @@ mod tests {
     #[test]
     fn fails_when_trying_to_save_piece_with_no_data() {
         let piece_number = 3;
-        let piece_length: u64 = 654;
         let piece = Piece {
             piece_number,
             data: Vec::new(),
-            size_in_bytes: piece_length,
         };
 
         let downloads_dir_path = "./src/download_manager/test_downloads";
