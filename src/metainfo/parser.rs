@@ -2,10 +2,10 @@ pub use super::super::bencode::*;
 use super::super::metainfo::*;
 use super::errors::*;
 use crate::application_constants::SHA1_LENGTH;
+use log::*;
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::str::from_utf8;
-
 ///Receives a byte array and Bencode-Decodes it to build a [Metainfo].
 /// ## Example
 ///
@@ -18,8 +18,10 @@ use std::str::from_utf8;
 ///
 /// ```
 pub fn parse(bytes: &[u8]) -> Result<Metainfo, MetainfoParserError> {
+    trace!("Decoding bencode bytes");
     let decoded = decode(bytes)
         .map_err(|e| MetainfoParserError::BencodeError(format!("Error decoding bytes: {}", e)))?;
+    trace!("Building metainfo");
     build_metainfo(decoded.get_as_dictionary()?)
 }
 
@@ -91,6 +93,7 @@ fn bencode_decoded_bytes_to_string(
 
 //Performs basic validation of certain values in Info and Metainfo
 fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
+    debug!("Validating metainfo");
     let info: &Info = &metainfo.info;
     if metainfo.announce.is_empty()
         || info.piece_length == 0
@@ -100,7 +103,6 @@ fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
     {
         return Err(MetainfoParserError::ValidationError);
     }
-
     Ok(())
 }
 

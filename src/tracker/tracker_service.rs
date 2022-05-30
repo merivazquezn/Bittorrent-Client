@@ -9,6 +9,7 @@ use crate::bencode::*;
 use crate::http::HttpService;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
+use log::*;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
@@ -22,6 +23,7 @@ impl TrackerService {
         peer_id: &[u8; 20],
         http_service: Box<dyn HttpService>,
     ) -> TrackerService {
+        debug!("Parsing tracker request parameters");
         TrackerService {
             request_parameters: RequestParameters {
                 info_hash: metainfo.info_hash.clone(),
@@ -70,10 +72,12 @@ impl TrackerService {
     /// println!("{:?}", peer_list);
     /// ```
     pub fn get_peers(&mut self) -> Result<TrackerResponse, TrackerError> {
+        debug!("Sending tracker get request");
         let response: Vec<u8> = self.http_service.get(
             "/announce",
             &parameters_to_querystring(&self.request_parameters),
         )?;
+        debug!("parsing tracker response");
         match self.parse_response(decode(&response)?) {
             Ok(tracker_response) => Ok(tracker_response),
             Err(err) => Err(err),
@@ -86,6 +90,7 @@ impl TrackerService {
         bencoded_response: BencodeDecodedValue,
     ) -> Result<TrackerResponse, TrackerError> {
         let response_dic = bencoded_response.get_as_dictionary()?;
+        trace!("Parsing peer list from response");
         let benencoded_peers_list = match response_dic.get(PEERS) {
             Some(peers) => peers.get_as_list()?,
             None => {

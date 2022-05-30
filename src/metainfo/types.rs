@@ -1,5 +1,6 @@
 use super::errors::MetainfoParserError;
 use super::parser::parse;
+use log::*;
 use std::fs;
 use std::vec::Vec;
 
@@ -28,7 +29,9 @@ pub struct Info {
 
 impl Metainfo {
     pub fn from_torrent(torrent_path: &str) -> Result<Metainfo, MetainfoParserError> {
+        debug!("Reading torrent file");
         let torrent_bytes: Vec<u8> = fs::read(torrent_path)?;
+        debug!("Parsing torrent file");
         parse(&torrent_bytes)
     }
 }

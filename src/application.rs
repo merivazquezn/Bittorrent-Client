@@ -13,7 +13,12 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     info!("Starting bittorrent client...");
     let client_peer_id = rand::thread_rng().gen::<[u8; 20]>();
     let config = Config::from_path(CONFIG_PATH)?;
+    info!("Read client configuration successfully");
     let metainfo = Metainfo::from_torrent(torrent_path)?;
+    info!(
+        "Parsed Metainfo (torrent file) successfully. I'll try to download {}",
+        metainfo.info.name
+    );
     let http_service = HttpsConnection::from_url(&metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &metainfo,
@@ -21,11 +26,11 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
         &client_peer_id,
         Box::new(http_service),
     );
+    info!("Fetching peers from tracker");
     let tracker_response = tracker_service.get_peers()?;
-
-    info!("Received peers from tracker succesfully");
-
+    info!("Fetched peers from Tracker successfully");
     if let Some(peer) = tracker_response.peers.get(0) {
+        info!("Started download of piece {} from peer: {}", 0, peer.ip);
         let peer_message_stream = PeerMessageStream::connect_to_peer(peer).unwrap();
         PeerConnection::new(
             peer,
@@ -35,8 +40,8 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
         )
         .run()
         .unwrap();
+        info!("Finished download of piece {} from peer: {}", 0, peer.ip);
     }
-
     info!("Exited Bitorrent client successfully!");
     Ok(())
 }

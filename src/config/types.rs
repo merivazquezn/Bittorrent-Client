@@ -1,9 +1,9 @@
 use super::errors::ConfigError;
+use log::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path;
 use std::str;
-
 const LISTEN_PORT: &str = "listen_port";
 const LOG_PATH: &str = "log_path";
 const DOWNLOAD_PATH: &str = "download_path";
@@ -41,10 +41,13 @@ impl Config {
     /// assert_eq!(config.listen_port, 4424);
     /// ```
     pub fn from_path(path: &str) -> Result<Config, ConfigError> {
+        debug!("Reading confile file");
         let content =
             fs::read_to_string(path).map_err(|_| ConfigError::InvalidPath(path.to_string()))?;
+        debug!("Parsing confile file");
         let lines = content.lines();
         let config_dictionary = create_config_dict(lines);
+        debug!("Creating config");
         let config = create_config(&config_dictionary)?;
         Ok(config)
     }
@@ -55,15 +58,16 @@ fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, Config
         .get(LISTEN_PORT)
         .ok_or_else(|| ConfigError::MissingKey(LISTEN_PORT.to_string()))?
         .parse()?;
-
+    trace!("Found listen_port: {}", listen_port);
     let log_path = config_dict
         .get(LOG_PATH)
         .ok_or_else(|| ConfigError::MissingKey(LOG_PATH.to_string()))?;
-
+    trace!("Found log_path: {}", log_path);
     let download_path = config_dict
         .get(DOWNLOAD_PATH)
         .ok_or_else(|| ConfigError::MissingKey(DOWNLOAD_PATH.to_string()))?;
-
+    trace!("Found download_path: {}", download_path);
+    trace!("Validating paths exist");
     validate_path(download_path)?;
     validate_path(log_path)?;
     Ok(Config {

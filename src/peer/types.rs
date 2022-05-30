@@ -1,7 +1,6 @@
 use log::*;
 use std::io::{Read, Write};
 use std::net::TcpStream;
-
 const PSTRLEN: u8 = 19;
 const HANDSHAKE_LENGTH: usize = 68;
 
@@ -164,6 +163,7 @@ pub struct PeerMessageStream {
 
 impl PeerMessageStream {
     pub fn connect_to_peer(peer: &Peer) -> Result<Self, Box<dyn std::error::Error>> {
+        trace!("Connecting to peer at IP: {}", peer.ip);
         let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port)).unwrap();
         Ok(Self { stream })
     }
@@ -218,7 +218,7 @@ impl PeerMessageService for PeerMessageStream {
         bytes.extend_from_slice(&(message.id as u8).to_be_bytes());
         bytes.extend_from_slice(&message.payload);
         self.stream.write_all(&bytes).unwrap();
-        debug!("message sent: {:?}", message);
+        debug!("message sent: {:?}", message.id);
         Ok(())
     }
 }

@@ -140,7 +140,9 @@ impl PeerConnection {
             data: piece_data,
         };
 
+        debug!("saving downloaded piece {} in disk", piece.piece_number);
         save_piece_in_disk(&piece, "./downloads").unwrap();
+        debug!("logging downloaded piece");
         logger.log_piece(0).unwrap();
 
         logger.stop_logging().unwrap();

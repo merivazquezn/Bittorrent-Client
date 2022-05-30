@@ -2,6 +2,7 @@ use super::constants::*;
 use super::errors::HttpsConnectionError;
 use super::types::HttpService;
 use crate::boxed_result::BoxedResult;
+use log::*;
 use native_tls::TlsConnector;
 use native_tls::TlsStream;
 use std::io::{Read, Write};
@@ -14,6 +15,7 @@ pub struct HttpsConnection {
 
 impl HttpsConnection {
     pub fn from_url(url: &str) -> Result<HttpsConnection, HttpsConnectionError> {
+        debug!("Creating https connection from url: {}", url);
         let host = HttpsConnection::url_to_host(url)?;
         let connector = TlsConnector::new()?;
         let stream = TcpStream::connect(format!("{}:{}", host, HTTPS_PORT))?;
