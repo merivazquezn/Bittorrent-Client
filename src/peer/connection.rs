@@ -109,7 +109,7 @@ impl PeerConnection {
             counter += block_size;
             if counter >= self.metainfo.info.piece_length {
                 if valid_piece(&piece, piece_index, &self.metainfo) {
-                    debug!("recieved full piece, piece index: {}", piece_index);
+                    debug!("recieved full valid piece, piece index: {}", piece_index);
                     break Ok(piece);
                 } else {
                     break Err(PeerConnectionError("Invalid piece recieved".to_string()));
@@ -120,9 +120,10 @@ impl PeerConnection {
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let (logger, mut worker) = Logger::new("./logs").unwrap();
-        let join_handle = thread::spawn(move || {
+        let builder = thread::Builder::new().name("logger worker".to_string());
+        let handler = builder.spawn(move || {
             worker.listen().unwrap();
-        });
+        })?;
 
         self.message_service
             .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
@@ -146,7 +147,7 @@ impl PeerConnection {
         logger.log_piece(0).unwrap();
 
         logger.stop_logging().unwrap();
-        join_handle.join().unwrap();
+        handler.join().unwrap();
 
         Ok(())
     }

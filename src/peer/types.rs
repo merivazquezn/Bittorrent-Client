@@ -1,6 +1,10 @@
+use super::constants::*;
+use crate::boxed_result::BoxedResult;
 use log::*;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::time::Duration;
+
 const PSTRLEN: u8 = 19;
 const HANDSHAKE_LENGTH: usize = 68;
 
@@ -159,13 +163,19 @@ impl PeerMessage {
 
 pub struct PeerMessageStream {
     stream: TcpStream,
+    max_retries: u8,
 }
 
 impl PeerMessageStream {
     pub fn connect_to_peer(peer: &Peer) -> Result<Self, Box<dyn std::error::Error>> {
         trace!("Connecting to peer at IP: {}", peer.ip);
-        let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port)).unwrap();
-        Ok(Self { stream })
+        let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port))?;
+        stream.set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))?;
+        stream.set_read_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))?;
+        Ok(Self {
+            stream,
+            max_retries: MAX_RETRIES,
+        })
     }
 
     fn create_handshake_message(&self, info_hash: &[u8], peer_id: &[u8]) -> Vec<u8> {
@@ -177,17 +187,57 @@ impl PeerMessageStream {
         handshake_message.extend_from_slice(peer_id);
         handshake_message
     }
+
+    fn try_read_exact(&mut self, buf: &mut [u8]) -> BoxedResult<()> {
+        self.stream.read_exact(buf)?;
+        Ok(())
+    }
+
+    fn try_write_all(&mut self, buf: &[u8]) -> BoxedResult<()> {
+        self.stream.write_all(buf)?;
+        Ok(())
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> BoxedResult<()> {
+        let mut retries = 0;
+        loop {
+            match self.try_write_all(buf) {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    if retries >= self.max_retries {
+                        return Err(e);
+                    }
+                    retries += 1;
+                }
+            }
+        }
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> BoxedResult<()> {
+        let mut retries = 0;
+        loop {
+            match self.try_read_exact(buf) {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    if retries >= self.max_retries {
+                        return Err(e);
+                    }
+                    retries += 1;
+                }
+            }
+        }
+    }
 }
 
 impl PeerMessageService for PeerMessageStream {
     fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
         let mut message_length = [0u8; MESSAGE_LENGTH_SIZE];
-        self.stream.read_exact(&mut message_length).unwrap();
+        self.read_exact(&mut message_length)?;
         let message_length = u32::from_be_bytes(message_length);
         let mut message_id = [0u8; MESSAGE_ID_SIZE];
-        self.stream.read_exact(&mut message_id).unwrap();
+        self.read_exact(&mut message_id)?;
         let mut payload: Vec<u8> = vec![0; (message_length - 1) as usize];
-        self.stream.read_exact(&mut payload).unwrap();
+        self.read_exact(&mut payload)?;
 
         let msg = PeerMessage {
             id: PeerMessageId::from_u8(message_id[0])?,
@@ -204,9 +254,9 @@ impl PeerMessageService for PeerMessageStream {
         peer_id: &[u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let handshake_message = self.create_handshake_message(info_hash, peer_id);
-        self.stream.write_all(&handshake_message).unwrap();
+        self.write_all(&handshake_message)?;
         let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
-        self.stream.read_exact(&mut handshake_response).unwrap();
+        self.read_exact(&mut handshake_response)?;
         debug!("handshake successful");
         // TODO: fijarse que pasa si el handshake no es correcto
         Ok(())
@@ -217,7 +267,7 @@ impl PeerMessageService for PeerMessageStream {
         bytes.extend_from_slice(&message.length.to_be_bytes());
         bytes.extend_from_slice(&(message.id as u8).to_be_bytes());
         bytes.extend_from_slice(&message.payload);
-        self.stream.write_all(&bytes).unwrap();
+        self.write_all(&bytes)?;
         debug!("message sent: {:?}", message.id);
         Ok(())
     }

@@ -7,10 +7,12 @@ use native_tls::TlsConnector;
 use native_tls::TlsStream;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::time::Duration;
 
 pub struct HttpsConnection {
     stream: TlsStream<TcpStream>,
     host: String,
+    max_retries: u8,
 }
 
 impl HttpsConnection {
@@ -19,8 +21,14 @@ impl HttpsConnection {
         let host = HttpsConnection::url_to_host(url)?;
         let connector = TlsConnector::new()?;
         let stream = TcpStream::connect(format!("{}:{}", host, HTTPS_PORT))?;
+        stream.set_write_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
+        stream.set_read_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
         let stream = connector.connect(&host, stream)?;
-        Ok(HttpsConnection { stream, host })
+        Ok(HttpsConnection {
+            stream,
+            host,
+            max_retries: MAX_RETRIES,
+        })
     }
 
     pub fn response_body(&self, bytes: &[u8]) -> Option<Vec<u8>> {
@@ -38,6 +46,20 @@ impl HttpsConnection {
         })?;
         Ok(host.into())
     }
+
+    fn try_request(&mut self, request: &str) -> BoxedResult<Vec<u8>> {
+        self.stream.write_all(request.as_bytes())?;
+        let mut response = vec![];
+        self.stream.read_to_end(&mut response)?;
+        if let Some(body) = self.response_body(&response) {
+            Ok(body)
+        } else {
+            Err(Box::new(HttpsConnectionError(format!(
+                "Could not find response body in response: {}",
+                String::from_utf8_lossy(&response)
+            ))))
+        }
+    }
 }
 
 impl HttpService for HttpsConnection {
@@ -46,17 +68,22 @@ impl HttpService for HttpsConnection {
             "GET {}?{} HTTP/1.1\r\nHost: {}\r\n\r\n",
             path, query_params, self.host
         );
-        self.stream.write_all(request.as_bytes())?;
-        let mut buf: Vec<u8> = Vec::new();
-        self.stream.read_to_end(&mut buf)?;
-
-        let res = self.response_body(&buf).ok_or_else(|| {
-            HttpsConnectionError(format!(
-                "Could not find response body in response: {}",
-                String::from_utf8_lossy(&buf)
-            ))
-        })?;
-        Ok(res)
+        let mut retries = 0;
+        loop {
+            trace!("try number {} of tracker request", retries);
+            match self.try_request(&request) {
+                Ok(body) => return Ok(body),
+                Err(e) => {
+                    if retries >= self.max_retries {
+                        return Err(HttpsConnectionError(format!(
+                            "Could not connect to host: {}. {}",
+                            self.host, e
+                        )));
+                    }
+                    retries += 1;
+                }
+            }
+        }
     }
 }
 #[cfg(test)]

@@ -30,7 +30,10 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     let tracker_response = tracker_service.get_peers()?;
     info!("Fetched peers from Tracker successfully");
     if let Some(peer) = tracker_response.peers.get(0) {
-        info!("Started download of piece {} from peer: {}", 0, peer.ip);
+        info!(
+            "Trying to connect to peer {} and download piece {}",
+            peer.ip, 0
+        );
         let peer_message_stream = PeerMessageStream::connect_to_peer(peer).unwrap();
         PeerConnection::new(
             peer,

@@ -1,6 +1,7 @@
 use super::constants::*;
 use super::errors::LoggerError;
 use super::utils::*;
+use log::*;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
@@ -20,6 +21,7 @@ pub struct LoggerWorker {
 }
 
 // Used to send the Logger worker a stop message when neccesary
+#[derive(Debug)]
 enum LoggerState {
     Continue,
     Stop,
@@ -97,7 +99,9 @@ impl Logger {
 impl LoggerWorker {
     pub fn listen(&mut self) -> Result<(), LoggerError> {
         loop {
+            trace!("LoggerWorker: Waiting for message");
             let state = self.logging_state_receiver.recv()?;
+            trace!("LoggerWorker: Received message {:?}", state);
             match state {
                 LoggerState::Continue => {
                     let piece_number = self.receiver.recv()?;
