@@ -1,7 +1,6 @@
 use super::constants::*;
 use super::errors::LoggerError;
 use super::utils::*;
-use log::*;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc;
@@ -9,21 +8,19 @@ use std::sync::mpsc;
 #[allow(dead_code)]
 /// Struct representing the writing side of the logger
 pub struct Logger {
-    sender: mpsc::Sender<u32>,
-    logging_state_sender: mpsc::Sender<LoggerState>,
+    sender: mpsc::Sender<LoggerMessage>,
 }
 
 /// Struct representing the listening side of the logger
 pub struct LoggerWorker {
-    receiver: mpsc::Receiver<u32>,
-    logging_state_receiver: mpsc::Receiver<LoggerState>,
+    receiver: mpsc::Receiver<LoggerMessage>,
     file: File,
 }
 
 // Used to send the Logger worker a stop message when neccesary
 #[derive(Debug)]
-enum LoggerState {
-    Continue,
+enum LoggerMessage {
+    Log(u32),
     Stop,
 }
 
@@ -49,25 +46,33 @@ impl Logger {
     pub fn new(dir_path: &str) -> Result<(Self, LoggerWorker), LoggerError> {
         let file: File = create_log_file_in_dir(LOG_FILE_NAME, dir_path)?;
         let (tx, rx) = mpsc::channel();
-        let (tx_state, rx_state) = mpsc::channel();
 
-        let logger = Logger {
-            sender: tx,
-            logging_state_sender: tx_state,
-        };
-
-        let logger_listener = LoggerWorker {
-            receiver: rx,
-            logging_state_receiver: rx_state,
-            file,
-        };
+        let logger = Logger { sender: tx };
+        let logger_listener = LoggerWorker { receiver: rx, file };
 
         Ok((logger, logger_listener))
     }
 
+    /// Tells the Logger Worker to log that a piece was received, indicating its piece number
+    /// The Worker then logs it into the log file
+    ///
+    /// ```
+    /// use bittorrent_rustico::logger::{Logger, LoggerWorker};
+    ///
+    /// let (logger, mut logger_worker) = Logger::new("./src/logger/test/logs/doc_test").unwrap();
+    /// let handle_join = std::thread::spawn(move || {
+    ///    logger_worker.listen();
+    /// });
+    ///
+    /// // Receives piece number 1
+    /// logger.log_piece(1).unwrap();
+    ///
+    /// logger.stop_logging().unwrap();
+    /// handle_join.join().unwrap();
+    ///
+    /// ```
     pub fn log_piece(&self, piece_number: u32) -> Result<(), LoggerError> {
-        self.logging_state_sender.send(LoggerState::Continue)?;
-        let _ = self.sender.send(piece_number)?;
+        self.sender.send(LoggerMessage::Log(piece_number))?;
         Ok(())
     }
 
@@ -91,7 +96,7 @@ impl Logger {
     /// ```
     ///
     pub fn stop_logging(&self) -> Result<(), LoggerError> {
-        let _ = self.logging_state_sender.send(LoggerState::Stop)?;
+        self.sender.send(LoggerMessage::Stop)?;
         Ok(())
     }
 }
@@ -99,40 +104,15 @@ impl Logger {
 impl LoggerWorker {
     pub fn listen(&mut self) -> Result<(), LoggerError> {
         loop {
-            trace!("LoggerWorker: Waiting for message");
-            let state = self.logging_state_receiver.recv()?;
-            trace!("LoggerWorker: Received message {:?}", state);
-            match state {
-                LoggerState::Continue => {
-                    let piece_number = self.receiver.recv()?;
-                    self.log_piece(piece_number);
-                }
-                LoggerState::Stop => {
-                    break;
-                }
+            let message = self.receiver.recv()?;
+            match message {
+                LoggerMessage::Log(piece_number) => self.log_piece(piece_number),
+                LoggerMessage::Stop => break,
             }
         }
         Ok(())
     }
 
-    /// Tells the Logger Worker to log that a piece was received, indicating its piece number
-    /// The Worker then logs it into the log file
-    ///
-    /// ```
-    /// use bittorrent_rustico::logger::{Logger, LoggerWorker};
-    ///
-    /// let (logger, mut logger_worker) = Logger::new("./src/logger/test/logs/doc_test").unwrap();
-    /// let handle_join = std::thread::spawn(move || {
-    ///    logger_worker.listen();
-    /// });
-    ///
-    /// // Receives piece number 1
-    /// logger.log_piece(1).unwrap();
-    ///
-    /// logger.stop_logging().unwrap();
-    /// handle_join.join().unwrap();
-    ///
-    /// ```
     fn log_piece(&mut self, piece_number: u32) {
         let _ = self
             .file
