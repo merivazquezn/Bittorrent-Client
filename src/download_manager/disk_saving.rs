@@ -1,6 +1,8 @@
 use super::errors::DownloadManagerError;
 use super::types::Piece;
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::copy;
 use std::io::Write;
 
 // Creates downloads directory if it doesn't exist
@@ -54,6 +56,29 @@ pub fn save_piece_in_disk(
     Ok(())
 }
 
+pub fn join_all_pieces(
+    piece_count: u32,
+    target_file_name: &str,
+    downloads_dir_path: &str,
+) -> Result<(), DownloadManagerError> {
+    File::create(format!("{}/{}", downloads_dir_path, target_file_name))?;
+    let mut target_file: File = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(format!("{}/{}", downloads_dir_path, target_file_name))?;
+
+    for piece_no in 0..piece_count {
+        let mut piece_file: File = OpenOptions::new()
+            .read(true)
+            .open(format!("{}/{}", downloads_dir_path, piece_no))
+            .map_err(|_| DownloadManagerError::MissingPieceError(piece_no))?;
+
+        copy(&mut piece_file, &mut target_file)?;
+    }
+
+    Ok(())
+}
+
 mod tests {
 
     #[allow(unused_imports)]
@@ -61,9 +86,11 @@ mod tests {
     #[allow(unused_imports)]
     use std::io::Read;
 
-    #[test]
-    fn redundant_piece_test() {
-        assert_eq!(1 + 1, 2);
+    #[allow(dead_code)]
+    fn join_vec(a: Vec<u8>, mut b: Vec<u8>) -> Vec<u8> {
+        let mut c = a;
+        c.append(&mut b);
+        c
     }
 
     #[test]
@@ -135,5 +162,133 @@ mod tests {
             Ok(_) => panic!("Should have failed when trying to save piece with no data"),
             Err(err) => assert!(matches!(err, DownloadManagerError::EmptyPieceError)),
         };
+    }
+
+    #[test]
+    fn joins_all_3_pieces_all_exist_returns_ok() {
+        let piece_count = 3;
+
+        let mut file_0 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_1/0",
+        ))
+        .unwrap();
+        let mut buf_0: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_0.push(i as u8);
+        }
+        file_0.write_all(buf_0.as_slice()).unwrap();
+
+        let mut file_1 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_1/1",
+        ))
+        .unwrap();
+        let mut buf_1: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_1.push(i as u8);
+        }
+        file_1.write_all(buf_1.as_slice()).unwrap();
+
+        let mut file_2 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_1/2",
+        ))
+        .unwrap();
+        let mut buf_2: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_2.push(i as u8);
+        }
+        file_2.write_all(buf_2.as_slice()).unwrap();
+
+        join_all_pieces(
+            piece_count,
+            "target",
+            "./src/download_manager/test_downloads/join/test_1",
+        )
+        .unwrap();
+
+        let mut target_file = File::open(format!(
+            "./src/download_manager/test_downloads/join/test_1/target"
+        ))
+        .unwrap();
+
+        let mut res_buf: Vec<u8> = Vec::new();
+        target_file.read_to_end(&mut res_buf).unwrap();
+
+        assert_eq!(res_buf.len(), 300);
+
+        let expected_buf: Vec<u8> = join_vec(join_vec(buf_0, buf_1), buf_2);
+
+        assert_eq!(res_buf, expected_buf);
+    }
+
+    #[test]
+    fn joins_all_3_pieces_final_file_missing_returns_error() {
+        let piece_count = 3;
+
+        let mut file_0 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_2/0",
+        ))
+        .unwrap();
+        let mut buf_0: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_0.push(i as u8);
+        }
+        file_0.write_all(buf_0.as_slice()).unwrap();
+
+        let mut file_1 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_2/1",
+        ))
+        .unwrap();
+        let mut buf_1: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_1.push(i as u8);
+        }
+        file_1.write_all(buf_1.as_slice()).unwrap();
+
+        let result = join_all_pieces(
+            piece_count,
+            "target",
+            "./src/download_manager/test_downloads/join/test_2",
+        );
+
+        match result {
+            Ok(_) => panic!("Should have failed when trying to join all pieces"),
+            Err(err) => assert!(matches!(err, DownloadManagerError::MissingPieceError(2))),
+        }
+    }
+
+    #[test]
+    fn joins_all_3_pieces_middle_file_missing_returns_error() {
+        let piece_count = 3;
+
+        let mut file_0 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_3/0",
+        ))
+        .unwrap();
+        let mut buf_0: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_0.push(i as u8);
+        }
+        file_0.write_all(buf_0.as_slice()).unwrap();
+
+        let mut file_1 = File::create(format!(
+            "./src/download_manager/test_downloads/join/test_3/2",
+        ))
+        .unwrap();
+        let mut buf_1: Vec<u8> = Vec::new();
+        for i in 0..100 {
+            buf_1.push(i as u8);
+        }
+        file_1.write_all(buf_1.as_slice()).unwrap();
+
+        let result = join_all_pieces(
+            piece_count,
+            "target",
+            "./src/download_manager/test_downloads/join/test_3",
+        );
+
+        match result {
+            Ok(_) => panic!("Should have failed when trying to join all pieces"),
+            Err(err) => assert!(matches!(err, DownloadManagerError::MissingPieceError(1))),
+        }
     }
 }

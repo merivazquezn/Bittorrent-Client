@@ -5,6 +5,8 @@ pub enum DownloadManagerError {
     IoError(io::Error),
     EmptyPieceError,
     CreateDirectoryError(String),
+    CreateFileError(String),
+    MissingPieceError(u32),
 }
 
 impl From<io::Error> for DownloadManagerError {
@@ -22,6 +24,12 @@ impl std::fmt::Display for DownloadManagerError {
             }
             DownloadManagerError::CreateDirectoryError(path) => {
                 write!(f, "Can't create directory: {}", path)
+            }
+            DownloadManagerError::CreateFileError(path) => {
+                write!(f, "Can't create file: {}", path)
+            }
+            DownloadManagerError::MissingPieceError(piece_no) => {
+                write!(f, "File for piece {} does not exist", piece_no)
             }
         }
     }
