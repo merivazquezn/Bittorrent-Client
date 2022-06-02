@@ -70,7 +70,6 @@ impl HttpService for HttpsConnection {
         );
         let mut retries = 0;
         loop {
-            trace!("try number {} of tracker request", retries);
             match self.try_request(&request) {
                 Ok(body) => return Ok(body),
                 Err(e) => {
@@ -83,6 +82,7 @@ impl HttpService for HttpsConnection {
                     retries += 1;
                 }
             }
+            trace!("try number {} of tracker request", retries);
         }
     }
 }

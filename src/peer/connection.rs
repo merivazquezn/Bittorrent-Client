@@ -1,4 +1,5 @@
 use super::errors::PeerConnectionError;
+use super::errors::PeerMessageServiceError;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
@@ -39,7 +40,7 @@ impl PeerConnection {
         }
     }
 
-    fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
         let message = self.message_service.wait_for_message()?;
         match message.id {
             PeerMessageId::Unchoke => {
@@ -50,15 +51,16 @@ impl PeerConnection {
             }
             PeerMessageId::Piece => {}
             _ => {
-                return Err("unhandled message".into());
+                return Err(PeerMessageServiceError::UnhandledMessage);
             }
         }
         Ok(message)
     }
 
-    fn wait_until_ready(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn wait_until_ready(&mut self) -> Result<(), PeerMessageServiceError> {
         loop {
             self.wait_for_message()?;
+
             if !self.peer_choking && self.bitfield.non_empty() {
                 break;
             }
@@ -66,7 +68,6 @@ impl PeerConnection {
         Ok(())
     }
 
-    // TODO: handlear errores
     // Requests a block of data of some piece (index refers to the index of the piece).
     // Data starts from the offset within the piece, and its size is the length requested.
     // Once a block is recieved, it is checked if it is valid, and if it is, it is returned.
@@ -79,14 +80,19 @@ impl PeerConnection {
         self.message_service
             .send_message(&PeerMessage::request(index, begin, lenght))?;
         loop {
-            let message = self.wait_for_message()?;
+            let message = self.wait_for_message().map_err(|_| {
+                PeerConnectionError::PieceRequestingError("Failed while waiting for message".into())
+            })?;
+
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
                     debug!("block received");
                     break Ok(block);
                 } else {
-                    break Err(PeerConnectionError("Invalid block recieved".to_string()));
+                    break Err(PeerConnectionError::PieceRequestingError(
+                        "Invalid block received".to_string(),
+                    ));
                 }
             }
         }
@@ -112,29 +118,48 @@ impl PeerConnection {
                     debug!("recieved full valid piece, piece index: {}", piece_index);
                     break Ok(piece);
                 } else {
-                    break Err(PeerConnectionError("Invalid piece recieved".to_string()));
+                    break Err(PeerConnectionError::PieceRequestingError(
+                        "Invalid piece received".to_string(),
+                    ));
                 }
             }
         }
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (logger, mut worker) = Logger::new("./logs").unwrap();
+    pub fn run(&mut self) -> Result<(), PeerConnectionError> {
+        let (logger, mut worker) = Logger::new("./logs")?;
         let builder = thread::Builder::new().name("logger worker".to_string());
         let handler = builder.spawn(move || {
             worker.listen().unwrap();
         })?;
 
         self.message_service
-            .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
-        self.message_service.send_message(&PeerMessage::unchoke())?;
+            .handshake(&self.metainfo.info_hash, &self.client_peer_id)
+            .map_err(|_| {
+                PeerMessageServiceError::PeerHandshakeError("Handshake error".to_string())
+            })?;
+
         self.message_service
-            .send_message(&PeerMessage::interested())?;
+            .send_message(&PeerMessage::unchoke())
+            .map_err(|_| {
+                PeerMessageServiceError::SendingMessageError(
+                    "Error trying to send unchoke message".to_string(),
+                )
+            })?;
+
+        self.message_service
+            .send_message(&PeerMessage::interested())
+            .map_err(|_| {
+                PeerMessageServiceError::SendingMessageError(
+                    "Error trying to send interested message".to_string(),
+                )
+            })?;
+
         self.wait_until_ready()?;
         const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
-        let piece_data: Vec<u8> = self
-            .request_piece(0, BLOCK_SIZE)
-            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)?;
+        let piece_data: Vec<u8> = self.request_piece(0, BLOCK_SIZE).map_err(|_| {
+            PeerConnectionError::PieceRequestingError("Error trying to request piece".to_string())
+        })?;
 
         let piece = Piece {
             piece_number: 0,
@@ -237,7 +262,7 @@ mod tests {
 
         assert!(matches!(
             peer_connection.request_piece(1, BLOCK_SIZE),
-            Err(PeerConnectionError(_))
+            Err(PeerConnectionError::PieceRequestingError(_))
         ));
     }
 }

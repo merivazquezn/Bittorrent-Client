@@ -1,4 +1,5 @@
 use super::constants::*;
+use super::PeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
 use log::*;
 use std::io::{Read, Write};
@@ -210,6 +211,7 @@ impl PeerMessageStream {
                     retries += 1;
                 }
             }
+            trace!("Attempt of sending message: {}", retries);
         }
     }
 
@@ -225,22 +227,36 @@ impl PeerMessageStream {
                     retries += 1;
                 }
             }
+            trace!("Attempt of reading message: {}", retries);
         }
     }
 }
 
 impl PeerMessageService for PeerMessageStream {
-    fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
         let mut message_length = [0u8; MESSAGE_LENGTH_SIZE];
-        self.read_exact(&mut message_length)?;
+        self.read_exact(&mut message_length).map_err(|_| {
+            PeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read message from other peer".to_string(),
+            )
+        })?;
         let message_length = u32::from_be_bytes(message_length);
         let mut message_id = [0u8; MESSAGE_ID_SIZE];
-        self.read_exact(&mut message_id)?;
+        self.read_exact(&mut message_id).map_err(|_| {
+            PeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read from other peer".to_string(),
+            )
+        })?;
         let mut payload: Vec<u8> = vec![0; (message_length - 1) as usize];
-        self.read_exact(&mut payload)?;
+        self.read_exact(&mut payload).map_err(|_| {
+            PeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read from other peer".to_string(),
+            )
+        })?;
 
         let msg = PeerMessage {
-            id: PeerMessageId::from_u8(message_id[0])?,
+            id: PeerMessageId::from_u8(message_id[0])
+                .map_err(|_| PeerMessageServiceError::InvalidMessageId)?,
             length: message_length,
             payload,
         };
@@ -252,22 +268,33 @@ impl PeerMessageService for PeerMessageStream {
         &mut self,
         info_hash: &[u8],
         peer_id: &[u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), PeerMessageServiceError> {
         let handshake_message = self.create_handshake_message(info_hash, peer_id);
-        self.write_all(&handshake_message)?;
+        self.write_all(&handshake_message).map_err(|_| {
+            PeerMessageServiceError::SendingMessageError(
+                "Couldn't send handshake message to other peer".to_string(),
+            )
+        })?;
         let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
-        self.read_exact(&mut handshake_response)?;
+        self.read_exact(&mut handshake_response).map_err(|_| {
+            PeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read handshake from other peer".into(),
+            )
+        })?;
         debug!("handshake successful");
-        // TODO: fijarse que pasa si el handshake no es correcto
         Ok(())
     }
 
-    fn send_message(&mut self, message: &PeerMessage) -> Result<(), Box<dyn std::error::Error>> {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), PeerMessageServiceError> {
         let mut bytes = Vec::with_capacity((message.length + 4) as usize);
         bytes.extend_from_slice(&message.length.to_be_bytes());
         bytes.extend_from_slice(&(message.id as u8).to_be_bytes());
         bytes.extend_from_slice(&message.payload);
-        self.write_all(&bytes)?;
+        self.write_all(&bytes).map_err(|_| {
+            PeerMessageServiceError::SendingMessageError(
+                "Couldn't send message to other peer".to_string(),
+            )
+        })?;
         debug!("message sent: {:?}", message.id);
         Ok(())
     }
@@ -280,7 +307,7 @@ pub struct PeerMessageStreamMock {
 }
 
 impl PeerMessageService for PeerMessageStreamMock {
-    fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>> {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
         let msg = PeerMessage::piece(
             0,
             self.counter * self.block_size,
@@ -296,11 +323,11 @@ impl PeerMessageService for PeerMessageStreamMock {
         &mut self,
         _info_hash: &[u8],
         _peer_id: &[u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), PeerMessageServiceError> {
         Ok(())
     }
 
-    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), Box<dyn std::error::Error>> {
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), PeerMessageServiceError> {
         Ok(())
     }
 }
@@ -310,7 +337,7 @@ pub trait PeerMessageService {
         &mut self,
         info_hash: &[u8],
         peer_id: &[u8],
-    ) -> Result<(), Box<dyn std::error::Error>>;
-    fn wait_for_message(&mut self) -> Result<PeerMessage, Box<dyn std::error::Error>>;
-    fn send_message(&mut self, message: &PeerMessage) -> Result<(), Box<dyn std::error::Error>>;
+    ) -> Result<(), PeerMessageServiceError>;
+    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError>;
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), PeerMessageServiceError>;
 }
