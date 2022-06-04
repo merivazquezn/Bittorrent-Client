@@ -8,7 +8,6 @@ use crate::download_manager::Piece;
 use crate::logger::Logger;
 use crate::metainfo::Metainfo;
 use log::*;
-use std::thread;
 
 pub struct PeerConnection {
     _am_choking: bool,
@@ -127,12 +126,7 @@ impl PeerConnection {
     }
 
     pub fn run(&mut self) -> Result<(), PeerConnectionError> {
-        let (logger, mut worker) = Logger::new("./logs")?;
-        let builder = thread::Builder::new().name("logger worker".to_string());
-        let handler = builder.spawn(move || {
-            worker.listen().unwrap();
-        })?;
-
+        let (logger, logger_handle) = Logger::new("./logs")?;
         self.message_service
             .handshake(&self.metainfo.info_hash, &self.client_peer_id)
             .map_err(|_| {
@@ -171,8 +165,8 @@ impl PeerConnection {
         debug!("logging downloaded piece");
         logger.log_piece(0).unwrap();
 
-        logger.stop_logging().unwrap();
-        handler.join().unwrap();
+        logger.stop();
+        logger_handle.join().unwrap();
 
         Ok(())
     }
