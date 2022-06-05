@@ -8,6 +8,10 @@ pub enum PeerConnectionError {
     IoError(std::io::Error),
     PeerMessageError(PeerMessageServiceError),
     PieceRequestingError(String),
+    InitialConnectionError(String),
+    PieceSavingError(String),
+    LoggingPieceError(String),
+    JoiningError(String),
 }
 
 #[derive(Debug)]
@@ -70,6 +74,18 @@ impl fmt::Display for PeerConnectionError {
             }
             PeerConnectionError::PieceRequestingError(error) => {
                 write!(f, "Piece requesting error: {}", error)
+            }
+            PeerConnectionError::InitialConnectionError(error) => {
+                write!(f, "Initial connection error: {}", error)
+            }
+            PeerConnectionError::PieceSavingError(error) => {
+                write!(f, "Piece saving error: {}", error)
+            }
+            PeerConnectionError::LoggingPieceError(error) => {
+                write!(f, "Logging piece error: {}", error)
+            }
+            PeerConnectionError::JoiningError(error) => {
+                write!(f, "Joining error: {}", error)
             }
         }
     }

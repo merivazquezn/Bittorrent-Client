@@ -5,5 +5,6 @@ mod types;
 mod utils;
 
 pub use connection::PeerConnection;
-use errors::PeerMessageServiceError;
+pub use errors::PeerConnectionError;
+pub use errors::PeerMessageServiceError;
 pub use types::{Peer, PeerMessageService, PeerMessageStream};

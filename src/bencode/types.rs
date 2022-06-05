@@ -22,9 +22,6 @@ pub enum BencodeDecodedValue {
 }
 
 impl BencodeDecodedValue {
-    // implement all the methods of the matter get_as_string, get_as_integer, get_as_list, get_as_dictionary
-    // and get_as_end
-
     pub fn get_as_string(&self) -> Result<&Vec<u8>, BencodeDecoderError> {
         match self {
             BencodeDecodedValue::String(value) => Ok(value),

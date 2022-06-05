@@ -15,6 +15,8 @@ pub enum LoggerError {
 
     /// Throws when the logger fails to send a message to the LoggerWorker
     InexistentListener,
+
+    WorkerCreationError(String),
 }
 
 impl<T> From<SendError<T>> for LoggerError {
@@ -44,6 +46,9 @@ impl Display for LoggerError {
             ),
             LoggerError::ReadingError(error) => {
                 write!(f, "Logger failed when reading from channel: {}", error)
+            }
+            LoggerError::WorkerCreationError(error) => {
+                write!(f, "Logger failed when creating the worker: {}", error)
             }
         }
     }

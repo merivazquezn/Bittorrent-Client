@@ -1,4 +1,5 @@
 use super::constants::*;
+use super::errors::*;
 use super::PeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
 use log::*;
@@ -168,11 +169,16 @@ pub struct PeerMessageStream {
 }
 
 impl PeerMessageStream {
-    pub fn connect_to_peer(peer: &Peer) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn connect_to_peer(peer: &Peer) -> Result<Self, PeerConnectionError> {
         trace!("Connecting to peer at IP: {}", peer.ip);
-        let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port))?;
-        stream.set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))?;
-        stream.set_read_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))?;
+        let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port))
+            .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
+        stream
+            .set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))
+            .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
+        stream
+            .set_read_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))
+            .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
         Ok(Self {
             stream,
             max_retries: MAX_RETRIES,

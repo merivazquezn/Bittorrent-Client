@@ -28,7 +28,7 @@ fn params_to_dic(params: &RequestParameters) -> HashMap<String, String> {
     dictionary
 }
 
-// Builds the querystring to use in the tracker request form the RequestParameters struct
+/// Builds the querystring to use in the tracker request form the RequestParameters struct
 pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     let parameters = params_to_dic(parameters);
     let mut querystring = String::new();
@@ -39,7 +39,7 @@ pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     querystring
 }
 
-// transforms a slice of bytes into its utf-8 representation
+/// transforms a slice of bytes into its utf-8 representation
 pub fn u8_to_string(bytes: &[u8]) -> Option<String> {
     String::from_utf8(bytes.into()).ok()
 }

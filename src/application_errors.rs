@@ -5,6 +5,7 @@ use crate::config::ConfigError;
 use crate::http::HttpsConnectionError;
 use crate::logger::LoggerError;
 use crate::metainfo::MetainfoParserError;
+use crate::peer::PeerConnectionError;
 use crate::tracker::TrackerError;
 
 /// The error type that is returned by the application
@@ -14,6 +15,7 @@ pub enum ApplicationError {
     TrackerError(TrackerError),
     HttpsConnectionError(HttpsConnectionError),
     LoggerError(LoggerError),
+    PeerConnectionError(PeerConnectionError),
 }
 
 impl From<ConfigError> for ApplicationError {
@@ -46,6 +48,12 @@ impl From<LoggerError> for ApplicationError {
     }
 }
 
+impl From<PeerConnectionError> for ApplicationError {
+    fn from(error: PeerConnectionError) -> Self {
+        ApplicationError::PeerConnectionError(error)
+    }
+}
+
 impl Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -55,6 +63,9 @@ impl Display for ApplicationError {
             ApplicationError::LoggerError(error) => write!(f, "Logger Error - {}", error),
             ApplicationError::HttpsConnectionError(error) => {
                 return write!(f, "HttpsConnection Error - {}", error);
+            }
+            ApplicationError::PeerConnectionError(error) => {
+                write!(f, "Peer Connection Error - {}", error)
             }
         }
     }

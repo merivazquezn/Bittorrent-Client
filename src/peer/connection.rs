@@ -161,12 +161,18 @@ impl PeerConnection {
         };
 
         debug!("saving downloaded piece {} in disk", piece.piece_number);
-        save_piece_in_disk(&piece, "./downloads").unwrap();
+        save_piece_in_disk(&piece, "./downloads").map_err(|_| {
+            PeerConnectionError::PieceSavingError("Error trying to save piece".to_string())
+        })?;
         debug!("logging downloaded piece");
-        logger.log_piece(0).unwrap();
+        logger.log_piece(0).map_err(|_| {
+            PeerConnectionError::LoggingPieceError("Error trying to download piece".to_string())
+        })?;
 
         logger.stop();
-        logger_handle.join().unwrap();
+        logger_handle.join().map_err(|_| {
+            PeerConnectionError::JoiningError("Error trying to join threads".to_string())
+        })?;
 
         Ok(())
     }

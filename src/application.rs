@@ -34,15 +34,14 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
             "Trying to connect to peer {} and download piece {}",
             peer.ip, 0
         );
-        let peer_message_stream = PeerMessageStream::connect_to_peer(peer).unwrap();
+        let peer_message_stream = PeerMessageStream::connect_to_peer(peer)?;
         PeerConnection::new(
             peer,
             &client_peer_id,
             &metainfo,
             Box::new(peer_message_stream),
         )
-        .run()
-        .unwrap();
+        .run()?;
         info!("Finished download of piece {} from peer: {}", 0, peer.ip);
     }
     info!("Exited Bitorrent client successfully!");

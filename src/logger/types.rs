@@ -25,9 +25,11 @@ impl Logger {
         let builder = std::thread::Builder::new().name("logger worker".to_string());
         let handle = builder
             .spawn(move || {
-                Self::listen(rx, file).unwrap();
+                let _ = Self::listen(rx, file);
             })
-            .unwrap();
+            .map_err(|_| {
+                LoggerError::WorkerCreationError(String::from("Logger failed creating the worker"))
+            })?;
 
         Ok((Self { sender: tx }, handle))
     }
