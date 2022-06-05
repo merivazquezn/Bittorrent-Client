@@ -20,7 +20,7 @@ pub struct Info {
     ///the length in bytes of each single piece
     pub piece_length: u32,
     ///the concatenation of the 20 byte SHA-1 hashes of all pieces to verify the data sent to us by peers
-    pub pieces: Vec<u8>,
+    pub pieces: Vec<Vec<u8>>,
     ///the file name
     pub name: String,
     ///the length in bytes of the file to download

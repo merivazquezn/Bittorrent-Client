@@ -39,12 +39,14 @@ fn build_metainfo(
     let info_hashmap_decoded = get_from_bencoded_values_hashmap(hashmap, info_key)?;
     let info_hashmap = info_hashmap_decoded.get_as_dictionary()?;
 
+    let pieces_as_vec_u8 = get_from_bencoded_values_hashmap(info_hashmap, pieces_key)?
+        .get_as_string()?
+        .to_vec();
+
     let info = Info {
         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
             .get_as_integer()? as u32,
-        pieces: get_from_bencoded_values_hashmap(info_hashmap, pieces_key)?
-            .get_as_string()?
-            .to_vec(),
+        pieces: get_vec_of_hashes(&pieces_as_vec_u8),
         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
         length: *get_from_bencoded_values_hashmap(info_hashmap, length_key)?.get_as_integer()?
             as u64,
@@ -56,6 +58,19 @@ fn build_metainfo(
     };
     validate(&metainfo)?;
     Ok(metainfo)
+}
+
+// Converts the vector of pieces into a vector of each piece hash
+// each index represent each piece of file
+fn get_vec_of_hashes(pieces: &[u8]) -> Vec<Vec<u8>> {
+    let mut pieces_as_vec_of_hashes: Vec<Vec<u8>> = vec![];
+    let mut index = 0;
+    while index < pieces.len() {
+        let piece = pieces[index..index + SHA1_LENGTH].to_vec();
+        pieces_as_vec_of_hashes.push(piece);
+        index += SHA1_LENGTH;
+    }
+    pieces_as_vec_of_hashes
 }
 
 //Retrieves the 20-byte SHA-1 hash from the received hashmap value corresponding to the key
@@ -91,18 +106,27 @@ fn bencode_decoded_bytes_to_string(
     Ok(value.to_string())
 }
 
+fn validate_pieces(pieces: &[Vec<u8>]) -> Result<(), MetainfoParserError> {
+    for piece in pieces {
+        if piece.len() != SHA1_LENGTH {
+            return Err(MetainfoParserError::ValidationError);
+        }
+    }
+    Ok(())
+}
+
 //Performs basic validation of certain values in Info and Metainfo
 fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
     debug!("Validating metainfo");
     let info: &Info = &metainfo.info;
     if metainfo.announce.is_empty()
         || info.piece_length == 0
-        || info.pieces.len() % SHA1_LENGTH != 0
         || info.pieces.is_empty()
         || info.length == 0
     {
         return Err(MetainfoParserError::ValidationError);
     }
+    validate_pieces(&info.pieces)?;
     Ok(())
 }
 
@@ -126,12 +150,15 @@ mod tests {
         let test_bytes: Vec<u8> = std::fs::read("sample.torrent").unwrap();
         let metainfo = parse(&test_bytes).unwrap();
 
+        let mut pieces: Vec<Vec<u8>> = Vec::new();
+        pieces.push(vec![
+            92, 197, 230, 82, 190, 13, 230, 242, 120, 5, 179, 4, 100, 255, 155, 0, 244, 137, 240,
+            201,
+        ]);
+
         let expected_info: Info = Info {
             piece_length: 65536,
-            pieces: vec![
-                92, 197, 230, 82, 190, 13, 230, 242, 120, 5, 179, 4, 100, 255, 155, 0, 244, 137,
-                240, 201,
-            ],
+            pieces: pieces,
             name: "sample.txt".to_string(),
             length: 20,
         };
@@ -196,7 +223,7 @@ mod tests {
     fn invalid_values() {
         let invalid_info: Info = Info {
             piece_length: 65536,
-            pieces: vec![1, 2, 3], //array length is not a multiple of 20!
+            pieces: vec![vec![1, 2], vec![1, 3], vec![4, 0]], //array length is not a multiple of 20!
             name: "sample.txt".to_string(),
             length: 20,
         };

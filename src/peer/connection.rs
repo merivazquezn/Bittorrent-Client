@@ -182,8 +182,9 @@ mod tests {
     fn gets_real_piece() {
         let file = vec![0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let mut pieces = sha1_of(&file[0..8].to_vec());
-        pieces.extend(sha1_of(&file[8..16].to_vec()));
+        let mut pieces: Vec<Vec<u8>> = Vec::new();
+        pieces.push(sha1_of(&file[0..8].to_vec()));
+        pieces.push(sha1_of(&file[8..16].to_vec()));
 
         let metainfo_mock = Metainfo {
             announce: "".to_string(),
@@ -222,8 +223,9 @@ mod tests {
     fn gets_invalid_block() {
         let file = vec![0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let mut pieces = sha1_of(&file[0..8].to_vec());
-        pieces.extend(sha1_of(&file[8..16].to_vec()));
+        let mut pieces: Vec<Vec<u8>> = Vec::new();
+        pieces.push(sha1_of(&file[0..8].to_vec()));
+        pieces.push(sha1_of(&file[8..16].to_vec()));
 
         let metainfo_mock = Metainfo {
             announce: "".to_string(),
