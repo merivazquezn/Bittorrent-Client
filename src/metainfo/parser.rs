@@ -106,12 +106,21 @@ fn bencode_decoded_bytes_to_string(
     Ok(value.to_string())
 }
 
-fn validate_pieces(pieces: &[Vec<u8>]) -> Result<(), MetainfoParserError> {
+fn validate_pieces(
+    pieces: &[Vec<u8>],
+    file_length: usize,
+    piece_length: usize,
+) -> Result<(), MetainfoParserError> {
+    if pieces.len() != (file_length + (piece_length - 1)) / piece_length {
+        return Err(MetainfoParserError::ValidationError);
+    }
+
     for piece in pieces {
         if piece.len() != SHA1_LENGTH {
             return Err(MetainfoParserError::ValidationError);
         }
     }
+
     Ok(())
 }
 
@@ -126,7 +135,11 @@ fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
     {
         return Err(MetainfoParserError::ValidationError);
     }
-    validate_pieces(&info.pieces)?;
+    validate_pieces(
+        &info.pieces,
+        info.length as usize,
+        info.piece_length as usize,
+    )?;
     Ok(())
 }
 
@@ -223,7 +236,7 @@ mod tests {
     fn invalid_values() {
         let invalid_info: Info = Info {
             piece_length: 65536,
-            pieces: vec![vec![1, 2], vec![1, 3], vec![4, 0]], //array length is not a multiple of 20!
+            pieces: vec![vec![1, 2], vec![1, 3], vec![4, 0]], //array length of the first piece hash is not a multiple of 20!
             name: "sample.txt".to_string(),
             length: 20,
         };
