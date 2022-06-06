@@ -8,7 +8,6 @@ pub mod http;
 pub mod logger;
 pub mod metainfo;
 pub mod peer;
-pub mod tcp;
 pub mod tracker;
 
 pub mod boxed_result {
