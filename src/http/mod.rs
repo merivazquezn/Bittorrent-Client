@@ -3,8 +3,8 @@ mod errors;
 mod https_connection;
 mod types;
 
-pub use errors::HttpsConnectionError;
-pub use https_connection::HttpsConnection;
+pub use errors::HttpsServiceError;
+pub use https_connection::HttpsService;
 #[cfg(test)]
-pub use https_connection::MockHttpsConnection;
-pub use types::HttpService;
+pub use https_connection::MockHttpsService;
+pub use types::IHttpService;

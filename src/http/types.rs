@@ -1,5 +1,5 @@
-use super::errors::HttpsConnectionError;
+use super::errors::HttpsServiceError;
 
-pub trait HttpService {
-    fn get(&mut self, path: &str, query_params: &str) -> Result<Vec<u8>, HttpsConnectionError>;
+pub trait IHttpService {
+    fn get(&mut self, path: &str, query_params: &str) -> Result<Vec<u8>, HttpsServiceError>;
 }

@@ -1,5 +1,5 @@
+use super::errors::IPeerMessageServiceError;
 use super::errors::PeerConnectionError;
-use super::errors::PeerMessageServiceError;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
@@ -14,7 +14,7 @@ pub struct PeerConnection {
     _am_interested: bool,
     peer_choking: bool,
     _peer_interested: bool,
-    message_service: Box<dyn PeerMessageService>,
+    message_service: Box<dyn IPeerMessageService>,
     metainfo: Metainfo,
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
@@ -25,7 +25,7 @@ impl PeerConnection {
         _peer: &Peer,
         client_peer_id: &[u8],
         metainfo: &Metainfo,
-        message_service: Box<dyn PeerMessageService>,
+        message_service: Box<dyn IPeerMessageService>,
     ) -> Self {
         Self {
             _am_choking: true,
@@ -39,7 +39,7 @@ impl PeerConnection {
         }
     }
 
-    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let message = self.message_service.wait_for_message()?;
         match message.id {
             PeerMessageId::Unchoke => {
@@ -50,13 +50,13 @@ impl PeerConnection {
             }
             PeerMessageId::Piece => {}
             _ => {
-                return Err(PeerMessageServiceError::UnhandledMessage);
+                return Err(IPeerMessageServiceError::UnhandledMessage);
             }
         }
         Ok(message)
     }
 
-    fn wait_until_ready(&mut self) -> Result<(), PeerMessageServiceError> {
+    fn wait_until_ready(&mut self) -> Result<(), IPeerMessageServiceError> {
         loop {
             self.wait_for_message()?;
 
@@ -130,13 +130,13 @@ impl PeerConnection {
         self.message_service
             .handshake(&self.metainfo.info_hash, &self.client_peer_id)
             .map_err(|_| {
-                PeerMessageServiceError::PeerHandshakeError("Handshake error".to_string())
+                IPeerMessageServiceError::PeerHandshakeError("Handshake error".to_string())
             })?;
 
         self.message_service
             .send_message(&PeerMessage::unchoke())
             .map_err(|_| {
-                PeerMessageServiceError::SendingMessageError(
+                IPeerMessageServiceError::SendingMessageError(
                     "Error trying to send unchoke message".to_string(),
                 )
             })?;
@@ -144,7 +144,7 @@ impl PeerConnection {
         self.message_service
             .send_message(&PeerMessage::interested())
             .map_err(|_| {
-                PeerMessageServiceError::SendingMessageError(
+                IPeerMessageServiceError::SendingMessageError(
                     "Error trying to send interested message".to_string(),
                 )
             })?;
@@ -209,7 +209,7 @@ mod tests {
             peer_id: vec![],
         };
         const BLOCK_SIZE: u32 = 2;
-        let peer_message_stream_mock = PeerMessageStreamMock {
+        let peer_message_stream_mock = PeerMessageServiceMock {
             counter: 0,
             file: file.clone(),
             block_size: BLOCK_SIZE,
@@ -250,7 +250,7 @@ mod tests {
             peer_id: vec![],
         };
         const BLOCK_SIZE: u32 = 2;
-        let peer_message_stream_mock = PeerMessageStreamMock {
+        let peer_message_stream_mock = PeerMessageServiceMock {
             counter: 0,
             file: file.clone(),
             block_size: BLOCK_SIZE,

@@ -1,6 +1,6 @@
 use super::constants::*;
-use super::errors::HttpsConnectionError;
-use super::types::HttpService;
+use super::errors::HttpsServiceError;
+use super::types::IHttpService;
 use crate::boxed_result::BoxedResult;
 use log::*;
 use native_tls::TlsConnector;
@@ -9,22 +9,22 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
-pub struct HttpsConnection {
+pub struct HttpsService {
     stream: TlsStream<TcpStream>,
     host: String,
     max_retries: u8,
 }
 
-impl HttpsConnection {
-    pub fn from_url(url: &str) -> Result<HttpsConnection, HttpsConnectionError> {
+impl HttpsService {
+    pub fn from_url(url: &str) -> Result<HttpsService, HttpsServiceError> {
         debug!("Creating https connection from url: {}", url);
-        let host = HttpsConnection::url_to_host(url)?;
+        let host = HttpsService::url_to_host(url)?;
         let connector = TlsConnector::new()?;
         let stream = TcpStream::connect(format!("{}:{}", host, HTTPS_PORT))?;
         stream.set_write_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
         stream.set_read_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
         let stream = connector.connect(&host, stream)?;
-        Ok(HttpsConnection {
+        Ok(HttpsService {
             stream,
             host,
             max_retries: MAX_RETRIES,
@@ -40,9 +40,9 @@ impl HttpsConnection {
         let urn = url
             .split(URN_SEPARATOR)
             .nth(1)
-            .ok_or_else(|| HttpsConnectionError(format!("Missign URN in URL: {}", url)))?;
+            .ok_or_else(|| HttpsServiceError(format!("Missign URN in URL: {}", url)))?;
         let host = urn.split(HOST_SEPARATOR).next().ok_or_else(|| {
-            HttpsConnectionError(format!("Could not separate HOST from URN: {}", url))
+            HttpsServiceError(format!("Could not separate HOST from URN: {}", url))
         })?;
         Ok(host.into())
     }
@@ -54,7 +54,7 @@ impl HttpsConnection {
         if let Some(body) = self.response_body(&response) {
             Ok(body)
         } else {
-            Err(Box::new(HttpsConnectionError(format!(
+            Err(Box::new(HttpsServiceError(format!(
                 "Could not find response body in response: {}",
                 String::from_utf8_lossy(&response)
             ))))
@@ -62,8 +62,8 @@ impl HttpsConnection {
     }
 }
 
-impl HttpService for HttpsConnection {
-    fn get(&mut self, path: &str, query_params: &str) -> Result<Vec<u8>, HttpsConnectionError> {
+impl IHttpService for HttpsService {
+    fn get(&mut self, path: &str, query_params: &str) -> Result<Vec<u8>, HttpsServiceError> {
         let request = format!(
             "GET {}?{} HTTP/1.1\r\nHost: {}\r\n\r\n",
             path, query_params, self.host
@@ -74,7 +74,7 @@ impl HttpService for HttpsConnection {
                 Ok(body) => return Ok(body),
                 Err(e) => {
                     if retries >= self.max_retries {
-                        return Err(HttpsConnectionError(format!(
+                        return Err(HttpsServiceError(format!(
                             "Could not connect to host: {}. {}",
                             self.host, e
                         )));
@@ -87,13 +87,13 @@ impl HttpService for HttpsConnection {
     }
 }
 #[cfg(test)]
-pub struct MockHttpsConnection {
+pub struct MockHttpsService {
     pub read_bytes: Vec<u8>,
 }
 
 #[cfg(test)]
-impl HttpService for MockHttpsConnection {
-    fn get(&mut self, _path: &str, _query_params: &str) -> Result<Vec<u8>, HttpsConnectionError> {
+impl IHttpService for MockHttpsService {
+    fn get(&mut self, _path: &str, _query_params: &str) -> Result<Vec<u8>, HttpsServiceError> {
         Ok(self.read_bytes.clone())
     }
 }

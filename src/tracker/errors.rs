@@ -1,5 +1,5 @@
 use crate::bencode::BencodeDecoderError;
-use crate::http::HttpsConnectionError;
+use crate::http::HttpsServiceError;
 use std::fmt::Display;
 use std::fmt::Formatter;
 /// The error type that is returned when connecting to the tracker
@@ -20,8 +20,8 @@ impl From<BencodeDecoderError> for TrackerError {
 }
 
 // impl from HttpConnectionError for TrackerError
-impl From<HttpsConnectionError> for TrackerError {
-    fn from(error: HttpsConnectionError) -> Self {
+impl From<HttpsServiceError> for TrackerError {
+    fn from(error: HttpsServiceError) -> Self {
         TrackerError::HttpError(error.to_string())
     }
 }

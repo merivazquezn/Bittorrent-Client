@@ -6,7 +6,7 @@ use crate::logger::LoggerError;
 pub enum PeerConnectionError {
     LoggerCreationFailure(LoggerError),
     IoError(std::io::Error),
-    PeerMessageError(PeerMessageServiceError),
+    PeerMessageError(IPeerMessageServiceError),
     PieceRequestingError(String),
     InitialConnectionError(String),
     PieceSavingError(String),
@@ -15,7 +15,7 @@ pub enum PeerConnectionError {
 }
 
 #[derive(Debug)]
-pub enum PeerMessageServiceError {
+pub enum IPeerMessageServiceError {
     PeerHandshakeError(String),
     SendingMessageError(String),
     ReceivingMessageError(String),
@@ -36,24 +36,24 @@ impl From<std::io::Error> for PeerConnectionError {
     }
 }
 
-impl From<PeerMessageServiceError> for PeerConnectionError {
-    fn from(error: PeerMessageServiceError) -> Self {
+impl From<IPeerMessageServiceError> for PeerConnectionError {
+    fn from(error: IPeerMessageServiceError) -> Self {
         PeerConnectionError::PeerMessageError(error)
     }
 }
 
-impl fmt::Display for PeerMessageServiceError {
+impl fmt::Display for IPeerMessageServiceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PeerMessageServiceError::PeerHandshakeError(reason) => write!(f, "{}", reason),
-            PeerMessageServiceError::SendingMessageError(reason) => write!(f, "{}", reason),
-            PeerMessageServiceError::InvalidResponse(reason) => write!(f, "{}", reason),
-            PeerMessageServiceError::ReceivingMessageError(reason) => write!(f, "{}", reason),
-            PeerMessageServiceError::UnhandledMessage => write!(
+            IPeerMessageServiceError::PeerHandshakeError(reason) => write!(f, "{}", reason),
+            IPeerMessageServiceError::SendingMessageError(reason) => write!(f, "{}", reason),
+            IPeerMessageServiceError::InvalidResponse(reason) => write!(f, "{}", reason),
+            IPeerMessageServiceError::ReceivingMessageError(reason) => write!(f, "{}", reason),
+            IPeerMessageServiceError::UnhandledMessage => write!(
                 f,
                 "Peer received a message which does not know how to handle"
             ),
-            PeerMessageServiceError::InvalidMessageId => {
+            IPeerMessageServiceError::InvalidMessageId => {
                 write!(f, "Received message id which is not valid")
             }
         }

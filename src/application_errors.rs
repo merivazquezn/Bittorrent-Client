@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::Display;
 // use all the modules config, peer, tracker, metainfo
 use crate::config::ConfigError;
-use crate::http::HttpsConnectionError;
+use crate::http::HttpsServiceError;
 use crate::logger::LoggerError;
 use crate::metainfo::MetainfoParserError;
 use crate::peer::PeerConnectionError;
@@ -13,7 +13,7 @@ pub enum ApplicationError {
     ConfigError(ConfigError),
     MetainfoError(MetainfoParserError),
     TrackerError(TrackerError),
-    HttpsConnectionError(HttpsConnectionError),
+    HttpsServiceError(HttpsServiceError),
     LoggerError(LoggerError),
     PeerConnectionError(PeerConnectionError),
 }
@@ -36,9 +36,9 @@ impl From<TrackerError> for ApplicationError {
     }
 }
 
-impl From<HttpsConnectionError> for ApplicationError {
-    fn from(error: HttpsConnectionError) -> Self {
-        ApplicationError::HttpsConnectionError(error)
+impl From<HttpsServiceError> for ApplicationError {
+    fn from(error: HttpsServiceError) -> Self {
+        ApplicationError::HttpsServiceError(error)
     }
 }
 
@@ -61,8 +61,8 @@ impl Display for ApplicationError {
             ApplicationError::MetainfoError(error) => write!(f, "Metainfo Error - {}", error),
             ApplicationError::TrackerError(error) => write!(f, "Tracker Error - {}", error),
             ApplicationError::LoggerError(error) => write!(f, "Logger Error - {}", error),
-            ApplicationError::HttpsConnectionError(error) => {
-                return write!(f, "HttpsConnection Error - {}", error);
+            ApplicationError::HttpsServiceError(error) => {
+                return write!(f, "HttpsService Error - {}", error);
             }
             ApplicationError::PeerConnectionError(error) => {
                 write!(f, "Peer Connection Error - {}", error)

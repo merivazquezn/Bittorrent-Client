@@ -1,6 +1,7 @@
 use super::constants::*;
 use super::errors::*;
-use super::PeerMessageServiceError;
+use super::utils::is_keep_alive_message;
+use super::IPeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
 use log::*;
 use std::io::{Read, Write};
@@ -71,6 +72,7 @@ pub enum PeerMessageId {
     Piece,
     Cancel,
     Port,
+    KeepAlive,
 }
 
 impl PeerMessageId {
@@ -140,7 +142,7 @@ impl PeerMessage {
             payload,
         }
     }
-    // TODO: handle error
+
     pub fn piece(piece_index: u32, offset: u32, block: Vec<u8>) -> PeerMessage {
         let mut payload = vec![];
         payload.extend_from_slice(&Self::u32_to_vec_be(piece_index));
@@ -163,12 +165,12 @@ impl PeerMessage {
     }
 }
 
-pub struct PeerMessageStream {
+pub struct PeerMessageService {
     stream: TcpStream,
     max_retries: u8,
 }
 
-impl PeerMessageStream {
+impl PeerMessageService {
     pub fn connect_to_peer(peer: &Peer) -> Result<Self, PeerConnectionError> {
         trace!("Connecting to peer at IP: {}", peer.ip);
         let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port))
@@ -238,31 +240,37 @@ impl PeerMessageStream {
     }
 }
 
-impl PeerMessageService for PeerMessageStream {
-    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
+impl IPeerMessageService for PeerMessageService {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let mut message_length = [0u8; MESSAGE_LENGTH_SIZE];
         self.read_exact(&mut message_length).map_err(|_| {
-            PeerMessageServiceError::ReceivingMessageError(
+            IPeerMessageServiceError::ReceivingMessageError(
                 "Couldn't read message from other peer".to_string(),
             )
         })?;
         let message_length = u32::from_be_bytes(message_length);
+
+        if is_keep_alive_message(message_length) {
+            return self.wait_for_message();
+        }
+
         let mut message_id = [0u8; MESSAGE_ID_SIZE];
         self.read_exact(&mut message_id).map_err(|_| {
-            PeerMessageServiceError::ReceivingMessageError(
+            IPeerMessageServiceError::ReceivingMessageError(
                 "Couldn't read from other peer".to_string(),
             )
         })?;
+
         let mut payload: Vec<u8> = vec![0; (message_length - 1) as usize];
         self.read_exact(&mut payload).map_err(|_| {
-            PeerMessageServiceError::ReceivingMessageError(
+            IPeerMessageServiceError::ReceivingMessageError(
                 "Couldn't read from other peer".to_string(),
             )
         })?;
 
         let msg = PeerMessage {
             id: PeerMessageId::from_u8(message_id[0])
-                .map_err(|_| PeerMessageServiceError::InvalidMessageId)?,
+                .map_err(|_| IPeerMessageServiceError::InvalidMessageId)?,
             length: message_length,
             payload,
         };
@@ -274,16 +282,16 @@ impl PeerMessageService for PeerMessageStream {
         &mut self,
         info_hash: &[u8],
         peer_id: &[u8],
-    ) -> Result<(), PeerMessageServiceError> {
+    ) -> Result<(), IPeerMessageServiceError> {
         let handshake_message = self.create_handshake_message(info_hash, peer_id);
         self.write_all(&handshake_message).map_err(|_| {
-            PeerMessageServiceError::SendingMessageError(
+            IPeerMessageServiceError::SendingMessageError(
                 "Couldn't send handshake message to other peer".to_string(),
             )
         })?;
         let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
         self.read_exact(&mut handshake_response).map_err(|_| {
-            PeerMessageServiceError::ReceivingMessageError(
+            IPeerMessageServiceError::ReceivingMessageError(
                 "Couldn't read handshake from other peer".into(),
             )
         })?;
@@ -291,13 +299,13 @@ impl PeerMessageService for PeerMessageStream {
         Ok(())
     }
 
-    fn send_message(&mut self, message: &PeerMessage) -> Result<(), PeerMessageServiceError> {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
         let mut bytes = Vec::with_capacity((message.length + 4) as usize);
         bytes.extend_from_slice(&message.length.to_be_bytes());
         bytes.extend_from_slice(&(message.id as u8).to_be_bytes());
         bytes.extend_from_slice(&message.payload);
         self.write_all(&bytes).map_err(|_| {
-            PeerMessageServiceError::SendingMessageError(
+            IPeerMessageServiceError::SendingMessageError(
                 "Couldn't send message to other peer".to_string(),
             )
         })?;
@@ -306,14 +314,14 @@ impl PeerMessageService for PeerMessageStream {
     }
 }
 
-pub struct PeerMessageStreamMock {
+pub struct PeerMessageServiceMock {
     pub counter: u32,
     pub file: Vec<u8>,
     pub block_size: u32,
 }
 
-impl PeerMessageService for PeerMessageStreamMock {
-    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError> {
+impl IPeerMessageService for PeerMessageServiceMock {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let msg = PeerMessage::piece(
             0,
             self.counter * self.block_size,
@@ -329,21 +337,21 @@ impl PeerMessageService for PeerMessageStreamMock {
         &mut self,
         _info_hash: &[u8],
         _peer_id: &[u8],
-    ) -> Result<(), PeerMessageServiceError> {
+    ) -> Result<(), IPeerMessageServiceError> {
         Ok(())
     }
 
-    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), PeerMessageServiceError> {
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
         Ok(())
     }
 }
 
-pub trait PeerMessageService {
+pub trait IPeerMessageService {
     fn handshake(
         &mut self,
         info_hash: &[u8],
         peer_id: &[u8],
-    ) -> Result<(), PeerMessageServiceError>;
-    fn wait_for_message(&mut self) -> Result<PeerMessage, PeerMessageServiceError>;
-    fn send_message(&mut self, message: &PeerMessage) -> Result<(), PeerMessageServiceError>;
+    ) -> Result<(), IPeerMessageServiceError>;
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError>;
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError>;
 }

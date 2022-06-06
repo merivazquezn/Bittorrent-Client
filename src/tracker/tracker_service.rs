@@ -6,14 +6,14 @@ use super::types::*;
 use super::utils::*;
 use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
-use crate::http::HttpService;
+use crate::http::IHttpService;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
 use log::*;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
-    http_service: Box<dyn HttpService>,
+    http_service: Box<dyn IHttpService>,
 }
 
 impl TrackerService {
@@ -21,7 +21,7 @@ impl TrackerService {
         metainfo: &Metainfo,
         listen_port: u16,
         peer_id: &[u8; 20],
-        http_service: Box<dyn HttpService>,
+        http_service: Box<dyn IHttpService>,
     ) -> TrackerService {
         debug!("Parsing tracker request parameters");
         TrackerService {
@@ -58,7 +58,7 @@ impl TrackerService {
     /// use bittorrent_rustico::tracker::TrackerService;
     /// use bittorrent_rustico::config::Config;
     /// use bittorrent_rustico::metainfo::Metainfo;
-    /// use bittorrent_rustico::http::HttpsConnection;
+    /// use bittorrent_rustico::http::HttpsService;
     /// use rand::Rng;
     ///
     /// const CONFIG_PATH: &str = "config.txt";
@@ -66,7 +66,7 @@ impl TrackerService {
     /// let peer_id = rand::thread_rng().gen::<[u8; 20]>();
     /// let config = Config::from_path(CONFIG_PATH).unwrap();
     /// let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
-    /// let mut http_service = HttpsConnection::from_url(&metainfo.announce).unwrap();
+    /// let mut http_service = HttpsService::from_url(&metainfo.announce).unwrap();
     /// let mut tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, Box::new(http_service));
     /// let peer_list = tracker_service.get_peers().unwrap();
     /// println!("{:?}", peer_list);
@@ -171,7 +171,7 @@ mod tests {
     use super::*;
     use crate::bencode;
     use crate::config::Config;
-    use crate::http::MockHttpsConnection;
+    use crate::http::MockHttpsService;
     use crate::metainfo::Metainfo;
     use rand::Rng;
     use std::collections::HashMap;
@@ -183,7 +183,7 @@ mod tests {
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
         let config = Config::from_path(CONFIG_PATH).unwrap();
         let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
-        let connection = Box::new(MockHttpsConnection { read_bytes: vec![] });
+        let connection = Box::new(MockHttpsService { read_bytes: vec![] });
         let mut tracker_service =
             TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
         let result = tracker_service.get_peers();
@@ -216,7 +216,7 @@ mod tests {
             ]))]),
         )]));
 
-        let connection = Box::new(MockHttpsConnection {
+        let connection = Box::new(MockHttpsService {
             read_bytes: bencode::encode(&bencoded_response),
         });
         let mut tracker_service =

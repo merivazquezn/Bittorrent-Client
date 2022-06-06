@@ -2,36 +2,36 @@ use std::error;
 use std::fmt;
 
 #[derive(Debug)]
-pub struct HttpsConnectionError(pub String);
+pub struct HttpsServiceError(pub String);
 
-impl error::Error for HttpsConnectionError {}
+impl error::Error for HttpsServiceError {}
 
-// impl From Box<dyn Error> trait for HttpsConnectionError
-impl From<Box<dyn error::Error>> for HttpsConnectionError {
+// impl From Box<dyn Error> trait for HttpsServiceError
+impl From<Box<dyn error::Error>> for HttpsServiceError {
     fn from(error: Box<dyn error::Error>) -> Self {
-        HttpsConnectionError(format!("{}", error))
+        HttpsServiceError(format!("{}", error))
     }
 }
 
-impl From<native_tls::Error> for HttpsConnectionError {
+impl From<native_tls::Error> for HttpsServiceError {
     fn from(error: native_tls::Error) -> Self {
-        HttpsConnectionError(format!("Native tls connection creation error: {}", error))
+        HttpsServiceError(format!("Native tls connection creation error: {}", error))
     }
 }
 
-impl From<std::io::Error> for HttpsConnectionError {
+impl From<std::io::Error> for HttpsServiceError {
     fn from(error: std::io::Error) -> Self {
-        HttpsConnectionError(format!("Connection creation error: {}", error))
+        HttpsServiceError(format!("Connection creation error: {}", error))
     }
 }
 
-impl From<native_tls::HandshakeError<std::net::TcpStream>> for HttpsConnectionError {
+impl From<native_tls::HandshakeError<std::net::TcpStream>> for HttpsServiceError {
     fn from(error: native_tls::HandshakeError<std::net::TcpStream>) -> Self {
-        HttpsConnectionError(format!("Connection handshake error: {}", error))
+        HttpsServiceError(format!("Connection handshake error: {}", error))
     }
 }
 
-impl fmt::Display for HttpsConnectionError {
+impl fmt::Display for HttpsServiceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }

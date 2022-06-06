@@ -32,3 +32,7 @@ pub fn valid_block(payload: &[u8], requested_index: u32, requested_offset: u32) 
     let offset_recieved = vec_be_to_u32(&payload[4..=7]);
     (piece_index_recieved == requested_index) && (offset_recieved == requested_offset)
 }
+
+pub fn is_keep_alive_message(message_length: u32) -> bool {
+    message_length == 0
+}
