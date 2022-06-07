@@ -1,4 +1,5 @@
 use crate::metainfo::Metainfo;
+use log::*;
 use sha1::{Digest, Sha1};
 
 // Gets sha1 hash of vector u8
@@ -22,6 +23,9 @@ pub fn vec_be_to_u32(bytes: &[u8]) -> u32 {
 pub fn valid_piece(piece: &[u8], piece_index: u32, metainfo: &Metainfo) -> bool {
     let real_piece_sha1 = metainfo.info.pieces[piece_index as usize].to_vec();
     let recieved_piece_sha1 = sha1_of(piece);
+    info!("Comparing downloaded piece with expected piece");
+    info!("Expected piece SHA1: {:?}\n", real_piece_sha1);
+    info!("Received piece SHA1: {:?}\n", recieved_piece_sha1);
     recieved_piece_sha1 == real_piece_sha1
 }
 

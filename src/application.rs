@@ -3,7 +3,11 @@ use crate::application_errors::ApplicationError;
 use crate::config::Config;
 use crate::http::HttpsService;
 use crate::metainfo::Metainfo;
-use crate::peer::{PeerConnection, PeerMessageService};
+use crate::peer::PeerConnection;
+use crate::peer::PeerMessageService;
+use crate::peer_connection_manager::PeerConnectionManager;
+use crate::piece_manager::PieceManager;
+use crate::piece_saver::PieceSaver;
 use crate::tracker::TrackerService;
 use log::*;
 use rand::Rng;
@@ -29,6 +33,19 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
     info!("Fetching peers from tracker");
     let tracker_response = tracker_service.get_peers()?;
     info!("Fetched peers from Tracker successfully");
+
+    /* *********************************************************************** */
+
+    let (piece_manager, piece_manager_handle) = PieceManager::new();
+
+    let (peer_connection_manager, peer_connection_manager_handle) =
+        PeerConnectionManager::new(piece_manager.clone());
+
+    let (piece_saver, piece_saver_handle) = PieceSaver::new(piece_manager.clone());
+
+    piece_manager.start(peer_connection_manager.clone());
+    peer_connection_manager.start(piece_manager.clone(), piece_saver.clone());
+
     if let Some(peer) = tracker_response.peers.get(0) {
         info!(
             "Trying to connect to peer {} and download piece {}",
@@ -44,6 +61,17 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
         .run()?;
         info!("Finished download of piece {} from peer: {}", 0, peer.ip);
     }
+
+    trace!("Start closing threads");
+
+    piece_manager.stop();
+    peer_connection_manager.stop();
+    piece_saver.stop();
+
+    piece_manager_handle.join()?;
+    peer_connection_manager_handle.join()?;
+    piece_saver_handle.join()?;
+
     info!("Exited Bitorrent client successfully!");
     Ok(())
 }

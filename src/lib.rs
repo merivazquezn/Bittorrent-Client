@@ -8,6 +8,9 @@ pub mod http;
 pub mod logger;
 pub mod metainfo;
 pub mod peer;
+pub mod peer_connection_manager;
+pub mod piece_manager;
+pub mod piece_saver;
 pub mod tracker;
 
 pub mod boxed_result {

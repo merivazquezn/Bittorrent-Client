@@ -1,5 +1,7 @@
+use super::constants::*;
 use super::errors::IPeerMessageServiceError;
 use super::errors::PeerConnectionError;
+use super::types::IPeerMessageService;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
@@ -76,6 +78,8 @@ impl PeerConnection {
         begin: u32,
         lenght: u32,
     ) -> Result<Vec<u8>, PeerConnectionError> {
+        let block_count = self.metainfo.info.piece_length / BLOCK_SIZE;
+
         self.message_service
             .send_message(&PeerMessage::request(index, begin, lenght))?;
         loop {
@@ -86,7 +90,12 @@ impl PeerConnection {
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
-                    debug!("block received");
+                    debug!(
+                        "block {} of {} received",
+                        (begin / BLOCK_SIZE) + 1,
+                        block_count,
+                    );
+                    PeerConnection::draw_ascii_progress_bar((begin / BLOCK_SIZE) + 1, block_count);
                     break Ok(block);
                 } else {
                     break Err(PeerConnectionError::PieceRequestingError(
@@ -123,6 +132,26 @@ impl PeerConnection {
                 }
             }
         }
+    }
+
+    fn draw_ascii_progress_bar(current_progress: u32, total_blocks: u32) {
+        let progress_bar_width = total_blocks;
+        let progress_bar_length =
+            (current_progress as f32 / total_blocks as f32) * progress_bar_width as f32;
+        let progress_bar_length = progress_bar_length as u32;
+        let mut progress_bar = String::new();
+        for i in 0..progress_bar_length {
+            if i == current_progress {
+                break;
+            }
+            progress_bar.push('#');
+        }
+        for _ in current_progress..progress_bar_width {
+            progress_bar.push('-');
+        }
+
+        let final_bar = format!("\t\t\t\t\t\t\t[{}]\n\n", progress_bar);
+        print_green(&final_bar);
     }
 
     pub fn run(&mut self) -> Result<(), PeerConnectionError> {
@@ -176,6 +205,10 @@ impl PeerConnection {
 
         Ok(())
     }
+}
+
+fn print_green(text: &str) {
+    println!("\x1b[32m{}\x1b[0m", text);
 }
 
 #[cfg(test)]

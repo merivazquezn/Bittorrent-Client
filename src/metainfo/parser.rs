@@ -102,7 +102,7 @@ fn bencode_decoded_bytes_to_string(
 ) -> Result<String, MetainfoParserError> {
     let value_bytes_decoded = get_from_bencoded_values_hashmap(hashmap, key)?;
     let value_bytes = value_bytes_decoded.get_as_string()?;
-    let value: &str = from_utf8(value_bytes).map_err(|_err| MetainfoParserError::UTF8Error)?;
+    let value: &str = from_utf8(value_bytes).map_err(|_| MetainfoParserError::UTF8Error)?;
     Ok(value.to_string())
 }
 

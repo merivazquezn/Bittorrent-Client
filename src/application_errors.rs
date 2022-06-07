@@ -1,12 +1,11 @@
-use std::fmt;
-use std::fmt::Display;
-// use all the modules config, peer, tracker, metainfo
 use crate::config::ConfigError;
 use crate::http::HttpsServiceError;
 use crate::logger::LoggerError;
 use crate::metainfo::MetainfoParserError;
 use crate::peer::PeerConnectionError;
 use crate::tracker::TrackerError;
+use std::fmt;
+use std::fmt::Display;
 
 /// The error type that is returned by the application
 pub enum ApplicationError {
@@ -15,6 +14,7 @@ pub enum ApplicationError {
     TrackerError(TrackerError),
     HttpsServiceError(HttpsServiceError),
     LoggerError(LoggerError),
+    JoinError(String),
     PeerConnectionError(PeerConnectionError),
 }
 
@@ -54,6 +54,13 @@ impl From<PeerConnectionError> for ApplicationError {
     }
 }
 
+// implement from Box<dyn std::any::Any + std::marker::Send>
+impl From<Box<dyn std::any::Any + std::marker::Send>> for ApplicationError {
+    fn from(error: Box<dyn std::any::Any + std::marker::Send>) -> Self {
+        ApplicationError::JoinError(format!("{:?}", error))
+    }
+}
+
 impl Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -67,6 +74,7 @@ impl Display for ApplicationError {
             ApplicationError::PeerConnectionError(error) => {
                 write!(f, "Peer Connection Error - {}", error)
             }
+            ApplicationError::JoinError(error) => write!(f, "Join Error - {}", error),
         }
     }
 }
