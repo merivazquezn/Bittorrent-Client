@@ -1,3 +1,4 @@
+use super::constants::*;
 use crate::metainfo::Metainfo;
 use log::*;
 use sha1::{Digest, Sha1};
@@ -39,4 +40,14 @@ pub fn valid_block(payload: &[u8], requested_index: u32, requested_offset: u32) 
 
 pub fn is_keep_alive_message(message_length: u32) -> bool {
     message_length == 0
+}
+
+pub fn create_handshake_message(info_hash: &[u8], peer_id: &[u8]) -> Vec<u8> {
+    let mut handshake_message = Vec::new();
+    handshake_message.extend_from_slice(&[PSTRLEN]);
+    handshake_message.extend_from_slice(b"BitTorrent protocol");
+    handshake_message.extend_from_slice(&[0u8; 8]);
+    handshake_message.extend_from_slice(info_hash);
+    handshake_message.extend_from_slice(peer_id);
+    handshake_message
 }
