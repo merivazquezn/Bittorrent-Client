@@ -10,6 +10,7 @@ use crate::http::IHttpService;
 use crate::metainfo::Metainfo;
 use crate::peer::Peer;
 use log::*;
+use rand::Rng;
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
@@ -130,7 +131,7 @@ impl TrackerService {
                     )))
                 }
             };
-            let peer_port = match peer_dic.get(PORT) {
+            let port = match peer_dic.get(PORT) {
                 // parse the port as a u16
                 Some(port) => *port.get_as_integer()? as u16,
                 None => {
@@ -141,20 +142,18 @@ impl TrackerService {
                 }
             };
             let peer_id = match peer_dic.get(PEER_ID) {
-                Some(peer_id) => peer_id.get_as_string()?,
+                Some(peer_id) => peer_id.get_as_string()?.to_vec(),
                 None => {
-                    return Err(TrackerError::InvalidResponse(format!(
-                        "missing id of peer {:?}",
-                        peer_dic
-                    )))
+                    // we create a random peer id if they don't provide one
+                    rand::thread_rng().gen::<[u8; 20]>().to_vec()
                 }
             };
             let peer = Peer {
                 ip: u8_to_string(peer_ip).ok_or_else(|| {
                     TrackerError::InvalidResponse(format!("invalid peer ip: {:?}", peer_id))
                 })?,
-                port: peer_port,
-                peer_id: peer_id.to_vec(),
+                port,
+                peer_id,
             };
 
             peer_list.push(peer);

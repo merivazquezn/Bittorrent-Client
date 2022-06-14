@@ -3,14 +3,12 @@ use super::errors::HttpsServiceError;
 use super::types::IHttpService;
 use crate::boxed_result::BoxedResult;
 use log::*;
-use native_tls::TlsConnector;
-use native_tls::TlsStream;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
 pub struct HttpsService {
-    stream: TlsStream<TcpStream>,
+    stream: TcpStream,
     host: String,
     max_retries: u8,
 }
@@ -19,11 +17,10 @@ impl HttpsService {
     pub fn from_url(url: &str) -> Result<HttpsService, HttpsServiceError> {
         debug!("Creating https connection from url: {}", url);
         let host = HttpsService::url_to_host(url)?;
-        let connector = TlsConnector::new()?;
-        let stream = TcpStream::connect(format!("{}:{}", host, HTTPS_PORT))?;
+        trace!("host: {}", host);
+        let stream = TcpStream::connect(&host)?;
         stream.set_write_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
         stream.set_read_timeout(Some(Duration::new(REQUEST_TIMEOUT, 0)))?;
-        let stream = connector.connect(&host, stream)?;
         Ok(HttpsService {
             stream,
             host,
