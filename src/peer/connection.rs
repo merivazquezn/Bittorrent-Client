@@ -205,6 +205,34 @@ impl PeerConnection {
 
         Ok(())
     }
+
+    //Executes all steps needed to start an active connection with Peer
+    pub fn open_connection(&mut self) -> Result<(), PeerConnectionError> {
+        self.message_service
+            .handshake(&self.metainfo.info_hash, &self.client_peer_id)
+            .map_err(|_| {
+                IPeerMessageServiceError::PeerHandshakeError("Handshake error".to_string())
+            })?;
+
+        self.message_service
+            .send_message(&PeerMessage::unchoke())
+            .map_err(|_| {
+                IPeerMessageServiceError::SendingMessageError(
+                    "Error trying to send unchoke message".to_string(),
+                )
+            })?;
+
+        self.message_service
+            .send_message(&PeerMessage::interested())
+            .map_err(|_| {
+                IPeerMessageServiceError::SendingMessageError(
+                    "Error trying to send interested message".to_string(),
+                )
+            })?;
+
+        self.wait_until_ready()?;
+        Ok(())
+    }
 }
 
 fn print_green(text: &str) {
