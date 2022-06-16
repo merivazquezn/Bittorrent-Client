@@ -38,8 +38,7 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
 
     let (piece_manager, piece_manager_handle) = PieceManager::new();
 
-    let (peer_connection_manager, peer_connection_manager_handle) =
-        PeerConnectionManager::new(piece_manager.clone());
+    let (peer_connection_manager, peer_connection_manager_handle) = PeerConnectionManager::new();
 
     let (piece_saver, piece_saver_handle) = PieceSaver::new(piece_manager.clone());
 
