@@ -14,9 +14,15 @@ const HANDSHAKE_LENGTH: usize = 68;
 // Message constants
 const MESSAGE_ID_SIZE: usize = 1;
 const MESSAGE_LENGTH_SIZE: usize = 4;
-
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Bitfield(Vec<u8>);
+
+impl Default for Bitfield {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Bitfield {
     pub fn new() -> Self {
@@ -345,7 +351,6 @@ impl IPeerMessageService for PeerMessageServiceMock {
         Ok(())
     }
 }
-
 pub trait IPeerMessageService {
     fn handshake(
         &mut self,

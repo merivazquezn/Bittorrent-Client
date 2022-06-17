@@ -16,18 +16,19 @@ pub struct PeerConnection {
     _am_interested: bool,
     peer_choking: bool,
     _peer_interested: bool,
-    message_service: Box<dyn IPeerMessageService>,
+    message_service: Box<dyn IPeerMessageService + Send>,
     metainfo: Metainfo,
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
+    peer_id: Vec<u8>,
 }
 
 impl PeerConnection {
     pub fn new(
-        _peer: &Peer,
+        peer: &Peer,
         client_peer_id: &[u8],
         metainfo: &Metainfo,
-        message_service: Box<dyn IPeerMessageService>,
+        message_service: Box<dyn IPeerMessageService + Send>,
     ) -> Self {
         Self {
             _am_choking: true,
@@ -38,7 +39,15 @@ impl PeerConnection {
             metainfo: metainfo.clone(),
             message_service,
             bitfield: Bitfield::new(),
+            peer_id: peer.peer_id.clone(),
         }
+    }
+    pub fn get_peer_id(&self) -> Vec<u8> {
+        self.peer_id.clone()
+    }
+
+    pub fn get_bitfield(&self) -> Bitfield {
+        self.bitfield.clone()
     }
 
     fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
@@ -109,7 +118,7 @@ impl PeerConnection {
     // Requests a specific piece from the peer.
     // It does it sequentially, by requesting blocks of data, until the whole piece is recieved.
     // Once it is complete, we verify its sha1 hash, and return the piece if it is valid.
-    fn request_piece(
+    pub fn request_piece(
         &mut self,
         piece_index: u32,
         block_size: u32,
