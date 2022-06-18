@@ -40,7 +40,14 @@ impl ServerConnection {
             .unwrap();
 
         loop {
-            let message: PeerMessage = self.message_service.wait_for_message()?;
+            let message: PeerMessage = match self.message_service.wait_for_message() {
+                Ok(message) => message,
+                Err(_) => {
+                    debug!("Server connection was closed by client or timeout ocurred");
+                    break;
+                }
+            };
+
             trace!("Server: received message: {:?}", message);
             match message.id {
                 PeerMessageId::Request => self.handle_request(message)?,

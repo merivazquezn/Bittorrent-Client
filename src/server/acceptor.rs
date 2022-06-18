@@ -6,6 +6,7 @@ use crate::metainfo::Metainfo;
 use crate::peer::PeerMessageService;
 use std::net::TcpListener;
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 #[allow(dead_code)]
 pub struct Server;
@@ -26,6 +27,9 @@ impl Server {
         let pool = ThreadPool::new(POOL_WORKERS)?;
         for stream in listener.incoming() {
             let stream = stream?;
+            stream.set_read_timeout(Some(Duration::new(SERVER_READ_TIMEOUT, 0)))?;
+            stream.set_write_timeout(Some(Duration::new(SERVER_WRITE_TIMEOUT, 0)))?;
+
             let metainfo = metainfo.clone();
             let client_peer_id = client_peer_id.clone();
             pool.execute(|| {
