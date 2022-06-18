@@ -3,12 +3,16 @@ use std::fs;
 use std::path::Path;
 
 fn create_downloads_directory(path: &str) -> Result<(), LoggerError> {
-    if !path.is_empty() && !Path::new(path).exists() {
+    if should_create_dir(path) {
         fs::create_dir_all(path)
             .map_err(|_| LoggerError::CreateDirectoryError(path.to_string()))?;
     }
 
     Ok(())
+}
+
+fn should_create_dir(path: &str) -> bool {
+    !path.is_empty() && !Path::new(path).exists()
 }
 
 // Creates a log file in the given directory, creating the directory if it does not exist.

@@ -30,7 +30,8 @@ impl Server {
             let client_peer_id = client_peer_id.clone();
             pool.execute(|| {
                 let message_service = PeerMessageService::from_peer_connection(stream);
-                ServerConnection::new(client_peer_id, metainfo, Box::new(message_service)).run();
+                let _ = ServerConnection::new(client_peer_id, metainfo, Box::new(message_service))
+                    .run();
             });
         }
 

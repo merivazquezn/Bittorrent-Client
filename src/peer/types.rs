@@ -149,10 +149,10 @@ impl PeerMessage {
         }
     }
 
-    pub fn piece(piece_index: u32, offset: u32, block: Vec<u8>) -> PeerMessage {
+    pub fn piece(piece_index: usize, offset: usize, block: Vec<u8>) -> PeerMessage {
         let mut payload = vec![];
-        payload.extend_from_slice(&Self::u32_to_vec_be(piece_index));
-        payload.extend_from_slice(&Self::u32_to_vec_be(offset));
+        payload.extend_from_slice(&Self::u32_to_vec_be(piece_index as u32));
+        payload.extend_from_slice(&Self::u32_to_vec_be(offset as u32));
         payload.extend_from_slice(&block);
 
         PeerMessage {
@@ -362,7 +362,7 @@ impl IPeerMessageService for PeerMessageServiceMock {
     fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let msg = PeerMessage::piece(
             0,
-            self.counter * self.block_size,
+            (self.counter * self.block_size) as usize,
             self.file[(self.counter * self.block_size) as usize
                 ..(self.block_size + self.counter * self.block_size) as usize]
                 .to_vec(),

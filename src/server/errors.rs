@@ -1,10 +1,13 @@
 use std::fmt;
 
+use crate::peer::IPeerMessageServiceError;
+
 #[derive(Debug)]
 pub enum ServerError {
     TcpStreamError(std::io::Error),
     JoinError,
     ThreadPoolError(ThreadPoolError),
+    PieceRequestError(String),
 }
 
 #[derive(Debug)]
@@ -24,6 +27,12 @@ impl From<ThreadPoolError> for ServerError {
     }
 }
 
+impl From<IPeerMessageServiceError> for ServerError {
+    fn from(error: IPeerMessageServiceError) -> Self {
+        ServerError::PieceRequestError(error.to_string())
+    }
+}
+
 impl fmt::Display for ThreadPoolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -38,6 +47,7 @@ impl fmt::Display for ServerError {
             ServerError::TcpStreamError(error) => write!(f, "TcpStream error: {}", error),
             ServerError::JoinError => write!(f, "Error trying to join thread"),
             ServerError::ThreadPoolError(error) => write!(f, "ThreadPool error: {}", error),
+            ServerError::PieceRequestError(reason) => write!(f, "Piece request error: {}", reason),
         }
     }
 }
