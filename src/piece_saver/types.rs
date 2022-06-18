@@ -1,53 +1,28 @@
-use std::sync::mpsc::{self, RecvError};
-use std::sync::mpsc::{Receiver, Sender};
-use std::thread::JoinHandle;
-
-use crate::piece_manager::PieceManager;
+use super::sender::types::PieceSaverSender;
+use super::worker::types::PieceSaverWorker;
+use crate::piece_manager::sender::PieceManagerSender;
+use std::sync::mpsc;
 
 #[allow(dead_code)]
 pub enum PieceSaverMessage {
-    DummyMessage,
-    OtherMessage,
+    ValidateAndSavePiece(u32, Vec<u8>),
+    StopSaving,
 }
 
-#[derive(Clone)]
-#[allow(dead_code)]
-pub struct PieceSaver {
-    sender: Sender<PieceSaverMessage>,
-    piece_manager: PieceManager,
-}
+pub fn new_piece_saver(
+    piece_manager_sender: PieceManagerSender,
+    sha1_pieces: Vec<Vec<u8>>,
+    download_path: String,
+) -> (PieceSaverSender, PieceSaverWorker) {
+    let (tx, rx) = mpsc::channel();
 
-impl PieceSaver {
-    pub fn new(piece_manager: PieceManager) -> (Self, JoinHandle<()>) {
-        let (tx, rx) = mpsc::channel();
-        let handle = std::thread::spawn(move || {
-            Self::listen(rx).unwrap();
-        });
-
-        (
-            Self {
-                sender: tx,
-                piece_manager,
-            },
-            handle,
-        )
-    }
-
-    pub fn stop(&self) {
-        let _ = self.sender.send(PieceSaverMessage::DummyMessage);
-    }
-
-    fn listen(receiver: Receiver<PieceSaverMessage>) -> Result<(), RecvError> {
-        loop {
-            let message = receiver.recv()?;
-            match message {
-                PieceSaverMessage::DummyMessage => break,
-                PieceSaverMessage::OtherMessage => {
-                    unreachable!()
-                }
-            }
-        }
-
-        Ok(())
-    }
+    (
+        PieceSaverSender { sender: tx },
+        PieceSaverWorker {
+            receiver: rx,
+            piece_manager_sender,
+            sha1_pieces,
+            download_path,
+        },
+    )
 }

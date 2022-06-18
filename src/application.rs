@@ -6,8 +6,10 @@ use crate::metainfo::Metainfo;
 use crate::peer::PeerConnection;
 use crate::peer::PeerMessageService;
 use crate::peer_connection_manager::PeerConnectionManager;
-use crate::piece_manager::PieceManager;
-use crate::piece_saver::PieceSaver;
+use crate::piece_manager::new_piece_manager;
+// use crate::piece_manager::PieceManager;
+use crate::piece_saver::new_piece_saver;
+
 use crate::tracker::TrackerService;
 use crate::ui::UIMessageSender;
 use log::*;
@@ -42,14 +44,25 @@ pub fn run_with_torrent(
 
     /* *********************************************************************** */
 
-    let (piece_manager, piece_manager_handle) = PieceManager::new();
+    let (piece_manager_sender, mut piece_manager_worker) = new_piece_manager();
+    let piece_manager_worker_handle = std::thread::spawn(move || {
+        let _ = piece_manager_worker.listen();
+    });
 
     let (peer_connection_manager, peer_connection_manager_handle) = PeerConnectionManager::new();
 
-    let (piece_saver, piece_saver_handle) = PieceSaver::new(piece_manager.clone());
+    let (piece_saver_sender, piece_saver_worker) = new_piece_saver(
+        piece_manager_sender.clone(),
+        metainfo.info.pieces.clone(),
+        config.download_path,
+    );
 
-    piece_manager.start(peer_connection_manager.clone());
-    peer_connection_manager.start(piece_manager.clone(), piece_saver.clone());
+    let piece_saver_worker_handle = std::thread::spawn(move || {
+        piece_saver_worker.listen().unwrap();
+    });
+
+    piece_manager_sender.start(peer_connection_manager.clone());
+    peer_connection_manager.start(piece_manager_sender.clone(), piece_saver_sender.clone());
 
     if let Some(peer) = tracker_response.peers.get(0) {
         info!(
@@ -69,13 +82,13 @@ pub fn run_with_torrent(
 
     trace!("Start closing threads");
 
-    piece_manager.stop();
+    piece_manager_sender.stop();
     peer_connection_manager.stop();
-    piece_saver.stop();
+    piece_saver_sender.stop();
 
-    piece_manager_handle.join()?;
+    piece_manager_worker_handle.join()?;
     peer_connection_manager_handle.join()?;
-    piece_saver_handle.join()?;
+    piece_saver_worker_handle.join()?;
 
     info!("Exited Bitorrent client successfully!");
     Ok(())

@@ -1,5 +1,5 @@
-use crate::piece_manager::PieceManager;
-use crate::piece_saver::PieceSaver;
+use crate::piece_manager::sender::PieceManagerSender;
+use crate::piece_saver::sender::PieceSaverSender;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, RecvError, Sender};
 use std::thread::JoinHandle;
@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 #[allow(dead_code)]
 pub enum PeerConnectionManagerMessage {
     DownloadPiece(u64, u64),
-    Init(PieceManager, PieceSaver),
+    Init(PieceManagerSender, PieceSaverSender),
     CloseConnections,
 }
 
@@ -29,10 +29,14 @@ impl PeerConnectionManager {
         (Self { sender: tx }, handle)
     }
 
-    pub fn start(&self, piece_manager: PieceManager, piece_saver: PieceSaver) {
+    pub fn start(
+        &self,
+        piece_manager_sender: PieceManagerSender,
+        piece_saver_sender: PieceSaverSender,
+    ) {
         let _ = self.sender.send(PeerConnectionManagerMessage::Init(
-            piece_manager,
-            piece_saver,
+            piece_manager_sender,
+            piece_saver_sender,
         ));
     }
 
@@ -43,11 +47,11 @@ impl PeerConnectionManager {
     }
 
     //Should be used when receiving "CloseConnections" message
-    /*fn terminate_connections_and_piece_saver(piece_saver: PieceSaver) {
+    /*fn terminate_connections_and_piece_saver_sender(piece_saver_sender: PieceSaverSender) {
         for connection in self.PeerConnections{
             connection.close();
         }
-        piece_saver.stop();
+        piece_saver_sender.stop();
     }*/
 
     //Should be used when receiving "DownloadPiece" message
@@ -65,9 +69,9 @@ impl PeerConnectionManager {
 
     fn listen(receiver: Receiver<PeerConnectionManagerMessage>) -> Result<(), RecvError> {
         let init_message = receiver.recv()?;
-        let (_piece_manager, _piece_saver) = match init_message {
-            PeerConnectionManagerMessage::Init(piece_manager, piece_saver) => {
-                (piece_manager, piece_saver)
+        let (_piece_manager_sender, _piece_saver_sender) = match init_message {
+            PeerConnectionManagerMessage::Init(piece_manager_sender, piece_saver_sender) => {
+                (piece_manager_sender, piece_saver_sender)
             }
             _ => unreachable!(),
         };

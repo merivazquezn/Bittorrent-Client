@@ -1,3 +1,5 @@
+pub mod sender;
 mod types;
+mod worker;
 
-pub use types::PieceSaver;
+pub use types::new_piece_saver;
