@@ -9,5 +9,5 @@ pub use connection::PeerConnection;
 pub use errors::IPeerMessageServiceError;
 pub use errors::PeerConnectionError;
 pub use handshake::IHandshakeService;
-pub use types::{IPeerMessageService, Peer, PeerMessageService};
+pub use types::{IPeerMessageService, IServerPeerMessageService, Peer, PeerMessageService};
 pub use utils::*;

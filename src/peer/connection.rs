@@ -1,7 +1,6 @@
 use super::constants::*;
 use super::errors::IPeerMessageServiceError;
 use super::errors::PeerConnectionError;
-use super::types::IPeerMessageService;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
@@ -16,7 +15,7 @@ pub struct PeerConnection {
     _am_interested: bool,
     peer_choking: bool,
     _peer_interested: bool,
-    message_service: Box<dyn IPeerMessageService + Send>,
+    message_service: Box<dyn IClientPeerMessageService + Send>,
     metainfo: Metainfo,
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
@@ -28,7 +27,7 @@ impl PeerConnection {
         peer: &Peer,
         client_peer_id: &[u8],
         metainfo: &Metainfo,
-        message_service: Box<dyn IPeerMessageService + Send>,
+        message_service: Box<dyn IClientPeerMessageService + Send>,
     ) -> Self {
         Self {
             _am_choking: true,
