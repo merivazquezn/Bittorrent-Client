@@ -13,6 +13,7 @@ pub mod piece_manager;
 pub mod piece_saver;
 pub mod server;
 pub mod tracker;
+pub mod ui;
 
 pub mod boxed_result {
     use std::error;

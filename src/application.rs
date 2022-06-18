@@ -9,10 +9,14 @@ use crate::peer_connection_manager::PeerConnectionManager;
 use crate::piece_manager::PieceManager;
 use crate::piece_saver::PieceSaver;
 use crate::tracker::TrackerService;
+use crate::ui::UIMessageSender;
 use log::*;
 use rand::Rng;
 
-pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
+pub fn run_with_torrent(
+    torrent_path: &str,
+    ui_message_sender: UIMessageSender,
+) -> Result<(), ApplicationError> {
     pretty_env_logger::init();
     info!("Starting bittorrent client...");
     let client_peer_id = rand::thread_rng().gen::<[u8; 20]>();
@@ -23,6 +27,8 @@ pub fn run_with_torrent(torrent_path: &str) -> Result<(), ApplicationError> {
         "Parsed Metainfo (torrent file) successfully. I'll try to download {}",
         metainfo.info.name
     );
+    ui_message_sender.send_metadata(metainfo.clone());
+
     let http_service = HttpsService::from_url(&metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &metainfo,
