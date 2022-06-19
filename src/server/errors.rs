@@ -1,6 +1,6 @@
-use std::fmt;
-
+use crate::logger::LoggerError;
 use crate::peer::IPeerMessageServiceError;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum ServerError {
@@ -8,6 +8,7 @@ pub enum ServerError {
     JoinError,
     ThreadPoolError(ThreadPoolError),
     PieceRequestError(String),
+    LoggerCreationError(LoggerError),
 }
 
 #[derive(Debug)]
@@ -33,6 +34,12 @@ impl From<IPeerMessageServiceError> for ServerError {
     }
 }
 
+impl From<LoggerError> for ServerError {
+    fn from(error: LoggerError) -> Self {
+        ServerError::LoggerCreationError(error)
+    }
+}
+
 impl fmt::Display for ThreadPoolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -48,6 +55,9 @@ impl fmt::Display for ServerError {
             ServerError::JoinError => write!(f, "Error trying to join thread"),
             ServerError::ThreadPoolError(error) => write!(f, "ThreadPool error: {}", error),
             ServerError::PieceRequestError(reason) => write!(f, "Piece request error: {}", reason),
+            ServerError::LoggerCreationError(error) => {
+                write!(f, "Logger creation error: {}", error)
+            }
         }
     }
 }

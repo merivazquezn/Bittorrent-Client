@@ -2,6 +2,7 @@ use super::connection::ServerConnection;
 use super::constants::*;
 use super::errors::ServerError;
 use super::thread_pool::ThreadPool;
+use super::ServerLogger;
 use crate::metainfo::Metainfo;
 use crate::peer::PeerMessageService;
 use std::net::TcpListener;
@@ -23,6 +24,8 @@ impl Server {
         client_peer_id: Vec<u8>,
         metainfo: Metainfo,
     ) -> Result<(), ServerError> {
+        let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
+
         let listener: TcpListener = TcpListener::bind(address)?;
         let pool = ThreadPool::new(POOL_WORKERS)?;
         for stream in listener.incoming() {
@@ -32,13 +35,16 @@ impl Server {
 
             let metainfo = metainfo.clone();
             let client_peer_id = client_peer_id.clone();
+            let connection_logger = logger.clone();
             pool.execute(|| {
                 let message_service = PeerMessageService::from_peer_connection(stream);
                 let _ = ServerConnection::new(client_peer_id, metainfo, Box::new(message_service))
-                    .run();
+                    .run(connection_logger);
             });
         }
 
+        logger.stop();
+        handle.join().unwrap();
         Ok(())
     }
 }

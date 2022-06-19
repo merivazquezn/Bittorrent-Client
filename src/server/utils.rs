@@ -41,3 +41,7 @@ pub fn read_piece(piece_path: &str) -> Result<Vec<u8>, ServerError> {
 pub fn get_block_from_piece(piece_data: Vec<u8>, begin: usize, length: usize) -> Vec<u8> {
     piece_data[begin..length].to_vec()
 }
+
+pub fn get_block_index(begin: usize, block_size: usize) -> usize {
+    begin / block_size
+}
