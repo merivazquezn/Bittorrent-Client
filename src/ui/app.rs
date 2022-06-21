@@ -46,6 +46,26 @@ pub fn run_ui(client_sender: Sender<glib::Sender<UIMessage>>) {
     app.run_with_args(&args);
 }
 
+// fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) {
+//     let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
+
+//     client_sender.send(tx_messages).unwrap();
+
+//     let window = ApplicationWindow::builder()
+//         .application(app)
+//         .title("First GTK Program")
+//         .default_width(350)
+//         .default_height(70)
+//         .build();
+
+//     let button = Button::with_label("Click me!");
+//     button.connect_clicked(|_| {
+//         eprintln!("Clicked!");
+//     });
+//     window.add(&button);
+
+//     window.show_all();
+// }
 fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) {
     // Create a button with label and margins
     let button = Button::builder()
@@ -64,6 +84,7 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
         None,
         clone!(@weak button => @default-return Continue(false),
                     move |msg| {
+                        println!("aaaa");
                         match msg {
                             UIMessage::Metainfo(metainfo) => {
                                 button.set_label(&metainfo.info.name);
@@ -78,7 +99,7 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
     let gtk_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .build();
-    gtk_box.append(&notebook.notebook);
+    gtk_box.add(&notebook.notebook);
 
     // Create a window
     let window = ApplicationWindow::builder()
@@ -90,7 +111,7 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
         .build();
 
     // Present window
-    window.present();
+    window.show_all();
 }
 
 pub enum UIMessage {
