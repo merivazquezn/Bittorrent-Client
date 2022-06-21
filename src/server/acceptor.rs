@@ -39,7 +39,7 @@ impl Server {
             pool.execute(|| {
                 let message_service = PeerMessageService::from_peer_connection(stream);
                 let _ = ServerConnection::new(client_peer_id, metainfo, Box::new(message_service))
-                    .run(connection_logger);
+                    .run(connection_logger, PIECES_DIR);
             });
         }
 

@@ -3,6 +3,8 @@ use super::errors::*;
 use super::utils::is_keep_alive_message;
 use super::IPeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
+use crate::server::payload_from_request_message;
+use crate::server::RequestMessage;
 use log::*;
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -405,4 +407,80 @@ pub trait IServerPeerMessageService: IPeerMessageService {
         info_hash: &[u8],
         peer_id: &[u8],
     ) -> Result<(), IPeerMessageServiceError>;
+}
+
+pub struct ServerMessageServiceMock {
+    pub times_called: u32,
+}
+
+impl IPeerMessageService for ServerMessageServiceMock {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        use std::fs::File;
+        let mut piece_file: File =
+            File::create("./src/server/tests/test_1/received_piece_0").expect("Creation failed!");
+        piece_file.write_all(&message.payload).unwrap();
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        if self.times_called == 0 {
+            self.times_called += 1;
+            Ok(PeerMessage {
+                id: PeerMessageId::Request,
+                length: 12,
+                payload: payload_from_request_message(RequestMessage {
+                    index: 0,
+                    begin: 0,
+                    length: 8,
+                }),
+            })
+        } else {
+            Ok(PeerMessage {
+                id: PeerMessageId::Cancel,
+                length: 0,
+                payload: Vec::new(),
+            })
+        }
+    }
+}
+
+pub struct ServerMessageServiceUnsuccesfulMock {
+    pub times_called: u32,
+}
+
+impl IPeerMessageService for ServerMessageServiceUnsuccesfulMock {
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        if self.times_called == 0 {
+            self.times_called += 1;
+            Ok(PeerMessage {
+                id: PeerMessageId::Request,
+                length: 0,
+                payload: payload_from_request_message(RequestMessage {
+                    index: 0,
+                    begin: 0,
+                    length: 8,
+                }),
+            })
+        } else {
+            Ok(PeerMessage {
+                id: PeerMessageId::Cancel,
+                length: 0,
+                payload: Vec::new(),
+            })
+        }
+    }
+}
+
+impl IServerPeerMessageService for ServerMessageServiceMock {
+    fn handshake(
+        &mut self,
+        _info_hash: &[u8],
+        _peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
 }

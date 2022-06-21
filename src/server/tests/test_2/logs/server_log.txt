@@ -1,0 +1,3 @@
+Received the following message: PeerMessage { id: Request, length: 12, payload: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8] }
+Client doesn't have piece 0
+Received the following message: PeerMessage { id: Cancel, length: 0, payload: [] }
