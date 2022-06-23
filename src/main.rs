@@ -19,14 +19,12 @@ fn run_client_with_no_ui() {
 
 fn run_client_with_ui() {
     let (client_sender, client_receiver) = mpsc::channel(); // channel necessary to pass the ui sender to the client
-    let ui_handle = thread::spawn(move || {
-        run_ui(client_sender);
+    let client_handle = thread::spawn(move || {
+        let ui_tx = client_receiver.recv().unwrap(); // receive the ui sender from the client
+        run_client(UIMessageSender::with_ui(ui_tx)); // run the client with the ui sender
     });
-
-    let ui_tx = client_receiver.recv().unwrap(); // receive the ui sender from the client
-    run_client(UIMessageSender::with_ui(ui_tx)); // run the client with the ui sender
-
-    ui_handle.join().unwrap();
+    run_ui(client_sender);
+    client_handle.join().unwrap();
 }
 
 fn run_client(ui_message_sender: UIMessageSender) {
