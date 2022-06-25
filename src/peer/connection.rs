@@ -8,6 +8,7 @@ use crate::download_manager::save_piece_in_disk;
 use crate::download_manager::Piece;
 use crate::logger::Logger;
 use crate::metainfo::Metainfo;
+use crate::ui::UIMessageSender;
 use log::*;
 
 pub struct PeerConnection {
@@ -20,6 +21,7 @@ pub struct PeerConnection {
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
     peer_id: Vec<u8>,
+    ui_message_sender: UIMessageSender,
 }
 
 impl PeerConnection {
@@ -28,6 +30,7 @@ impl PeerConnection {
         client_peer_id: &[u8],
         metainfo: &Metainfo,
         message_service: Box<dyn IClientPeerMessageService + Send>,
+        ui_message_sender: UIMessageSender,
     ) -> Self {
         Self {
             _am_choking: true,
@@ -39,6 +42,7 @@ impl PeerConnection {
             message_service,
             bitfield: Bitfield::new(),
             peer_id: peer.peer_id.clone(),
+            ui_message_sender,
         }
     }
     pub fn get_peer_id(&self) -> Vec<u8> {
@@ -164,29 +168,8 @@ impl PeerConnection {
 
     pub fn run(&mut self) -> Result<(), PeerConnectionError> {
         let (logger, logger_handle) = Logger::new("./logs")?;
-        self.message_service
-            .handshake(&self.metainfo.info_hash, &self.client_peer_id)
-            .map_err(|_| {
-                IPeerMessageServiceError::PeerHandshakeError("Handshake error".to_string())
-            })?;
-
-        self.message_service
-            .send_message(&PeerMessage::unchoke())
-            .map_err(|_| {
-                IPeerMessageServiceError::SendingMessageError(
-                    "Error trying to send unchoke message".to_string(),
-                )
-            })?;
-
-        self.message_service
-            .send_message(&PeerMessage::interested())
-            .map_err(|_| {
-                IPeerMessageServiceError::SendingMessageError(
-                    "Error trying to send interested message".to_string(),
-                )
-            })?;
-
-        self.wait_until_ready()?;
+        self.open_connection()?;
+        self.ui_message_sender.send_new_connection();
         const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
         let piece_data: Vec<u8> = self.request_piece(0, BLOCK_SIZE).map_err(|_| {
             PeerConnectionError::PieceRequestingError("Error trying to request piece".to_string())
@@ -288,6 +271,7 @@ mod tests {
             &vec![1, 2, 3, 4],
             &metainfo_mock,
             Box::new(peer_message_stream_mock),
+            UIMessageSender::no_ui(),
         );
 
         let piece = peer_connection.request_piece(0, BLOCK_SIZE);
@@ -329,6 +313,7 @@ mod tests {
             &vec![1, 2, 3, 4],
             &metainfo_mock,
             Box::new(peer_message_stream_mock),
+            UIMessageSender::no_ui(),
         );
 
         assert!(matches!(

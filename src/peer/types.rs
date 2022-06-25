@@ -17,6 +17,16 @@ const HANDSHAKE_LENGTH: usize = 68;
 // Message constants
 const MESSAGE_ID_SIZE: usize = 1;
 const MESSAGE_LENGTH_SIZE: usize = 4;
+
+struct PeerState {
+    _chocked: bool,
+    _interested: bool,
+}
+pub struct PeerConnectionState {
+    _client: PeerState,
+    _peer: PeerState,
+}
+
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct Bitfield(Vec<u8>);

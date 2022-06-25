@@ -1,37 +1,27 @@
+use super::Notebook;
+use super::UIMessage;
+use glib::{Continue, PRIORITY_DEFAULT};
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Button};
-use log::*;
-// import channels library
-use crate::metainfo::Metainfo;
-use glib::{clone, Continue, PRIORITY_DEFAULT};
 use gtk::{self, glib};
+use gtk::{Application, ApplicationWindow};
+use log::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::mpsc::Sender;
+// struct GeneralTorrentInformation {
+//     name: String,
+//     info_hash: String,
+//     length: u64,
+//     piece_count: u32,
+//     peer_count: u32,
+//     completion_percentage: u32,
+//     downloaded_verified_piece_count: u32,
+//     active_connections: u32,
+// }
 
-pub struct UIMessageSender {
-    tx: Option<glib::Sender<UIMessage>>,
-}
-
-impl UIMessageSender {
-    pub fn no_ui() -> Self {
-        UIMessageSender { tx: None }
-    }
-
-    pub fn with_ui(tx: glib::Sender<UIMessage>) -> Self {
-        UIMessageSender { tx: Some(tx) }
-    }
-
-    pub fn send_metadata(&self, metainfo: Metainfo) {
-        self.send_message_to_ui(UIMessage::Metainfo(metainfo))
-    }
-
-    fn send_message_to_ui(&self, message: UIMessage) {
-        if let Some(tx) = &self.tx {
-            if tx.send(message).is_err() {
-                error!("Failed to send message to UI");
-            }
-        }
-    }
-}
+// struct DownloadStatistics {
+//     peerStatistics: Vec<PeerStatistics>,
+// }
 
 pub fn run_ui(client_sender: Sender<glib::Sender<UIMessage>>) {
     let app = Application::builder()
@@ -46,99 +36,31 @@ pub fn run_ui(client_sender: Sender<glib::Sender<UIMessage>>) {
     app.run_with_args(&args);
 }
 
-// fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) {
-//     let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
-
-//     client_sender.send(tx_messages).unwrap();
-
-//     let window = ApplicationWindow::builder()
-//         .application(app)
-//         .title("First GTK Program")
-//         .default_width(350)
-//         .default_height(70)
-//         .build();
-
-//     let button = Button::with_label("Click me!");
-//     button.connect_clicked(|_| {
-//         eprintln!("Clicked!");
-//     });
-//     window.add(&button);
-
-//     window.show_all();
-// }
 fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) {
-    // Create a button with label and margins
-    let button = Button::builder()
-        .label("Press me!")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
-
-    let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
-
-    client_sender.send(tx_messages).unwrap();
-
-    rx_messages.attach(
-        None,
-        clone!(@weak button => @default-return Continue(false),
-                    move |msg| {
-                        println!("aaaa");
-                        match msg {
-                            UIMessage::Metainfo(metainfo) => {
-                                button.set_label(&metainfo.info.name);
-                            }
-                        }
-                        Continue(true)
-                    }
-        ),
-    );
-    let mut notebook = Notebook::new();
-    notebook.create_tab("General Information", button.upcast());
-    let gtk_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .build();
-    gtk_box.add(&notebook.notebook);
-
     // Create a window
     let window = ApplicationWindow::builder()
         .application(app)
         .title("My GTK App")
-        .default_width(800)
-        .default_height(800)
-        .child(&gtk_box)
         .build();
 
-    // Present window
-    window.show_all();
-}
+    let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
+    client_sender.send(tx_messages).unwrap();
 
-pub enum UIMessage {
-    Metainfo(Metainfo),
-}
+    let notebook = Rc::new(RefCell::new(Notebook::new(&window)));
 
-pub struct Notebook {
-    pub notebook: gtk::Notebook,
-    pub tabs: Vec<gtk::Box>,
-}
-
-impl Notebook {
-    pub fn new() -> Notebook {
-        Notebook {
-            notebook: gtk::Notebook::new(),
-            tabs: Vec::new(),
+    let notebook_clone = notebook.clone();
+    rx_messages.attach(None, move |msg| {
+        if let Err(err) = notebook_clone.borrow_mut().update(msg) {
+            error!("error updating UI {:?}", err);
         }
-    }
+        Continue(true)
+    });
 
-    pub fn create_tab(&mut self, title: &str, widget: gtk::Widget) -> u32 {
-        let label = gtk::Label::new(Some(title));
-        let tab = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    let gtk_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .build();
+    gtk_box.add(&notebook.borrow().notebook);
 
-        let index = self.notebook.append_page(&widget, Some(&label));
-
-        self.tabs.push(tab);
-
-        index
-    }
+    window.add(&gtk_box);
+    window.show_all();
 }

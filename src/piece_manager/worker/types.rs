@@ -1,16 +1,17 @@
 use crate::peer::Bitfield;
 use crate::piece_manager::types::PieceManagerMessage;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::RecvError;
-
+use crate::ui::UIMessageSender;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::RecvError;
 
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
     pub bitfields: HashMap<Vec<u8>, Bitfield>,
     pub remaining_pieces: HashSet<u32>,
     pub pieces_downloading: HashSet<u32>,
+    pub ui_message_sender: UIMessageSender,
 }
 
 impl PieceManagerWorker {
@@ -34,13 +35,14 @@ impl PieceManagerWorker {
             match message {
                 PieceManagerMessage::Stop => break,
                 PieceManagerMessage::Init(_) => {
-                    unreachable!()
+                    continue;
                 }
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
                     self.bitfields.insert(peer_id, bitfield);
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {
                     self.piece_succesfully_downloaded(piece_index);
+                    self.ui_message_sender.send_downloaded_piece();
                 }
                 PieceManagerMessage::FailedDownload(piece_index) => {
                     self.piece_failed_download(piece_index);

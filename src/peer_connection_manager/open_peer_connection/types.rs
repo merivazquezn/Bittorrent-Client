@@ -5,8 +5,8 @@ use crate::metainfo::Metainfo;
 use crate::peer::*;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
+use crate::ui::UIMessageSender;
 use std::sync::mpsc;
-
 pub enum OpenPeerConnectionMessage {
     //Tells worker to request a piece to peer, and contains said piece's index
     DownloadPiece(u32),
@@ -25,6 +25,7 @@ pub fn new_open_peer_connection(
     piece_saver_sender: PieceSaverSender,
     metainfo: &Metainfo,
     client_peer_id: &[u8],
+    ui_message_sender: UIMessageSender,
 ) -> Result<(OpenPeerConnectionSender, OpenPeerConnectionWorker), OpenPeerConnectionError> {
     let peer_message_stream = PeerMessageService::connect_to_peer(peer)?;
     let mut connection = PeerConnection::new(
@@ -32,6 +33,7 @@ pub fn new_open_peer_connection(
         client_peer_id,
         metainfo,
         Box::new(peer_message_stream),
+        ui_message_sender,
     );
     connection.open_connection()?;
     let (tx, rx) = mpsc::channel();

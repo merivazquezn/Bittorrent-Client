@@ -11,13 +11,14 @@ use crate::piece_manager::new_piece_manager;
 use crate::piece_saver::new_piece_saver;
 
 use crate::tracker::TrackerService;
-use crate::ui::UIMessageSender;
+use crate::ui::{UIMessage, UIMessageSender};
+use gtk::{self, glib};
 use log::*;
 use rand::Rng;
 
 pub fn run_with_torrent(
     torrent_path: &str,
-    ui_message_sender: UIMessageSender,
+    ui_message_sender: Option<glib::Sender<UIMessage>>,
 ) -> Result<(), ApplicationError> {
     pretty_env_logger::init();
     info!("Starting bittorrent client...");
@@ -29,8 +30,13 @@ pub fn run_with_torrent(
         "Parsed Metainfo (torrent file) successfully. I'll try to download {}",
         metainfo.info.name
     );
+    let ui_message_sender = match ui_message_sender {
+        Some(sender) => UIMessageSender::with_ui(&metainfo.info.name, sender),
+        None => UIMessageSender::no_ui(),
+    };
     ui_message_sender.send_metadata(metainfo.clone());
-
+    // std::thread::sleep(std::time::Duration::from_secs(5));
+    // ui_message_sender.send_downloaded_piece(&metainfo.info.name);
     let http_service = HttpsService::from_url(&metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &metainfo,
@@ -40,11 +46,13 @@ pub fn run_with_torrent(
     );
     info!("Fetching peers from tracker");
     let tracker_response = tracker_service.get_peers()?;
+    ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     info!("Fetched peers from Tracker successfully");
 
     /* *********************************************************************** */
 
-    let (piece_manager_sender, mut piece_manager_worker) = new_piece_manager();
+    let (piece_manager_sender, mut piece_manager_worker) =
+        new_piece_manager(ui_message_sender.clone());
     let piece_manager_worker_handle = std::thread::spawn(move || {
         let _ = piece_manager_worker.listen();
     });
@@ -75,6 +83,7 @@ pub fn run_with_torrent(
             &client_peer_id,
             &metainfo,
             Box::new(peer_message_stream),
+            ui_message_sender,
         )
         .run()?;
         info!("Finished download of piece {} from peer: {}", 0, peer.ip);
