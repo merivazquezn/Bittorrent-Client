@@ -7,8 +7,8 @@ use crate::peer::PeerConnection;
 use crate::peer::PeerMessageService;
 use crate::peer_connection_manager::new_peer_connection_manager;
 use crate::piece_manager::new_piece_manager;
-// use crate::piece_manager::PieceManager;
 use crate::piece_saver::new_piece_saver;
+use crate::server::Server;
 
 use crate::tracker::TrackerService;
 use crate::ui::{UIMessage, UIMessageSender};
@@ -35,8 +35,6 @@ pub fn run_with_torrent(
         None => UIMessageSender::no_ui(),
     };
     ui_message_sender.send_metadata(metainfo.clone());
-    // std::thread::sleep(std::time::Duration::from_secs(5));
-    // ui_message_sender.send_downloaded_piece(&metainfo.info.name);
     let http_service = HttpsService::from_url(&metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &metainfo,
@@ -49,7 +47,7 @@ pub fn run_with_torrent(
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     info!("Fetched peers from Tracker successfully");
 
-    /* *********************************************************************** */
+    let (server, server_handle) = Server::start(client_peer_id.to_vec(), metainfo.clone());
 
     let (piece_manager_sender, mut piece_manager_worker) =
         new_piece_manager(ui_message_sender.clone());
@@ -97,9 +95,11 @@ pub fn run_with_torrent(
 
     trace!("Start closing threads");
 
+    server.stop();
     piece_manager_sender.stop();
     piece_saver_sender.stop();
 
+    server_handle.join()?;
     piece_manager_worker_handle.join()?;
     piece_saver_worker_handle.join()?;
     peer_connection_manager_worker_handle.join()?;
