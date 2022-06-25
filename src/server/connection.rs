@@ -36,8 +36,7 @@ impl ServerConnection {
     }
 
     pub fn run(&mut self, logger: ServerLogger, pieces_dir: &str) -> Result<(), ServerError> {
-        self.message_service
-            .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
+        self.send_init_messages()?;
 
         loop {
             let message: PeerMessage = match self.message_service.wait_for_message() {
@@ -74,6 +73,18 @@ impl ServerConnection {
         Ok(())
     }
 
+    fn send_init_messages(&mut self) -> Result<(), ServerError> {
+        self.message_service
+            .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
+
+        self.message_service.send_message(&PeerMessage::unchoke())?;
+
+        let piece_vector: Vec<bool> = get_pieces_vector(self.metainfo.info.pieces.len());
+        let bitfield_message: PeerMessage = PeerMessage::bitfield(piece_vector);
+        self.message_service.send_message(&bitfield_message)?;
+        Ok(())
+    }
+
     fn handle_request(
         &mut self,
         message: PeerMessage,
@@ -91,7 +102,7 @@ impl ServerConnection {
         let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length);
         let block_number: usize = get_block_index(request.begin, request.length);
 
-        let response_message: PeerMessage = PeerMessage::piece(request.index, request.begin, block);
+        let response_message = PeerMessage::piece(request.index, request.begin, block);
         match self.message_service.send_message(&response_message) {
             Ok(()) => {
                 let _ = logger.block_sent_succesfully(request.index, block_number);
@@ -248,8 +259,41 @@ mod tests {
         logger.stop();
         handle.join().unwrap();
 
+        // assert
         let lines: Vec<String> = read_lines_from_file(&format!("{}/server_log.txt", logs_dir));
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[1], "Block 0 of piece 0 succesfully sent");
+    }
+
+    #[test]
+    fn server_sends_unchocke_and_bitfield_when_connection_starts() {
+        // arrange
+        let peer_id = get_fake_peer_id();
+        let metainfo = get_fake_metainfo();
+
+        use crate::peer::ServerMessageBitfieldMock;
+        let mut connection =
+            ServerConnection::new(peer_id, metainfo, Box::new(ServerMessageBitfieldMock));
+
+        let pieces_dir: &str = "./src/server/tests/test_3/pieces";
+        let logs_dir: &str = "./src/server/tests/test_3/logs";
+
+        let (logger, handle) = ServerLogger::new(logs_dir).unwrap();
+        let logger_clone = logger.clone();
+
+        // act
+        connection.run(logger_clone, pieces_dir).unwrap();
+        logger.stop();
+        handle.join().unwrap();
+
+        // assert
+        let lines: Vec<String> = read_lines_from_file(&format!(
+            "./src/server/tests/test_3/initialize_connection.txt"
+        ));
+
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "handshake");
+        assert_eq!(lines[1], "1");
+        assert_eq!(lines[2], "5")
     }
 }

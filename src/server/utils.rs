@@ -1,3 +1,4 @@
+use super::constants::PIECES_DIR;
 use super::RequestMessage;
 use super::ServerError;
 use std::io::Read;
@@ -53,4 +54,13 @@ pub fn get_block_from_piece(piece_data: Vec<u8>, begin: usize, length: usize) ->
 
 pub fn get_block_index(begin: usize, block_size: usize) -> usize {
     begin / block_size
+}
+
+pub fn get_pieces_vector(piece_count: usize) -> Vec<bool> {
+    let mut piece_vector: Vec<bool> = Vec::new();
+    for i in 0..piece_count {
+        piece_vector.push(client_has_piece(i, PIECES_DIR));
+    }
+
+    piece_vector
 }

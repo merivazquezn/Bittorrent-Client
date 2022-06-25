@@ -1,5 +1,6 @@
 use super::constants::*;
 use super::errors::*;
+use super::utils::bitmap_from_pieces_vector;
 use super::utils::is_keep_alive_message;
 use super::IPeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
@@ -165,6 +166,30 @@ impl PeerMessage {
     }
 
     pub fn keep_alive() -> PeerMessage {
+        PeerMessage {
+            id: PeerMessageId::Choke,
+            length: 0,
+            payload: vec![],
+        }
+    }
+
+    pub fn bitfield(pieces: Vec<bool>) -> PeerMessage {
+        PeerMessage {
+            id: PeerMessageId::Bitfield,
+            length: 0,
+            payload: bitmap_from_pieces_vector(&pieces),
+        }
+    }
+
+    pub fn not_intersted() -> PeerMessage {
+        PeerMessage {
+            id: PeerMessageId::NotInterested,
+            length: 0,
+            payload: vec![],
+        }
+    }
+
+    pub fn choke() -> PeerMessage {
         PeerMessage {
             id: PeerMessageId::Choke,
             length: 0,
@@ -415,7 +440,6 @@ pub struct ServerMessageServiceMock {
 
 impl IPeerMessageService for ServerMessageServiceMock {
     fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
-        use std::fs::File;
         let mut piece_file: File =
             File::create("./src/server/tests/test_1/received_piece_0").expect("Creation failed!");
         piece_file.write_all(&message.payload).unwrap();
@@ -481,6 +505,51 @@ impl IServerPeerMessageService for ServerMessageServiceMock {
         _info_hash: &[u8],
         _peer_id: &[u8],
     ) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
+}
+
+pub struct ServerMessageBitfieldMock;
+
+use std::fs::File;
+impl IPeerMessageService for ServerMessageBitfieldMock {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        use std::fs::OpenOptions;
+        let mut messages_file: File = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open("./src/server/tests/test_3/initialize_connection.txt")
+            .unwrap();
+
+        let id = match message.id {
+            PeerMessageId::Bitfield => 5,
+            PeerMessageId::Unchoke => 1,
+            _ => -1,
+        };
+
+        messages_file
+            .write_all(format!("{:?}\n", id).as_bytes())
+            .unwrap();
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        Ok(PeerMessage::choke())
+    }
+}
+
+impl IServerPeerMessageService for ServerMessageBitfieldMock {
+    fn handshake(
+        &mut self,
+        _info_hash: &[u8],
+        _peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        let mut messages_file: File =
+            File::create("./src/server/tests/test_3/initialize_connection.txt")
+                .expect("Failed to create test file");
+        messages_file
+            .write_all("handshake\n".to_string().as_bytes())
+            .unwrap();
         Ok(())
     }
 }
