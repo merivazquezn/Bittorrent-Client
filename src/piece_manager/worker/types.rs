@@ -1,4 +1,5 @@
 use crate::peer::Bitfield;
+use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
 use crate::ui::UIMessageSender;
 use std::collections::HashMap;
@@ -29,7 +30,10 @@ impl PieceManagerWorker {
         self.remaining_pieces.is_empty() && self.pieces_downloading.is_empty()
     }
 
-    pub fn listen(&mut self) -> Result<(), RecvError> {
+    pub fn listen(
+        &mut self,
+        peer_connection_manager_sender: PeerConnectionManagerSender,
+    ) -> Result<(), RecvError> {
         loop {
             let message = self.reciever.recv()?;
             match message {
@@ -49,7 +53,7 @@ impl PieceManagerWorker {
                 }
             }
             if self.last_piece_downloaded() {
-                // peer_connection_manager.terminate_connections_and_piece_saver();
+                peer_connection_manager_sender.close_connections();
                 break;
             }
         }

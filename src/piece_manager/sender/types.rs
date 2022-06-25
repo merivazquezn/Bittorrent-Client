@@ -1,5 +1,5 @@
 use crate::peer::Bitfield;
-use crate::peer_connection_manager::PeerConnectionManager;
+use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
 use std::sync::mpsc::Sender;
 
@@ -10,7 +10,7 @@ pub struct PieceManagerSender {
 }
 
 impl PieceManagerSender {
-    pub fn start(&self, peer_connection_manager: PeerConnectionManager) {
+    pub fn start(&self, peer_connection_manager: PeerConnectionManagerSender) {
         let _ = self
             .sender
             .send(PieceManagerMessage::Init(peer_connection_manager));

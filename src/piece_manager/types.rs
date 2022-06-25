@@ -1,14 +1,15 @@
 use super::sender::types::PieceManagerSender;
 use super::worker::types::PieceManagerWorker;
 use crate::peer::Bitfield;
-use crate::peer_connection_manager::PeerConnectionManager;
+use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::ui::UIMessageSender;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
 pub enum PieceManagerMessage {
     PeerPieces(Vec<u8>, Bitfield),
-    Init(PeerConnectionManager),
+    Init(PeerConnectionManagerSender),
     SuccessfulDownload(u32),
     FailedDownload(u32),
     Stop,

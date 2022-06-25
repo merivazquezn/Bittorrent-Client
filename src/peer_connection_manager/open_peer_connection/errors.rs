@@ -1,6 +1,7 @@
 use crate::peer::PeerConnectionError;
 use std::fmt::{Display, Formatter, Result};
 
+#[derive(Debug)]
 pub enum OpenPeerConnectionError {
     PeerConnectionError(PeerConnectionError),
 }

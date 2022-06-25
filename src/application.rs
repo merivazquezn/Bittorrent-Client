@@ -5,7 +5,7 @@ use crate::http::HttpsService;
 use crate::metainfo::Metainfo;
 use crate::peer::PeerConnection;
 use crate::peer::PeerMessageService;
-use crate::peer_connection_manager::PeerConnectionManager;
+use crate::peer_connection_manager::new_peer_connection_manager;
 use crate::piece_manager::new_piece_manager;
 // use crate::piece_manager::PieceManager;
 use crate::piece_saver::new_piece_saver;
@@ -53,25 +53,31 @@ pub fn run_with_torrent(
 
     let (piece_manager_sender, mut piece_manager_worker) =
         new_piece_manager(ui_message_sender.clone());
-    let piece_manager_worker_handle = std::thread::spawn(move || {
-        let _ = piece_manager_worker.listen();
-    });
-
-    let (peer_connection_manager, peer_connection_manager_handle) = PeerConnectionManager::new();
 
     let (piece_saver_sender, piece_saver_worker) = new_piece_saver(
         piece_manager_sender.clone(),
         metainfo.info.pieces.clone(),
         config.download_path,
     );
-
+    let (peer_connection_manager_sender, peer_connection_manager_worker) =
+        new_peer_connection_manager(
+            piece_manager_sender.clone(),
+            piece_saver_sender.clone(),
+            &metainfo,
+            &client_peer_id,
+            ui_message_sender.clone(),
+        );
+    piece_manager_sender.start(peer_connection_manager_sender.clone());
     let piece_saver_worker_handle = std::thread::spawn(move || {
         piece_saver_worker.listen().unwrap();
     });
+    let piece_manager_worker_handle = std::thread::spawn(move || {
+        let _ = piece_manager_worker.listen(peer_connection_manager_sender);
+    });
 
-    piece_manager_sender.start(peer_connection_manager.clone());
-    peer_connection_manager.start(piece_manager_sender.clone(), piece_saver_sender.clone());
-
+    let peer_connection_manager_worker_handle = std::thread::spawn(move || {
+        peer_connection_manager_worker.listen().unwrap();
+    });
     if let Some(peer) = tracker_response.peers.get(0) {
         info!(
             "Trying to connect to peer {} and download piece {}",
@@ -92,13 +98,11 @@ pub fn run_with_torrent(
     trace!("Start closing threads");
 
     piece_manager_sender.stop();
-    peer_connection_manager.stop();
     piece_saver_sender.stop();
 
     piece_manager_worker_handle.join()?;
-    peer_connection_manager_handle.join()?;
     piece_saver_worker_handle.join()?;
-
+    peer_connection_manager_worker_handle.join()?;
     info!("Exited Bitorrent client successfully!");
     Ok(())
 }
