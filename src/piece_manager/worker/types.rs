@@ -2,6 +2,7 @@ use crate::peer::Bitfield;
 use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
 use crate::ui::UIMessageSender;
+use log::*;
 use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -55,6 +56,7 @@ impl PieceManagerWorker {
 
     /// Returns true if all pieces in the peers_per_piece HashMap have at least one peer to download from.
     fn ready_to_download_file(&self) -> bool {
+        trace!("Piece manager ready to download");
         self.peers_per_piece
             .iter()
             .all(|(_, peer_ids)| !peer_ids.is_empty())
@@ -62,6 +64,7 @@ impl PieceManagerWorker {
 
     /// For each piece of the file sends to peer_connection_manager one peer whom to download it from.
     fn ask_for_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        trace!("Asking for pieces");
         self.peers_per_piece
             .iter_mut()
             .for_each(|(piece_number, peer_ids)| {
@@ -88,6 +91,7 @@ impl PieceManagerWorker {
     /// Updates the peers_per_pieces Hashmap and inserts the bitfield into our bitfields vector.
     fn receiving_peer_pieces(&mut self, peer_id: Vec<u8>, bitfield: Bitfield) {
         self.bitfields.insert(peer_id.clone(), bitfield.clone());
+        debug!("Received bitfield: {:?} from peer: {:?}", bitfield, peer_id);
         self.update_peers_per_piece(&bitfield, peer_id);
     }
 
@@ -97,13 +101,16 @@ impl PieceManagerWorker {
     ) -> Result<(), RecvError> {
         loop {
             let message = self.reciever.recv()?;
+            trace!("Piece manager received message: {:?}", message);
             match message {
                 PieceManagerMessage::Stop => break,
                 PieceManagerMessage::Init(_) => {
                     continue;
                 }
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
+                    trace!("Piece manager Received bitfield from peer: {:?}", peer_id);
                     self.receiving_peer_pieces(peer_id, bitfield);
+                    info!("Receved pieces");
                     if self.ready_to_download_file() {
                         self.ask_for_pieces(&peer_connection_manager_sender);
                     }

@@ -3,7 +3,7 @@ use super::worker::types::PieceSaverWorker;
 use crate::piece_manager::sender::PieceManagerSender;
 use std::sync::mpsc;
 
-#[allow(dead_code)]
+#[derive(Debug)]
 pub enum PieceSaverMessage {
     ValidateAndSavePiece(u32, Vec<u8>),
     StopSaving,

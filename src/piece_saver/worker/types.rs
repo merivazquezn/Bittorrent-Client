@@ -2,6 +2,7 @@ use crate::download_manager::save_piece_in_disk;
 use crate::download_manager::Piece;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::types::PieceSaverMessage;
+use log::*;
 use sha1::{Digest, Sha1};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
@@ -33,24 +34,15 @@ impl PieceSaverWorker {
                 data: piece_bytes,
             };
             save_piece_in_disk(&piece, &self.download_path).unwrap();
-            // Msg not yet implemented by logger
-            // logger.log_piece(piece_index);
-            // piece_manager_sender.successfull_piece_download(piece_index);
-        } else {
-            // Err(PeerConnectionError::PieceRequestingError(
-            //     "Invalid piece received".to_string(),
-            // ));
-            // piece_manager_sender.failed_piece_download(piece_index);
         }
     }
 
     pub fn listen(&self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
+            trace!("Piece saver recevied message: {:?}", message);
             match message {
                 PieceSaverMessage::StopSaving => {
-                    // Msg not yet implemented by logger
-                    // logger.stop_logging();
                     break;
                 }
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {

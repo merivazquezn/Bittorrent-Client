@@ -2,6 +2,7 @@ use super::super::types::OpenPeerConnectionMessage;
 use crate::peer::*;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
+use log::*;
 use std::sync::mpsc::{Receiver, RecvError};
 
 pub struct OpenPeerConnectionWorker {
@@ -39,6 +40,11 @@ impl OpenPeerConnectionWorker {
     pub fn listen(&mut self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
+            trace!(
+                "Open peer connection with id: {:?} received message: {:?}",
+                self.connection.get_peer_id(),
+                message
+            );
             match message {
                 OpenPeerConnectionMessage::SendBitfield => self.send_bitfield(),
                 OpenPeerConnectionMessage::DownloadPiece(piece_index) => {

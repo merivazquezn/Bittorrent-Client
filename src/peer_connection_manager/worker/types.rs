@@ -5,6 +5,7 @@ use crate::peer_connection_manager::types::PeerConnectionManagerMessage;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
 use crate::ui::UIMessageSender;
+use log::*;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvError};
 use std::thread::JoinHandle;
@@ -20,10 +21,7 @@ pub struct PeerConnectionManagerWorker {
 }
 
 impl PeerConnectionManagerWorker {
-    fn _open_connection_from_peer(
-        &self,
-        peer: &Peer,
-    ) -> (OpenPeerConnectionSender, JoinHandle<()>) {
+    fn open_connection_from_peer(&self, peer: &Peer) -> (OpenPeerConnectionSender, JoinHandle<()>) {
         let (open_peer_connection_sender, mut open_peer_connection_worker) =
             new_open_peer_connection(
                 peer,
@@ -39,19 +37,24 @@ impl PeerConnectionManagerWorker {
             open_peer_connection_worker.listen().unwrap();
         });
 
+        open_peer_connection_sender.send_bitfield();
         (open_peer_connection_sender, handle)
     }
-    fn _start_peer_connections(&mut self, peers: &[Peer]) {
+    pub fn start_peer_connections(&mut self, peers: &[Peer]) {
+        info!("Starting connections with: {:?} peers", peers.len());
         for peer in peers {
-            let (open_peer_connection_sender, handle) = self._open_connection_from_peer(peer);
+            trace!("About to start connection to peer: {:?}", peer);
+            let (open_peer_connection_sender, handle) = self.open_connection_from_peer(peer);
             self.open_peer_connections
                 .insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
         }
     }
+
     fn download_piece(&self, peer_id: Vec<u8>, piece_index: u32) {
         let (peer_connection, _handle) = self.open_peer_connections.get(&peer_id).unwrap();
         peer_connection.download_piece(piece_index);
     }
+
     fn close_connections(self) {
         for (_id, (connection, handle)) in self.open_peer_connections.into_iter() {
             connection.close_connection();
@@ -59,9 +62,11 @@ impl PeerConnectionManagerWorker {
         }
         self.piece_saver_sender.stop();
     }
+
     pub fn listen(self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
+            trace!("Peer connection manager received message: {:?}", message);
             match message {
                 PeerConnectionManagerMessage::CloseConnections => {
                     self.close_connections();

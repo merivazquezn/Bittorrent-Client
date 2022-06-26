@@ -27,7 +27,7 @@ pub struct PeerConnectionState {
     _peer: PeerState,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub struct Bitfield(Vec<u8>);
 
@@ -50,15 +50,6 @@ impl Bitfield {
         self.0 = bitfield.to_vec();
     }
 
-    #[allow(dead_code)]
-    // pub fn has_piece(&self, index: usize) -> bool {
-    //     let byte_index = index / 8;
-    //     let offset = index % 8;
-    //     if byte_index >= self.0.len() {
-    //         return false;
-    //     }
-    //     (self.0[byte_index] >> (7 - offset) & 1) != 0
-    // }
     pub fn has_piece(&self, piece_number: u32) -> bool {
         for i in 0..self.0.len() {
             if self.0[i] == piece_number as u8 {

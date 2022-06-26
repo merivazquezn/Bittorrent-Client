@@ -2,6 +2,7 @@ pub mod application;
 pub mod application_constants;
 pub mod application_errors;
 pub mod bencode;
+pub mod client;
 pub mod config;
 pub mod download_manager;
 pub mod http;

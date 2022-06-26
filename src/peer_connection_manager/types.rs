@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::mpsc;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum PeerConnectionManagerMessage {
     DownloadPiece(Vec<u8>, u32),
     CloseConnections,

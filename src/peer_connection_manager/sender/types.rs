@@ -1,6 +1,7 @@
 use crate::peer_connection_manager::types::PeerConnectionManagerMessage;
 use std::sync::mpsc::Sender;
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 pub struct PeerConnectionManagerSender {
     pub sender: Sender<PeerConnectionManagerMessage>,
 }

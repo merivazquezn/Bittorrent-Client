@@ -7,6 +7,8 @@ use crate::ui::UIMessageSender;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
+
+#[derive(Debug)]
 pub enum PieceManagerMessage {
     PeerPieces(Vec<u8>, Bitfield),
     Init(PeerConnectionManagerSender),
