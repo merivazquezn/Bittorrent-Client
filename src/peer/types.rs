@@ -51,13 +51,21 @@ impl Bitfield {
     }
 
     #[allow(dead_code)]
-    fn has_piece(&self, index: usize) -> bool {
-        let byte_index = index / 8;
-        let offset = index % 8;
-        if byte_index >= self.0.len() {
-            return false;
+    // pub fn has_piece(&self, index: usize) -> bool {
+    //     let byte_index = index / 8;
+    //     let offset = index % 8;
+    //     if byte_index >= self.0.len() {
+    //         return false;
+    //     }
+    //     (self.0[byte_index] >> (7 - offset) & 1) != 0
+    // }
+    pub fn has_piece(&self, piece_number: u32) -> bool {
+        for i in 0..self.0.len() {
+            if self.0[i] == piece_number as u8 {
+                return true;
+            }
         }
-        (self.0[byte_index] >> (7 - offset) & 1) != 0
+        false
     }
 
     #[allow(dead_code)]

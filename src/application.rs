@@ -50,7 +50,7 @@ pub fn run_with_torrent(
     let (server, server_handle) = Server::start(client_peer_id.to_vec(), metainfo.clone());
 
     let (piece_manager_sender, mut piece_manager_worker) =
-        new_piece_manager(ui_message_sender.clone());
+        new_piece_manager(metainfo.info.pieces.len() as u32, ui_message_sender.clone());
 
     let (piece_saver_sender, piece_saver_worker) = new_piece_saver(
         piece_manager_sender.clone(),
