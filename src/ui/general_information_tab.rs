@@ -112,10 +112,10 @@ impl GeneralInformationTab {
             Self::add_torrent_data(&content_area, &item, "Total Size in MB: ", "totalsize");
             Self::add_torrent_data(&content_area, &item, "Total Piece Count: ", "totalpiececount");
             Self::add_torrent_data(&content_area, &item, "Peer Count: ", "peercount");
-            Self::add_torrent_data(&content_area, &item, "Download Percentage: ", "downloadpercentage");
             Self::add_torrent_data(&content_area, &item, "Downloaded Pieces: ", "downloadedpieces");
             Self::add_torrent_data(&content_area, &item, "Active Connections: ", "activeconnections");
             Self::add_torrent_data(&content_area, &item, "File Structure: ", "filestructure");
+            Self::add_torrent_percentage(&content_area, &item, "Download progress: ", "downloadpercentage");
 
             dialog.show_all();
         }));
@@ -134,6 +134,25 @@ impl GeneralInformationTab {
             .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
             .build();
         container.add(&label);
+        content_area.add(&container);
+    }
+
+    fn add_torrent_percentage(
+        content_area: &gtk::Box,
+        item: &TorrentInformation,
+        label: &str,
+        value: &str,
+    ) {
+        let progress_bar = gtk::ProgressBar::builder()
+            .show_text(true)
+            .text(label)
+            .hexpand(true)
+            .build();
+        let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        item.bind_property(value, &progress_bar, "fraction")
+            .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
+            .build();
+        container.add(&progress_bar);
         content_area.add(&container);
     }
 
@@ -188,8 +207,8 @@ impl GeneralInformationTab {
     fn piece_downloaded(&self, torrent: &str) -> Result<(), GeneralInformationTabError> {
         self.model.edit(torrent, |item| {
             let downloaded_pieces = item.property::<u32>("downloadedpieces") + 1;
-            let download_percentage =
-                (downloaded_pieces * 100) / item.property::<u32>("totalpiececount");
+            let download_percentage: f32 =
+                (downloaded_pieces) as f32 / item.property::<u32>("totalpiececount") as f32;
             item.set_property("downloadedpieces", &downloaded_pieces);
             item.set_property("downloadpercentage", &download_percentage);
         });
