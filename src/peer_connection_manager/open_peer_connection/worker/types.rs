@@ -21,7 +21,7 @@ impl OpenPeerConnectionWorker {
         );
     }
 
-    fn download_piece(&mut self, piece_index: u32) {
+    fn download_piece(&mut self, piece_index: u32) -> Result<(), PeerConnectionError> {
         const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
         let piece_data: Vec<u8> = self
             .connection
@@ -30,25 +30,27 @@ impl OpenPeerConnectionWorker {
                 PeerConnectionError::PieceRequestingError(
                     "Error trying to request piece".to_string(),
                 )
-            })
-            .unwrap();
+            })?;
 
         self.piece_saver_sender
             .validate_and_save_piece(piece_index, piece_data);
+        Ok(())
     }
 
     pub fn listen(&mut self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
             trace!(
-                "Open peer connection with id: {:?} received message: {:?}",
-                self.connection.get_peer_id(),
+                "peer connection worker with ip: {:?} received message: {:?}",
+                self.connection.get_peer_ip(),
                 message
             );
             match message {
                 OpenPeerConnectionMessage::SendBitfield => self.send_bitfield(),
                 OpenPeerConnectionMessage::DownloadPiece(piece_index) => {
-                    self.download_piece(piece_index)
+                    if self.download_piece(piece_index).is_err() {
+                        self.piece_manager_sender.failed_download(piece_index);
+                    }
                 }
                 OpenPeerConnectionMessage::CloseConnection => break,
             }

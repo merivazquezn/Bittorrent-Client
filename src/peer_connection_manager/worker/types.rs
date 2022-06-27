@@ -21,7 +21,10 @@ pub struct PeerConnectionManagerWorker {
 }
 
 impl PeerConnectionManagerWorker {
-    fn open_connection_from_peer(&self, peer: &Peer) -> (OpenPeerConnectionSender, JoinHandle<()>) {
+    fn open_connection_from_peer(
+        &self,
+        peer: Peer,
+    ) -> Result<(OpenPeerConnectionSender, JoinHandle<()>), OpenPeerConnectionError> {
         let (open_peer_connection_sender, mut open_peer_connection_worker) =
             new_open_peer_connection(
                 peer,
@@ -30,23 +33,28 @@ impl PeerConnectionManagerWorker {
                 &self.metainfo,
                 &self.client_peer_id,
                 self.ui_message_sender.clone(),
-            )
-            .unwrap();
+            )?;
 
         let handle = std::thread::spawn(move || {
             open_peer_connection_worker.listen().unwrap();
         });
 
         open_peer_connection_sender.send_bitfield();
-        (open_peer_connection_sender, handle)
+        Ok((open_peer_connection_sender, handle))
     }
     pub fn start_peer_connections(&mut self, peers: &[Peer]) {
         info!("Starting connections with: {:?} peers", peers.len());
-        for peer in peers {
-            trace!("About to start connection to peer: {:?}", peer);
-            let (open_peer_connection_sender, handle) = self.open_connection_from_peer(peer);
-            self.open_peer_connections
-                .insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
+        for peer in peers[0..10].iter() {
+            trace!("About to start connection with peer: {:?}", peer.ip);
+            match self.open_connection_from_peer(peer.clone()) {
+                Ok((open_peer_connection_sender, handle)) => {
+                    self.open_peer_connections
+                        .insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
+                }
+                Err(e) => {
+                    trace!("Error opening peer connection: {:?}", e);
+                }
+            }
         }
     }
 
@@ -66,13 +74,13 @@ impl PeerConnectionManagerWorker {
     pub fn listen(self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
-            trace!("Peer connection manager received message: {:?}", message);
             match message {
                 PeerConnectionManagerMessage::CloseConnections => {
                     self.close_connections();
                     break;
                 }
                 PeerConnectionManagerMessage::DownloadPiece(peer_id, piece_index) => {
+                    trace!("Downloading piece: {}", piece_index);
                     self.download_piece(peer_id, piece_index)
                 }
             }

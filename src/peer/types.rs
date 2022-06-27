@@ -9,6 +9,7 @@ use crate::server::RequestMessage;
 use log::*;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::net::{SocketAddr, SocketAddrV4};
 use std::time::Duration;
 
 const PSTRLEN: u8 = 19;
@@ -50,17 +51,16 @@ impl Bitfield {
         self.0 = bitfield.to_vec();
     }
 
-    pub fn has_piece(&self, piece_number: u32) -> bool {
-        for i in 0..self.0.len() {
-            if self.0[i] == piece_number as u8 {
-                return true;
-            }
+    pub fn has_piece(&self, index: usize) -> bool {
+        let byte_index = index / 8;
+        let offset = index % 8;
+        if byte_index >= self.0.len() {
+            return false;
         }
-        false
+        (self.0[byte_index] >> (7 - offset) & 1) != 0
     }
 
-    #[allow(dead_code)]
-    fn set_piece(&mut self, index: usize) {
+    fn _set_piece(&mut self, index: usize) {
         let byte_index = index / 8;
         let offset = index % 8;
 
@@ -71,7 +71,7 @@ impl Bitfield {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Peer {
     pub ip: String,
     pub port: u16,
@@ -215,7 +215,9 @@ pub struct PeerMessageService {
 impl PeerMessageService {
     pub fn connect_to_peer(peer: &Peer) -> Result<Self, PeerConnectionError> {
         trace!("Connecting to peer at IP: {}", peer.ip);
-        let stream = TcpStream::connect(format!("{}:{}", peer.ip, peer.port))
+        let ipv4addr: SocketAddrV4 = format!("{}:{}", peer.ip, peer.port).parse().unwrap();
+        let ipvaddr = SocketAddr::from(ipv4addr);
+        let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(5))
             .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
         stream
             .set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))
@@ -323,7 +325,7 @@ impl IPeerMessageService for PeerMessageService {
             length: message_length,
             payload,
         };
-        debug!("message received: {:?}", msg.id);
+        //debug!("message received: {:?}", msg.id);
         Ok(msg)
     }
 
@@ -337,7 +339,7 @@ impl IPeerMessageService for PeerMessageService {
                 "Couldn't send message to other peer".to_string(),
             )
         })?;
-        debug!("message sent: {:?}", message.id);
+        // debug!("message sent: {:?}", message.id);
         Ok(())
     }
 }

@@ -30,7 +30,7 @@ impl PieceSaverWorker {
     pub fn make_validation_and_save_piece(&self, piece_index: u32, piece_bytes: Vec<u8>) {
         if self.valid_piece(piece_bytes.clone(), piece_index) {
             let piece = Piece {
-                piece_number: 0,
+                piece_number: piece_index,
                 data: piece_bytes,
             };
             save_piece_in_disk(&piece, &self.download_path).unwrap();
@@ -40,12 +40,12 @@ impl PieceSaverWorker {
     pub fn listen(&self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
-            trace!("Piece saver recevied message: {:?}", message);
             match message {
                 PieceSaverMessage::StopSaving => {
                     break;
                 }
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {
+                    trace!("Piece saver received piece: {:?}", piece_index);
                     self.make_validation_and_save_piece(piece_index, piece_bytes);
                 }
             }

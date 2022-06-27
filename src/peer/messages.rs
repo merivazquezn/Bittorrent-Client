@@ -1,49 +1,5 @@
 use super::utils::*;
 
-#[allow(dead_code)]
-pub struct Bitfield(Vec<u8>);
-
-impl Bitfield {
-    pub fn new() -> Self {
-        Bitfield(vec![])
-    }
-
-    pub fn non_empty(&self) -> bool {
-        !self.0.is_empty()
-    }
-
-    pub fn set_bitfield(&mut self, bitfield: &[u8]) {
-        self.0 = bitfield.to_vec();
-    }
-
-    #[allow(dead_code)]
-    fn has_piece(&self, index: usize) -> bool {
-        let byte_index = index / 8;
-        let offset = index % 8;
-        if byte_index >= self.0.len() {
-            return false;
-        }
-        (self.0[byte_index] >> (7 - offset) & 1) != 0
-    }
-
-    #[allow(dead_code)]
-    fn set_piece(&mut self, index: usize) {
-        let byte_index = index / 8;
-        let offset = index % 8;
-
-        if byte_index >= self.0.len() {
-            return;
-        }
-        self.0[byte_index] |= 1 << (7 - offset);
-    }
-}
-
-impl Default for Bitfield {
-    fn default() -> Self {
-        Bitfield::new()
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PeerMessageId {
     Choke,

@@ -21,12 +21,13 @@ pub struct PeerConnection {
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
     peer_id: Vec<u8>,
+    peer: Peer,
     ui_message_sender: UIMessageSender,
 }
 
 impl PeerConnection {
     pub fn new(
-        peer: &Peer,
+        peer: Peer,
         client_peer_id: &[u8],
         metainfo: &Metainfo,
         message_service: Box<dyn IClientPeerMessageService + Send>,
@@ -43,10 +44,14 @@ impl PeerConnection {
             bitfield: Bitfield::new(),
             peer_id: peer.peer_id.clone(),
             ui_message_sender,
+            peer,
         }
     }
     pub fn get_peer_id(&self) -> Vec<u8> {
         self.peer_id.clone()
+    }
+    pub fn get_peer_ip(&self) -> String {
+        self.peer.ip.clone()
     }
 
     pub fn get_bitfield(&self) -> Bitfield {
@@ -62,6 +67,7 @@ impl PeerConnection {
             PeerMessageId::Bitfield => {
                 self.bitfield.set_bitfield(&message.payload);
             }
+            PeerMessageId::Have => {}
             PeerMessageId::Piece => {}
             _ => {
                 return Err(IPeerMessageServiceError::UnhandledMessage);
@@ -90,7 +96,7 @@ impl PeerConnection {
         begin: u32,
         lenght: u32,
     ) -> Result<Vec<u8>, PeerConnectionError> {
-        let block_count = self.metainfo.info.piece_length / BLOCK_SIZE;
+        let _block_count = self.metainfo.info.piece_length / BLOCK_SIZE;
 
         self.message_service
             .send_message(&PeerMessage::request(index, begin, lenght))?;
@@ -102,12 +108,12 @@ impl PeerConnection {
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
-                    debug!(
-                        "block {} of {} received",
-                        (begin / BLOCK_SIZE) + 1,
-                        block_count,
-                    );
-                    PeerConnection::draw_ascii_progress_bar((begin / BLOCK_SIZE) + 1, block_count);
+                    // debug!(
+                    //     "block {} of {} received",
+                    //     (begin / BLOCK_SIZE) + 1,
+                    //     block_count,
+                    // );
+                    // PeerConnection::draw_ascii_progress_bar((begin / BLOCK_SIZE) + 1, block_count);
                     break Ok(block);
                 } else {
                     break Err(PeerConnectionError::PieceRequestingError(
@@ -146,7 +152,7 @@ impl PeerConnection {
         }
     }
 
-    fn draw_ascii_progress_bar(current_progress: u32, total_blocks: u32) {
+    fn _draw_ascii_progress_bar(current_progress: u32, total_blocks: u32) {
         let progress_bar_width = total_blocks;
         let progress_bar_length =
             (current_progress as f32 / total_blocks as f32) * progress_bar_width as f32;
@@ -163,7 +169,7 @@ impl PeerConnection {
         }
 
         let final_bar = format!("\t\t\t\t\t\t\t[{}]\n\n", progress_bar);
-        print_green(&final_bar);
+        _print_green(&final_bar);
     }
 
     pub fn run(&mut self) -> Result<(), PeerConnectionError> {
@@ -226,7 +232,7 @@ impl PeerConnection {
     }
 }
 
-fn print_green(text: &str) {
+fn _print_green(text: &str) {
     println!("\x1b[32m{}\x1b[0m", text);
 }
 
@@ -267,7 +273,7 @@ mod tests {
             block_size: BLOCK_SIZE,
         };
         let mut peer_connection = PeerConnection::new(
-            &peer_mock,
+            peer_mock,
             &vec![1, 2, 3, 4],
             &metainfo_mock,
             Box::new(peer_message_stream_mock),
@@ -309,7 +315,7 @@ mod tests {
             block_size: BLOCK_SIZE,
         };
         let mut peer_connection = PeerConnection::new(
-            &peer_mock,
+            peer_mock,
             &vec![1, 2, 3, 4],
             &metainfo_mock,
             Box::new(peer_message_stream_mock),

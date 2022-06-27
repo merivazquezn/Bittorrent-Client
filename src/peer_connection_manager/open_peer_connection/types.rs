@@ -22,14 +22,14 @@ pub enum OpenPeerConnectionMessage {
 //Creates Sender and Worker for OpenPeerConnection. Opens connection with received peer
 //before returning.
 pub fn new_open_peer_connection(
-    peer: &Peer,
+    peer: Peer,
     piece_manager_sender: PieceManagerSender,
     piece_saver_sender: PieceSaverSender,
     metainfo: &Metainfo,
     client_peer_id: &[u8],
     ui_message_sender: UIMessageSender,
 ) -> Result<(OpenPeerConnectionSender, OpenPeerConnectionWorker), OpenPeerConnectionError> {
-    let peer_message_stream = PeerMessageService::connect_to_peer(peer)?;
+    let peer_message_stream = PeerMessageService::connect_to_peer(&peer)?;
     let mut connection = PeerConnection::new(
         peer,
         client_peer_id,

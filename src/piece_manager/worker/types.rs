@@ -18,6 +18,7 @@ pub struct PieceManagerWorker {
     pub remaining_pieces: HashSet<u32>,
     pub pieces_downloading: HashSet<u32>,
     pub ui_message_sender: UIMessageSender,
+    pub is_downloading: bool,
 }
 
 impl PieceManagerWorker {
@@ -48,7 +49,7 @@ impl PieceManagerWorker {
         self.peers_per_piece
             .iter_mut()
             .for_each(|(piece_number, peer_ids)| {
-                if bitfield.has_piece(*piece_number) {
+                if bitfield.has_piece(*piece_number as usize) {
                     peer_ids.push(peer_id.clone());
                 }
             });
@@ -56,7 +57,6 @@ impl PieceManagerWorker {
 
     /// Returns true if all pieces in the peers_per_piece HashMap have at least one peer to download from.
     fn ready_to_download_file(&self) -> bool {
-        trace!("Piece manager ready to download");
         self.peers_per_piece
             .iter()
             .all(|(_, peer_ids)| !peer_ids.is_empty())
@@ -91,7 +91,6 @@ impl PieceManagerWorker {
     /// Updates the peers_per_pieces Hashmap and inserts the bitfield into our bitfields vector.
     fn receiving_peer_pieces(&mut self, peer_id: Vec<u8>, bitfield: Bitfield) {
         self.bitfields.insert(peer_id.clone(), bitfield.clone());
-        debug!("Received bitfield: {:?} from peer: {:?}", bitfield, peer_id);
         self.update_peers_per_piece(&bitfield, peer_id);
     }
 
@@ -111,8 +110,10 @@ impl PieceManagerWorker {
                     trace!("Piece manager Received bitfield from peer: {:?}", peer_id);
                     self.receiving_peer_pieces(peer_id, bitfield);
                     info!("Receved pieces");
-                    if self.ready_to_download_file() {
+                    if !self.is_downloading && self.ready_to_download_file() {
+                        trace!("Piece manager ready to download");
                         self.ask_for_pieces(&peer_connection_manager_sender);
+                        self.is_downloading = true;
                     }
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {
@@ -120,6 +121,7 @@ impl PieceManagerWorker {
                     self.ui_message_sender.send_downloaded_piece();
                 }
                 PieceManagerMessage::FailedDownload(piece_index) => {
+                    trace!("failed download of piece: {}", piece_index);
                     self.piece_failed_download(piece_index);
                     self.ask_for_piece(&peer_connection_manager_sender, piece_index);
                 }

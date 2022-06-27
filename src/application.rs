@@ -65,7 +65,6 @@ pub fn run_with_torrent(
     let ui_message_sender = init_ui(ui_message_sender, &mut client);
 
     let tracker_response = get_peers_from_tracker(&mut client, ui_message_sender.clone())?;
-    info!("response received from tracker");
 
     let (server, server_handle) = Server::start(client.peer_id.to_vec(), client.metainfo.clone());
     info!("Server created");
@@ -94,7 +93,6 @@ pub fn run_with_torrent(
 
     info!("Peer connection manager created");
     piece_manager_sender.start(peer_connection_manager_sender.clone());
-    info!("Piece manager running");
 
     let piece_saver_worker_handle = std::thread::spawn(move || {
         piece_saver_worker.listen().unwrap();

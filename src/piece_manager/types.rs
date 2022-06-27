@@ -45,6 +45,7 @@ pub fn new_piece_manager(
             pieces_downloading: HashSet::new(),
             peers_per_piece,
             ui_message_sender,
+            is_downloading: false,
         },
     )
 }
