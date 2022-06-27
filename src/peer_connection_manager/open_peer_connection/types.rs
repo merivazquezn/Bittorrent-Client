@@ -18,7 +18,6 @@ pub enum OpenPeerConnectionMessage {
     CloseConnection,
 }
 
-#[allow(dead_code)]
 //Creates Sender and Worker for OpenPeerConnection. Opens connection with received peer
 //before returning.
 pub fn new_open_peer_connection(

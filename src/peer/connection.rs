@@ -4,9 +4,6 @@ use super::errors::PeerConnectionError;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
-use crate::download_manager::save_piece_in_disk;
-use crate::download_manager::Piece;
-use crate::logger::Logger;
 use crate::metainfo::Metainfo;
 use crate::ui::UIMessageSender;
 use log::*;
@@ -172,37 +169,6 @@ impl PeerConnection {
         _print_green(&final_bar);
     }
 
-    pub fn run(&mut self) -> Result<(), PeerConnectionError> {
-        let (logger, logger_handle) = Logger::new("./logs")?;
-        self.open_connection()?;
-        self.ui_message_sender.send_new_connection();
-        const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
-        let piece_data: Vec<u8> = self.request_piece(0, BLOCK_SIZE).map_err(|_| {
-            PeerConnectionError::PieceRequestingError("Error trying to request piece".to_string())
-        })?;
-
-        let piece = Piece {
-            piece_number: 0,
-            data: piece_data,
-        };
-
-        debug!("saving downloaded piece {} in disk", piece.piece_number);
-        save_piece_in_disk(&piece, "./downloads").map_err(|_| {
-            PeerConnectionError::PieceSavingError("Error trying to save piece".to_string())
-        })?;
-        debug!("logging downloaded piece");
-        logger.log_piece(0).map_err(|_| {
-            PeerConnectionError::LoggingPieceError("Error trying to download piece".to_string())
-        })?;
-
-        logger.stop();
-        logger_handle.join().map_err(|_| {
-            PeerConnectionError::JoiningError("Error trying to join threads".to_string())
-        })?;
-
-        Ok(())
-    }
-
     //Executes all steps needed to start an active connection with Peer
     pub fn open_connection(&mut self) -> Result<(), PeerConnectionError> {
         self.message_service
@@ -228,6 +194,7 @@ impl PeerConnection {
             })?;
 
         self.wait_until_ready()?;
+        self.ui_message_sender.send_new_connection();
         Ok(())
     }
 }

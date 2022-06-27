@@ -2,6 +2,7 @@ use crate::download_manager::save_piece_in_disk;
 use crate::download_manager::Piece;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::types::PieceSaverMessage;
+use crate::ui::UIMessageSender;
 use log::*;
 use sha1::{Digest, Sha1};
 use std::sync::mpsc::Receiver;
@@ -12,6 +13,7 @@ pub struct PieceSaverWorker {
     pub piece_manager_sender: PieceManagerSender,
     pub sha1_pieces: Vec<Vec<u8>>,
     pub download_path: String,
+    pub ui_message_sender: UIMessageSender,
 }
 
 impl PieceSaverWorker {
@@ -34,6 +36,7 @@ impl PieceSaverWorker {
                 data: piece_bytes,
             };
             save_piece_in_disk(&piece, &self.download_path).unwrap();
+            self.ui_message_sender.send_downloaded_piece();
         }
     }
 

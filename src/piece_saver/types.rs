@@ -1,6 +1,7 @@
 use super::sender::types::PieceSaverSender;
 use super::worker::types::PieceSaverWorker;
 use crate::piece_manager::sender::PieceManagerSender;
+use crate::ui::UIMessageSender;
 use std::sync::mpsc;
 
 #[derive(Debug)]
@@ -13,6 +14,7 @@ pub fn new_piece_saver(
     piece_manager_sender: PieceManagerSender,
     sha1_pieces: Vec<Vec<u8>>,
     download_path: String,
+    ui_message_sender: UIMessageSender,
 ) -> (PieceSaverSender, PieceSaverWorker) {
     let (tx, rx) = mpsc::channel();
 
@@ -23,6 +25,7 @@ pub fn new_piece_saver(
             piece_manager_sender,
             sha1_pieces,
             download_path,
+            ui_message_sender,
         },
     )
 }

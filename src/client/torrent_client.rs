@@ -39,8 +39,11 @@ impl TorrentClient {
         let (piece_manager_sender, piece_manager_worker) =
             Self::init_piece_manager(client_info, ui_message_sender.clone());
 
-        let (piece_saver_sender, piece_saver_worker) =
-            Self::init_piece_saver(piece_manager_sender.clone(), client_info);
+        let (piece_saver_sender, piece_saver_worker) = Self::init_piece_saver(
+            piece_manager_sender.clone(),
+            client_info,
+            ui_message_sender.clone(),
+        );
 
         let (peer_connection_manager_sender, peer_connection_manager_worker) =
             Self::init_peer_connection_manager(
@@ -132,11 +135,13 @@ impl TorrentClient {
     fn init_piece_saver(
         piece_manager_sender: PieceManagerSender,
         client_info: &ClientInfo,
+        ui_message_sender: UIMessageSender,
     ) -> (PieceSaverSender, PieceSaverWorker) {
         new_piece_saver(
             piece_manager_sender,
             client_info.metainfo.info.pieces.clone(),
             client_info.config.download_path.clone(),
+            ui_message_sender,
         )
     }
 

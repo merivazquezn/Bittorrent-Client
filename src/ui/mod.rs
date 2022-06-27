@@ -1,4 +1,7 @@
 mod app;
+mod download_statistics_model;
+mod download_statistics_row;
+mod download_statistics_tab;
 mod general_information_tab;
 mod messages;
 mod notebook;
