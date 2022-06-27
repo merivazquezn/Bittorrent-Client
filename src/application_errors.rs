@@ -54,7 +54,6 @@ impl From<PeerConnectionError> for ApplicationError {
     }
 }
 
-// implement from Box<dyn std::any::Any + std::marker::Send>
 impl From<Box<dyn std::any::Any + std::marker::Send>> for ApplicationError {
     fn from(error: Box<dyn std::any::Any + std::marker::Send>) -> Self {
         ApplicationError::JoinError(format!("{:?}", error))

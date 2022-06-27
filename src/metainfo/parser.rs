@@ -1,7 +1,7 @@
 pub use super::super::bencode::*;
 use super::super::metainfo::*;
 use super::errors::*;
-use crate::application_constants::SHA1_LENGTH;
+use crate::client::SHA1_LENGTH;
 use log::*;
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;

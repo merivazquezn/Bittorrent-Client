@@ -3,6 +3,7 @@ use super::constants::*;
 use super::errors::ServerError;
 use super::thread_pool::ThreadPool;
 use super::ServerLogger;
+use crate::application_errors::ApplicationError;
 use crate::metainfo::Metainfo;
 use crate::peer::PeerMessageService;
 use std::net::TcpListener;
@@ -17,17 +18,18 @@ pub enum ServerMessage {
 
 pub struct Server {
     sender: Sender<ServerMessage>,
+    handle: JoinHandle<()>,
 }
 
 impl Server {
-    pub fn start(client_peer_id: Vec<u8>, metainfo: Metainfo) -> (Server, JoinHandle<()>) {
+    pub fn run(client_peer_id: Vec<u8>, metainfo: Metainfo) -> Server {
         let (tx, rx) = mpsc::channel();
 
         let handle = std::thread::spawn(move || {
             let _ = Self::listen(LOCALHOST, client_peer_id, metainfo, rx);
         });
 
-        (Server { sender: tx }, handle)
+        Server { sender: tx, handle }
     }
 
     fn listen(
@@ -64,7 +66,9 @@ impl Server {
         Ok(())
     }
 
-    pub fn stop(&self) {
+    pub fn stop(self) -> Result<(), ApplicationError> {
         let _ = self.sender.send(ServerMessage::Stop);
+        self.handle.join()?;
+        Ok(())
     }
 }

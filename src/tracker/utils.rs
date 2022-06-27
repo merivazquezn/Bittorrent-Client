@@ -1,5 +1,32 @@
 use super::types::RequestParameters;
+use crate::application_errors::ApplicationError;
+use crate::client::ClientInfo;
+use crate::http::HttpsService;
+use crate::peer::Peer;
+use crate::tracker::TrackerService;
+use crate::ui::UIMessageSender;
+use log::*;
 use std::collections::HashMap;
+
+pub fn get_peers_from_tracker(
+    client_info: &mut ClientInfo,
+    ui_message_sender: UIMessageSender,
+) -> Result<Vec<Peer>, ApplicationError> {
+    let http_service = HttpsService::from_url(&client_info.metainfo.announce)?;
+    let mut tracker_service = TrackerService::from_metainfo(
+        &client_info.metainfo,
+        client_info.config.listen_port,
+        &client_info.peer_id,
+        Box::new(http_service),
+    );
+    let tracker_response = tracker_service.get_peers()?;
+    ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
+    info!(
+        "List of {} peers received from tracker",
+        tracker_response.peers.len()
+    );
+    Ok(tracker_response.peers)
+}
 
 // Transforms a slice of bytes into an url-encoded String
 fn to_urlencoded(bytes: &[u8]) -> String {

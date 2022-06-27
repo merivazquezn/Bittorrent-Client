@@ -1,5 +1,4 @@
 pub mod application;
-pub mod application_constants;
 pub mod application_errors;
 pub mod bencode;
 pub mod client;

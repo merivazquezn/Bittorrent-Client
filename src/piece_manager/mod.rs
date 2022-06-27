@@ -1,5 +1,7 @@
 pub mod sender;
-mod types;
+pub mod types;
 mod worker;
 
-pub use types::new_piece_manager;
+pub use sender::PieceManagerSender;
+pub use types::*;
+pub use worker::PieceManagerWorker;
