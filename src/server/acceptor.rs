@@ -35,15 +35,19 @@ impl Server {
     ///
     /// ## Example
     ///
-    ///  ```
+    ///  ```no_run
     ///
-    ///  let server: Server = Server::run(metainfo, client_peer_id);
+    ///  use bittorrent_rustico::server::Server;
+    ///  use bittorrent_rustico::metainfo::Metainfo;   
+    ///  use rand::Rng;
+    ///
+    ///  let metainfo = Metainfo::from_torrent("debian.torrent").unwrap();
+    ///  let client_peer_id = rand::thread_rng().gen::<[u8; 20]>().to_vec();
+    ///
+    ///  let server: Server = Server::run(client_peer_id, metainfo);
     ///  
-    ///
     ///  server.stop().unwrap();
-    ///
     ///  ```
-    ///
     ///
     pub fn run(client_peer_id: Vec<u8>, metainfo: Metainfo) -> Server {
         let (tx, rx) = mpsc::channel();
@@ -103,7 +107,7 @@ impl Server {
     ///
     pub fn stop(self) -> Result<(), ServerError> {
         let _ = self.sender.send(ServerMessage::Stop);
-        self.handle.join().map_err(|e| ServerError::JoinError)??;
+        self.handle.join().map_err(|_| ServerError::JoinError)??;
 
         Ok(())
     }

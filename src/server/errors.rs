@@ -27,6 +27,7 @@ pub enum ThreadPoolError {
     /// There was a problem creating the threadpool
     /// Stores a String explaining the error
     CreationError(String),
+    JoinError(String),
 }
 
 impl From<std::io::Error> for ServerError {
@@ -57,6 +58,7 @@ impl fmt::Display for ThreadPoolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ThreadPoolError::CreationError(msg) => write!(f, "{}", msg),
+            ThreadPoolError::JoinError(msg) => write!(f, "{}", msg),
         }
     }
 }

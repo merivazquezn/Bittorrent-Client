@@ -3,11 +3,13 @@ use crate::http::HttpsServiceError;
 use crate::logger::LoggerError;
 use crate::metainfo::MetainfoParserError;
 use crate::peer::PeerConnectionError;
+use crate::server::ServerError;
 use crate::tracker::TrackerError;
 use std::fmt;
 use std::fmt::Display;
 
 /// The error type that is returned by the application
+/// Each error holds inside the error of the exact type
 pub enum ApplicationError {
     ConfigError(ConfigError),
     MetainfoError(MetainfoParserError),
@@ -16,6 +18,13 @@ pub enum ApplicationError {
     LoggerError(LoggerError),
     JoinError(String),
     PeerConnectionError(PeerConnectionError),
+    ServerError(ServerError),
+}
+
+impl From<ServerError> for ApplicationError {
+    fn from(error: ServerError) -> Self {
+        ApplicationError::ServerError(error)
+    }
 }
 
 impl From<ConfigError> for ApplicationError {
@@ -73,7 +82,8 @@ impl Display for ApplicationError {
             ApplicationError::PeerConnectionError(error) => {
                 write!(f, "Peer Connection Error - {}", error)
             }
-            ApplicationError::JoinError(error) => write!(f, "Join Error - {}", error),
+            ApplicationError::JoinError(cause) => write!(f, "Join Error - {}", cause),
+            ApplicationError::ServerError(error) => write!(f, "Server Error - {}", error),
         }
     }
 }

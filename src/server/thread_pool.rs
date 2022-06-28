@@ -7,15 +7,20 @@ use std::thread::JoinHandle;
 /// Struct representing the thread pool
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: Sender<Job>,
+    sender: Sender<ThreadPoolMessage>,
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
+enum ThreadPoolMessage {
+    ExecuteJob(Job),
+    Stop,
+}
+
 #[allow(dead_code)]
 struct Worker {
     id: usize,
-    handle: JoinHandle<()>,
+    pub handle: JoinHandle<()>,
 }
 
 impl ThreadPool {
@@ -33,6 +38,30 @@ impl ThreadPool {
     ///
     /// #On error
     /// A `ThreadPoolError`, with the underlying cause of failure
+    ///
+    /// # Example
+    /// ```no_run
+    ///
+    /// use bittorrent_rustico::server::ThreadPool;
+    ///
+    /// fn shout(message: &str) {
+    ///     let loud_message = message.to_uppercase();
+    ///     println!("{}", loud_message);
+    /// }
+    ///
+    /// let worker_count = 10;
+    /// let pool: ThreadPool = ThreadPool::new(worker_count).unwrap();
+    ///
+    /// pool.execute(|| {
+    ///     shout("hello");
+    /// });
+    ///
+    /// pool.execute(|| {
+    ///     shout("Bittorrent rustico is the new bittorrent");
+    /// });
+    ///
+    /// pool.stop().unwrap();
+    /// ```
     ///
     pub fn new(size: usize) -> Result<ThreadPool, ThreadPoolError> {
         if size == 0 {
@@ -62,22 +91,70 @@ impl ThreadPool {
     /// # Arguments
     /// * `closure` - The job to be executed, it is a closure with the properties defined as 'FnOnce() + Send + 'static'
     ///
+    /// # Example
+    ///  Check the 'new' method example
+    ///
     pub fn execute<F>(&self, closure: F)
     where
         F: FnOnce() + Send + 'static,
     {
         let job: Job = Box::new(closure);
-        let _ = self.sender.send(job); // This should never throw an error
+        let _ = self.sender.send(ThreadPoolMessage::ExecuteJob(job));
+    }
+
+    /// Stops the threadpool
+    /// All workers threads are joined
+    /// The workers that are executing a job will not be interrupted, so this method will wait all current jobs to end
+    /// In order to finish it
+    ///
+    /// # Returns
+    ///
+    /// ## On success
+    /// Ok(())
+    ///
+    /// ## On error
+    /// A ´ThreadPoolError´ with the underlying cause of the failure
+    ///
+    /// # Example
+    /// Check the 'new' method example
+    ///
+    pub fn stop(self) -> Result<(), ThreadPoolError> {
+        for worker in self.workers {
+            self.sender.send(ThreadPoolMessage::Stop).map_err(|_| {
+                ThreadPoolError::JoinError(format!("Worker with id {} panicked", worker.id))
+            })?;
+
+            worker.handle.join().map_err(|_| {
+                ThreadPoolError::JoinError(format!(
+                    "Unable to join thread of worker with id: {}",
+                    worker.id
+                ))
+            })?;
+        }
+        Ok(())
     }
 }
 
 impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<Receiver<Job>>>) -> Worker {
+    /// The worker starts running inmediatly after created
+    /// In each iteration, the worker tries to grab the job queue lock
+    /// When achieved, executes the job, and repeats when finished
+    ///
+    /// If the message is of type 'stop', the worker is terminated
+    ///
+    fn new(id: usize, receiver: Arc<Mutex<Receiver<ThreadPoolMessage>>>) -> Worker {
         let handle = std::thread::spawn(move || loop {
             match receiver.lock() {
                 Ok(rec) => {
-                    if let Ok(job) = rec.recv() {
-                        job();
+                    if let Ok(message) = rec.recv() {
+                        match message {
+                            ThreadPoolMessage::ExecuteJob(job) => {
+                                job();
+                            }
+                            ThreadPoolMessage::Stop => {
+                                break;
+                            }
+                        }
                     } else {
                         debug!("Worker {} has been terminated", id);
                         break;
