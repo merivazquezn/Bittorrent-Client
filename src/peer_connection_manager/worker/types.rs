@@ -14,6 +14,8 @@ const LOGGER: CustomLogger = CustomLogger::init("Peer Connection Manager");
 // use arc and mutex
 use std::sync::Arc;
 use std::sync::Mutex;
+pub const FIRST_MIN_CONNECTIONS: usize = 2;
+
 
 pub struct PeerConnectionManagerWorker {
     pub receiver: Receiver<PeerConnectionManagerMessage>,
@@ -26,27 +28,6 @@ pub struct PeerConnectionManagerWorker {
 }
 
 impl PeerConnectionManagerWorker {
-    fn _open_connection_from_peer(
-        &self,
-        peer: Peer,
-    ) -> Result<(OpenPeerConnectionSender, JoinHandle<()>), OpenPeerConnectionError> {
-        let (open_peer_connection_sender, mut open_peer_connection_worker) =
-            new_open_peer_connection(
-                peer,
-                self.piece_manager_sender.clone(),
-                self.piece_saver_sender.clone(),
-                &self.metainfo,
-                &self.client_peer_id,
-                self.ui_message_sender.clone(),
-            )?;
-
-        let handle = std::thread::spawn(move || {
-            open_peer_connection_worker.listen().unwrap();
-        });
-
-        open_peer_connection_sender.send_bitfield();
-        Ok((open_peer_connection_sender, handle))
-    }
 
     fn open_connection_from_peer(
         peer: Peer,
@@ -90,9 +71,10 @@ impl PeerConnectionManagerWorker {
             let ui_message_sender = self.ui_message_sender.clone();
             let open_peer_connections = open_peer_connections.clone();
             connection_attempts.push(std::thread::spawn(move || {
+                LOGGER.info(format!("Attempting connection with peer {}", peer.ip));
                 if let Ok((open_peer_connection_sender, handle)) = Self::open_connection_from_peer(
                     peer.clone(),
-                    piece_manager_sender,
+                    piece_manager_sender.clone(),
                     piece_saver_sender,
                     metainfo,
                     &client_peer_id,
@@ -101,11 +83,13 @@ impl PeerConnectionManagerWorker {
                     LOGGER.info(format!("Successfully connected to peer at {:?}", peer.ip));
                     if let Ok(mut lock) = open_peer_connections.lock() {
                         lock.insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
+                        if lock.len() == FIRST_MIN_CONNECTIONS {
+                            piece_manager_sender.first_connections_started();
+                        }
                     }
                 }
-            }))
+            }));
         }
-
         for connection_attempt in connection_attempts {
             let _ = connection_attempt.join();
         }
@@ -119,6 +103,7 @@ impl PeerConnectionManagerWorker {
             "Connected successfully to {:?} peers",
             self.open_peer_connections.len()
         ));
+        self.piece_manager_sender.finished_stablishing_connections();
     }
 
     fn download_piece(&self, peer_id: Vec<u8>, piece_index: u32) {

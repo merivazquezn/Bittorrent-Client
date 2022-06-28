@@ -77,7 +77,7 @@ impl PeerConnection {
         loop {
             self.wait_for_message()?;
 
-            if !self.peer_choking && self.bitfield.non_empty() {
+            if self.peer_choking && self.bitfield.is_empty() {
                 break;
             }
         }

@@ -9,7 +9,7 @@ const LOG_PATH: &str = "log_path";
 const DOWNLOAD_PATH: &str = "download_path";
 const SEPARATOR: &str = "=";
 use crate::logger::CustomLogger;
-const LOGGER: CustomLogger = CustomLogger::init("config");
+const LOGGER: CustomLogger = CustomLogger::init("Config");
 
 #[allow(dead_code)]
 #[derive(Debug)]

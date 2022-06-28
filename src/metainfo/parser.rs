@@ -7,7 +7,7 @@ use log::*;
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::str::from_utf8;
-const LOGGER: CustomLogger = CustomLogger::init("config");
+const LOGGER: CustomLogger = CustomLogger::init("Config");
 ///Receives a byte array and Bencode-Decodes it to build a [Metainfo].
 /// ## Example
 ///

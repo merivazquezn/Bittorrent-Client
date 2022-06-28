@@ -8,12 +8,20 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
 
+
+type PeerId = Vec<u8>;
+type PieceId = u32;
+
 #[derive(Debug)]
 pub enum PieceManagerMessage {
-    PeerPieces(Vec<u8>, Bitfield),
+    PeerPieces(PeerId, Bitfield),
     Init(PeerConnectionManagerSender),
-    SuccessfulDownload(u32),
-    FailedDownload(u32),
+    SuccessfulDownload(PieceId),
+    FailedDownload(PieceId),
+    FailedConnection(PeerId),
+    Have(PeerId, PieceId),
+    FirstConnectionsStarted(),
+    FinishedStablishingConnections(),
     Stop,
 }
 
@@ -24,14 +32,13 @@ pub fn new_piece_manager(
     let (tx, rx) = mpsc::channel();
 
     // Initialize the peers_per_piece HashMap with empty vectors
-    let mut peers_per_piece: HashMap<u32, Vec<Vec<u8>>> = HashMap::new();
+    let mut peers_per_piece = HashMap::new();
     for i in 0..number_of_pieces {
-        let vec: Vec<Vec<u8>> = Vec::new();
-        peers_per_piece.insert(i, vec);
+        peers_per_piece.insert(i, Vec::new());
     }
 
     // Initialize remaining_pieces HashSet with all pieces
-    let mut remaining_pieces: HashSet<u32> = HashSet::new();
+    let mut remaining_pieces: HashSet<PieceId> = HashSet::new();
     for i in 0..number_of_pieces {
         remaining_pieces.insert(i);
     }
@@ -40,8 +47,8 @@ pub fn new_piece_manager(
         PieceManagerSender { sender: tx },
         PieceManagerWorker {
             reciever: rx,
-            bitfields: HashMap::new(),
-            remaining_pieces,
+            // bitfields: HashMap::new(),
+            // remaining_pieces,
             pieces_downloading: HashSet::new(),
             peers_per_piece,
             ui_message_sender,

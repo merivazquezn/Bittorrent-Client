@@ -54,7 +54,7 @@ impl PieceSaverWorker {
                     trace!("Piece saver received piece: {:?}", piece_index);
                     self.make_validation_and_save_piece(piece_index, piece_bytes);
                     self.ui_message_sender.send_downloaded_piece();
-                    LOGGER.info(format!("Piece {} downloaded successfully", piece_index));
+                    LOGGER.info(format!("Piece {:^5} downloaded successfully", piece_index));
                     let _ = logger.log_piece(piece_index);
                 }
             }

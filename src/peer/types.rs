@@ -43,8 +43,17 @@ impl Bitfield {
         Bitfield(vec![])
     }
 
-    pub fn non_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         !self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+
+    pub fn iter(&self) -> std::slice::Iter<u8> {
+        self.0.iter()
     }
 
     pub fn set_bitfield(&mut self, bitfield: &[u8]) {

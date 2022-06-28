@@ -1,4 +1,3 @@
-use crate::logger::CustomLogger;
 use crate::peer::Bitfield;
 use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
@@ -9,15 +8,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
-const LOGGER: CustomLogger = CustomLogger::init("Piece Manager");
-
+type PeerId = Vec<u8>; 
+const FIRST_MIN_CONNECTIONS: usize = 5;
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
-    pub bitfields: HashMap<Vec<u8>, Bitfield>,
-    // key: piece number, value: peer_ids
-    // each piece number is associated with a vector of the peer_ids that have it
-    pub peers_per_piece: HashMap<u32, Vec<Vec<u8>>>,
-    pub remaining_pieces: HashSet<u32>,
+    pub peers_per_piece: HashMap<u32, Vec<PeerId>>,
     pub pieces_downloading: HashSet<u32>,
     pub ui_message_sender: UIMessageSender,
     pub is_downloading: bool,
@@ -25,25 +20,40 @@ pub struct PieceManagerWorker {
 
 impl PieceManagerWorker {
     /// Updates the state after a pieces sownloading success.
-    /// Removes the pieces of the remaining and downloading sets.
+    /// Removes the pieces of the downloading set.
     /// And removes it from the peers_per_piece HashMap.
+    /// Informs the UI about the downloaded piece.
     fn piece_succesfully_downloaded(&mut self, piece_index: u32) {
-        self.remaining_pieces.remove(&piece_index);
         self.pieces_downloading.remove(&piece_index);
         self.peers_per_piece.remove(&piece_index);
+        self.ui_message_sender.send_downloaded_piece();
     }
 
     /// Updates the state after a piece downloading failure
-    /// Removes the piece of the pieces_downloading HashSet and reinserts the piece in the remaining_pieces HashSet
-    fn piece_failed_download(&mut self, piece_index: u32) {
+    /// Removes the piece of the pieces_downloading HashSet 
+    /// Reasks for the piece 
+    fn piece_failed_download(&mut self, piece_index: u32, peer_connection_manager_sender: &PeerConnectionManagerSender) {
         self.pieces_downloading.remove(&piece_index);
-        self.remaining_pieces.insert(piece_index);
+        self.ask_for_piece(peer_connection_manager_sender, piece_index);
     }
 
     /// Returns true if there are no longer any pieces remaining to download nor downloading.
     fn last_piece_downloaded(&self) -> bool {
-        self.remaining_pieces.is_empty() && self.pieces_downloading.is_empty()
+        // shouldnt even have to check if downloading is empty.
+        self.peers_per_piece.is_empty() && self.pieces_downloading.is_empty()
     }
+
+    // /// function that recieves bitfield and return pieces 
+    // fn get_pieces_from_bitfield(&self, bitfield: &Bitfield) -> Vec<u32> {
+    //     let mut pieces = Vec::new();
+    //     for i in 0..bitfield.len() {
+    //         if bitfield[i] {
+    //             pieces.push(i as u32);
+    //         }
+    //     }
+    //     pieces
+    // }
+
 
     /// Gets a peers peer_id and bitfield.
     /// Iterates the peer_per_pieces HashMap and adds the peer_id to the vector of peer_ids for each piece in the bitfield.
@@ -57,43 +67,85 @@ impl PieceManagerWorker {
             });
     }
 
-    /// Returns true if all pieces in the peers_per_piece HashMap have at least one peer to download from.
-    fn ready_to_download_file(&self) -> bool {
-        self.peers_per_piece
-            .iter()
-            .all(|(_, peer_ids)| !peer_ids.is_empty())
-    }
-
-    /// For each piece of the file sends to peer_connection_manager one peer whom to download it from.
-    fn ask_for_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
-        trace!("Asking for pieces");
-        self.peers_per_piece
-            .iter_mut()
-            .for_each(|(piece_number, peer_ids)| {
-                peer_connection_manager_sender.download_piece(peer_ids[0].clone(), *piece_number);
-            });
-    }
 
     /// Sends the peer_connection_manager the information to download a piece from X peer.
     /// Should discuss whether to aply some logic for this to be more efficient. Function should be called
     /// when a download failed, therefore we need to retry downloading the piece.
     /// Current logic: Randomly selects a peer from the peers_per_piece HashMap.
+    /// 
+    /// If there are no peers to give piece, does nothing. Eventually when receiving a have msg we will ask for it.
+    /// If piece is already downloading does nothing.
     fn ask_for_piece(
         &mut self,
         peer_connection_manager_sender: &PeerConnectionManagerSender,
         piece_number: u32,
     ) {
         let len = self.peers_per_piece[&piece_number].len();
-        let random_idx = rand::thread_rng().gen_range(0..len);
-        let peer_id = self.peers_per_piece[&piece_number][random_idx].clone();
-        peer_connection_manager_sender.download_piece(peer_id, piece_number);
+        if len > 0 && !self.pieces_downloading.contains(&piece_number) {
+            let random_idx = rand::thread_rng().gen_range(0..len);
+            let peer_id = self.peers_per_piece[&piece_number][random_idx].clone();
+            peer_connection_manager_sender.download_piece(peer_id, piece_number);
+            self.pieces_downloading.insert(piece_number);
+        }
     }
 
+
+
+    /// For each piece of the file sends to peer_connection_manager one peer whom to download it from.
+    fn ask_for_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        trace!("Asking for pieces");
+        let mut aux = self.peers_per_piece.clone();
+            aux.iter_mut().for_each(|(piece, _)| {
+                self.ask_for_piece(peer_connection_manager_sender, *piece);
+            });
+    }
+
+
+
     /// Updates the state after receiving a peers bitfield.
-    /// Updates the peers_per_pieces Hashmap and inserts the bitfield into our bitfields vector.
-    fn receiving_peer_pieces(&mut self, peer_id: Vec<u8>, bitfield: Bitfield) {
-        self.bitfields.insert(peer_id.clone(), bitfield.clone());
+    /// Updates the peers_per_pieces Hashmap.
+    fn receiving_peer_pieces(&mut self, peer_id: PeerId, bitfield: Bitfield) {
         self.update_peers_per_piece(&bitfield, peer_id);
+    }
+
+
+
+    /// Removes the peer from the bitfields vector and peers_per_piece hashmap.
+    fn connection_failed(&mut self, peer_id: PeerId) {
+        self.peers_per_piece
+            .iter_mut()
+            .for_each(|(_, peer_ids)| {
+                peer_ids.retain(|x| x != &peer_id);
+            });
+    }
+
+    /// Updates the state after receiving a have message.
+    /// If the piece is not downloading already, and the system is downloading, then it asks for the piece.
+    fn received_have(&mut self, peer_id: PeerId, piece_number: u32, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        // check if this works, vec is empty if not
+        self.peers_per_piece
+            .entry(piece_number)
+            .or_insert(Vec::new())
+            .push(peer_id);
+        if !self.pieces_downloading.contains(&piece_number) && self.is_downloading {
+            self.ask_for_piece(peer_connection_manager_sender, piece_number)
+        }
+    }
+    
+    /// Asks for the first FIRST_MIN_CONNECTIONS pieces.
+    fn ask_for_first_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        let aux = self.peers_per_piece.clone();
+        let downloadable_first_pieces = aux.iter().take_while(|(_, peer_ids)| { !peer_ids.is_empty()
+        }).take(FIRST_MIN_CONNECTIONS);
+        downloadable_first_pieces.for_each(|(piece_number, _)| {
+            self.ask_for_piece(peer_connection_manager_sender, *piece_number);
+        });
+    }
+
+    /// Starts downloading, begins with the first FIRST_MIN_CONNECTIONS pieces. 
+    fn start_downloading(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        self.is_downloading = true;
+        self.ask_for_first_pieces(peer_connection_manager_sender)
     }
 
     pub fn listen(
@@ -109,24 +161,30 @@ impl PieceManagerWorker {
                     continue;
                 }
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
-                    trace!("Piece manager Received bitfield from peer: {:?}", peer_id);
+                    trace!("Piece manager received bitfield from peer: {:?}", peer_id);
                     self.receiving_peer_pieces(peer_id, bitfield);
-                    if !self.is_downloading && self.ready_to_download_file() {
-                        self.ask_for_pieces(&peer_connection_manager_sender);
-                        self.is_downloading = true;
-                        LOGGER.info_str(
-                            "All pieces can be downloaded, Piece manager starting download",
-                        );
-                    }
+                }
+                PieceManagerMessage::FirstConnectionsStarted() => {
+                    self.start_downloading(&peer_connection_manager_sender);
+                }
+                PieceManagerMessage::FinishedStablishingConnections() => {
+                    self.ask_for_pieces(&peer_connection_manager_sender);
+                }
+                PieceManagerMessage::Have(peer_id, piece_number) => {
+                    trace!("Piece manager received Have msg from peer: {:?}", peer_id);
+                    self.received_have(peer_id, piece_number, &peer_connection_manager_sender);
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {
+                    trace!("Piece manager received successful download of piece: {:?}", piece_index);
                     self.piece_succesfully_downloaded(piece_index);
-                    self.ui_message_sender.send_downloaded_piece();
                 }
                 PieceManagerMessage::FailedDownload(piece_index) => {
                     trace!("failed download of piece: {}", piece_index);
-                    self.piece_failed_download(piece_index);
-                    self.ask_for_piece(&peer_connection_manager_sender, piece_index);
+                    self.piece_failed_download(piece_index, &peer_connection_manager_sender);
+                }
+                PieceManagerMessage::FailedConnection(peer_id) => {
+                    trace!("failed connection with: {:?}", peer_id);
+                    self.connection_failed(peer_id);
                 }
             }
             if self.last_piece_downloaded() {
@@ -222,5 +280,29 @@ mod tests {
 
         // check if we are asking the correct peer for the piece
         assert_eq!(peer_id == vec![9, 5, 4] || peer_id == vec![9, 8, 7], true);
+
+        // deleting the peer_id_1 from the peers_per_piece
+        peers_per_piece
+            .iter_mut()
+            .for_each(|(_, peer_ids)| {
+                peer_ids.retain(|x| x != &peer_id_1);
+            });
+
+            peers_per_piece.iter().for_each(|(piece_number, peer_ids)| {
+                if *piece_number == 0 {
+                    assert_eq!(peer_ids.len(), 1);
+                    assert_eq!(peer_ids[0], peer_id_3);
+                } else if *piece_number == 1 || *piece_number == 2 {
+                    assert_eq!(peer_ids.len(), 1);
+                    assert_eq!(peer_ids[0], peer_id_2);
+                } else if *piece_number == 4 {
+                    assert_eq!(peer_ids[0], peer_id_2);
+                    assert_eq!(peer_ids[1], peer_id_3);
+                } else if *piece_number == 3 {
+                    assert_eq!(peer_ids[0], peer_id_3);
+                }
+            });
+        
+
     }
 }

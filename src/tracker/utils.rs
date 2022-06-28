@@ -7,7 +7,7 @@ use crate::peer::Peer;
 use crate::tracker::TrackerService;
 use crate::ui::UIMessageSender;
 use std::collections::HashMap;
-const LOGGER: CustomLogger = CustomLogger::init("tracker");
+const LOGGER: CustomLogger = CustomLogger::init("Tracker");
 
 pub fn get_peers_from_tracker(
     client_info: &mut ClientInfo,

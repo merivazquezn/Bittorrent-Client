@@ -45,6 +45,7 @@ pub fn new_open_peer_connection(
             connection,
             piece_manager_sender,
             piece_saver_sender,
+            failed_download_in_a_row: 0,
         },
     ))
 }

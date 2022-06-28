@@ -4,7 +4,7 @@ use crate::logger::CustomLogger;
 use log::*;
 use std::fs;
 use std::vec::Vec;
-const LOGGER: CustomLogger = CustomLogger::init("config");
+const LOGGER: CustomLogger = CustomLogger::init("Config");
 
 #[derive(Debug, Clone)]
 ///Bencode-Decoded metainfo file.
