@@ -7,22 +7,27 @@ use crate::peer::PeerMessage;
 use crate::peer::PeerMessageId;
 use log::*;
 
-#[allow(dead_code)]
+/// Struct that handles the server's acceptor thread.
+/// It is spawned each time a connection is accepted.
+/// It handles the connection's messages and answers them accordingly.
 pub struct ServerConnection {
     message_service: Box<dyn IServerPeerMessageService>,
     metainfo: Metainfo,
     client_peer_id: Vec<u8>,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
+/// Struct representing the content of a request message
 pub struct RequestMessage {
+    /// The piece index of the requested piece
     pub index: usize,
+    /// The offset of the requested block
     pub begin: usize,
+    /// The length of the requested block
     pub length: usize,
 }
 
 impl ServerConnection {
+    /// Creates a new server connection.
     pub fn new(
         client_peer_id: Vec<u8>,
         metainfo: Metainfo,
@@ -35,6 +40,26 @@ impl ServerConnection {
         }
     }
 
+    /// Runs a server connection which will hear messages from other peers and answer accordingly
+    /// The connectcion starts listening inmediatly after calling this method
+    ///
+    /// The connection has a timeout of 120 seconds, so that it can be automatically closed if no message is received after that interval
+    /// Messagges requesting a block are answered, while Choke, Cancel and NotInterested messges close the connection.
+    /// Every other message is ignored.
+    ///
+    ///  If an invalid request is received, the connection is terminated
+    ///
+    /// # Arguments
+    /// * `logger` - The server logger to use for logging.
+    /// * `pieces_dir` - The directory where the pieces are stored.
+    ///
+    /// # Return value
+    /// ## On succes
+    /// A `Result` with the `Ok` value being `()`
+    ///
+    /// ## On error
+    /// A `Result` with the `Err` value being a `ServerError`, indicating the underlying cause of the failure
+    ///
     pub fn run(&mut self, logger: ServerLogger, pieces_dir: &str) -> Result<(), ServerError> {
         self.send_init_messages()?;
 

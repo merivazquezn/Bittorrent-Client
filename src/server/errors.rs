@@ -3,16 +3,29 @@ use crate::peer::IPeerMessageServiceError;
 use std::fmt;
 
 #[derive(Debug)]
+/// Error type for the server and its connections with other peers
 pub enum ServerError {
+    /// The Tcp connection failed to read or write data
     TcpStreamError(std::io::Error),
+
+    /// A thread couldn0t be correctly joined
     JoinError,
+
+    /// The threadpool failed, saves the underlying ThreadPoolError with its underlying cause
     ThreadPoolError(ThreadPoolError),
+
+    /// There was an error in the received request message from the other peer
     PieceRequestError(String),
+
+    /// The logger couldn't be created, saves the LoggerError with its underlying cause
     LoggerCreationError(LoggerError),
 }
 
 #[derive(Debug)]
+/// Error type for the threadpool
 pub enum ThreadPoolError {
+    /// There was a problem creating the threadpool
+    /// Stores a String explaining the error
     CreationError(String),
 }
 

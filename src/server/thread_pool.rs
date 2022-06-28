@@ -4,7 +4,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-#[allow(dead_code)]
+/// Struct representing the thread pool
 pub struct ThreadPool {
     workers: Vec<Worker>,
     sender: Sender<Job>,
@@ -19,6 +19,21 @@ struct Worker {
 }
 
 impl ThreadPool {
+    /// Creates a new thread pool with the given number of workers.
+    /// There will be 'size' workers running at the same time, where each worker repeats retreives jobs from a queue and executes them
+    /// The job queue is protected by a mutex, so only one worker can access it at a time.
+    ///
+    /// # Arguments
+    /// * `size` - The number of workers to create.
+    ///
+    /// # Returns
+    ///
+    /// #On success
+    /// A new thread pool, of type `ThreadPool`.
+    ///
+    /// #On error
+    /// A `ThreadPoolError`, with the underlying cause of failure
+    ///
     pub fn new(size: usize) -> Result<ThreadPool, ThreadPoolError> {
         if size == 0 {
             return Err(ThreadPoolError::CreationError(
@@ -42,6 +57,11 @@ impl ThreadPool {
         })
     }
 
+    /// Queues a job to be eventually executed by a threadpool worker.
+    ///
+    /// # Arguments
+    /// * `closure` - The job to be executed, it is a closure with the properties defined as 'FnOnce() + Send + 'static'
+    ///
     pub fn execute<F>(&self, closure: F)
     where
         F: FnOnce() + Send + 'static,
