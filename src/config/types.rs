@@ -8,6 +8,8 @@ const LISTEN_PORT: &str = "listen_port";
 const LOG_PATH: &str = "log_path";
 const DOWNLOAD_PATH: &str = "download_path";
 const SEPARATOR: &str = "=";
+use crate::logger::CustomLogger;
+const LOGGER: CustomLogger = CustomLogger::init("config");
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -41,13 +43,11 @@ impl Config {
     /// assert_eq!(config.listen_port, 4424);
     /// ```
     pub fn from_path(path: &str) -> Result<Config, ConfigError> {
-        debug!("Reading confile file");
+        LOGGER.info(format!("Reading config file from path: {}", path));
         let content =
             fs::read_to_string(path).map_err(|_| ConfigError::InvalidPath(path.to_string()))?;
-        debug!("Parsing confile file");
         let lines = content.lines();
         let config_dictionary = create_config_dict(lines);
-        debug!("Creating config");
         let config = create_config(&config_dictionary)?;
         Ok(config)
     }

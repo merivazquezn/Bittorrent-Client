@@ -86,11 +86,9 @@ impl TorrentClient {
         let peer_connection_manager_handle = std::thread::spawn(move || {
             self.workers
                 .peer_connection_manager
-                .start_peer_connections(&peer_list);
+                .start_peer_connections(peer_list);
             self.workers.peer_connection_manager.listen().unwrap();
         });
-
-        info!("Workers started running");
 
         let handles = ClientHandles {
             piece_manager: piece_manager_handle,

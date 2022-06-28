@@ -1,5 +1,6 @@
 use crate::download_manager::save_piece_in_disk;
 use crate::download_manager::Piece;
+use crate::logger::{CustomLogger, Logger};
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::types::PieceSaverMessage;
 use crate::ui::UIMessageSender;
@@ -7,6 +8,7 @@ use log::*;
 use sha1::{Digest, Sha1};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
+const LOGGER: CustomLogger = CustomLogger::init("Piece Saver");
 
 pub struct PieceSaverWorker {
     pub receiver: Receiver<PieceSaverMessage>,
@@ -36,11 +38,12 @@ impl PieceSaverWorker {
                 data: piece_bytes,
             };
             save_piece_in_disk(&piece, &self.download_path).unwrap();
-            self.ui_message_sender.send_downloaded_piece();
         }
     }
 
     pub fn listen(&self) -> Result<(), RecvError> {
+        let (logger, handle) = Logger::new("./logs").unwrap();
+
         loop {
             let message = self.receiver.recv()?;
             match message {
@@ -50,10 +53,15 @@ impl PieceSaverWorker {
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {
                     trace!("Piece saver received piece: {:?}", piece_index);
                     self.make_validation_and_save_piece(piece_index, piece_bytes);
+                    self.ui_message_sender.send_downloaded_piece();
+                    LOGGER.info(format!("Piece {} downloaded successfully", piece_index));
+                    let _ = logger.log_piece(piece_index);
                 }
             }
         }
 
+        logger.stop();
+        let _ = handle.join();
         Ok(())
     }
 }

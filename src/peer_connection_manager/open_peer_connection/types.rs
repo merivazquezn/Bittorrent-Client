@@ -8,7 +8,7 @@ use crate::piece_saver::sender::PieceSaverSender;
 use crate::ui::UIMessageSender;
 use std::sync::mpsc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OpenPeerConnectionMessage {
     //Tells worker to request a piece to peer, and contains said piece's index
     DownloadPiece(u32),

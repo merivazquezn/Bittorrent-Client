@@ -1,3 +1,4 @@
+use crate::logger::CustomLogger;
 use crate::peer::Bitfield;
 use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
@@ -8,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
+const LOGGER: CustomLogger = CustomLogger::init("Piece Manager");
 
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
@@ -109,11 +111,12 @@ impl PieceManagerWorker {
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
                     trace!("Piece manager Received bitfield from peer: {:?}", peer_id);
                     self.receiving_peer_pieces(peer_id, bitfield);
-                    info!("Receved pieces");
                     if !self.is_downloading && self.ready_to_download_file() {
-                        trace!("Piece manager ready to download");
                         self.ask_for_pieces(&peer_connection_manager_sender);
                         self.is_downloading = true;
+                        LOGGER.info_str(
+                            "All pieces can be downloaded, Piece manager starting download",
+                        );
                     }
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {

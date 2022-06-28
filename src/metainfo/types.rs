@@ -1,8 +1,10 @@
 use super::errors::MetainfoParserError;
 use super::parser::parse;
+use crate::logger::CustomLogger;
 use log::*;
 use std::fs;
 use std::vec::Vec;
+const LOGGER: CustomLogger = CustomLogger::init("config");
 
 #[derive(Debug, Clone)]
 ///Bencode-Decoded metainfo file.
@@ -29,7 +31,7 @@ pub struct Info {
 
 impl Metainfo {
     pub fn from_torrent(torrent_path: &str) -> Result<Metainfo, MetainfoParserError> {
-        debug!("Reading torrent file");
+        LOGGER.info(format!("reading torrent file from path: {}", torrent_path));
         let torrent_bytes: Vec<u8> = fs::read(torrent_path)?;
         debug!("Parsing torrent file");
         parse(&torrent_bytes)

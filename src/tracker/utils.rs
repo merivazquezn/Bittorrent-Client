@@ -2,16 +2,21 @@ use super::types::RequestParameters;
 use crate::application_errors::ApplicationError;
 use crate::client::ClientInfo;
 use crate::http::HttpsService;
+use crate::logger::CustomLogger;
 use crate::peer::Peer;
 use crate::tracker::TrackerService;
 use crate::ui::UIMessageSender;
-use log::*;
 use std::collections::HashMap;
+const LOGGER: CustomLogger = CustomLogger::init("tracker");
 
 pub fn get_peers_from_tracker(
     client_info: &mut ClientInfo,
     ui_message_sender: UIMessageSender,
 ) -> Result<Vec<Peer>, ApplicationError> {
+    LOGGER.info(format!(
+        "Fetching Peers from tracker at: {}",
+        client_info.metainfo.announce
+    ));
     let http_service = HttpsService::from_url(&client_info.metainfo.announce)?;
     let mut tracker_service = TrackerService::from_metainfo(
         &client_info.metainfo,
@@ -21,10 +26,10 @@ pub fn get_peers_from_tracker(
     );
     let tracker_response = tracker_service.get_peers()?;
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
-    info!(
-        "List of {} peers received from tracker",
+    LOGGER.info(format!(
+        "Received {} peers from tracker",
         tracker_response.peers.len()
-    );
+    ));
     Ok(tracker_response.peers)
 }
 

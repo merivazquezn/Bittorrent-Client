@@ -2,10 +2,12 @@ pub use super::super::bencode::*;
 use super::super::metainfo::*;
 use super::errors::*;
 use crate::client::SHA1_LENGTH;
+use crate::logger::CustomLogger;
 use log::*;
 use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::str::from_utf8;
+const LOGGER: CustomLogger = CustomLogger::init("config");
 ///Receives a byte array and Bencode-Decodes it to build a [Metainfo].
 /// ## Example
 ///
@@ -126,7 +128,6 @@ fn validate_pieces(
 
 //Performs basic validation of certain values in Info and Metainfo
 fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
-    debug!("Validating metainfo");
     let info: &Info = &metainfo.info;
     if metainfo.announce.is_empty()
         || info.piece_length == 0
@@ -140,6 +141,8 @@ fn validate(metainfo: &Metainfo) -> Result<(), MetainfoParserError> {
         info.length as usize,
         info.piece_length as usize,
     )?;
+    LOGGER.info_str("Torrent parsed successfully");
+
     Ok(())
 }
 

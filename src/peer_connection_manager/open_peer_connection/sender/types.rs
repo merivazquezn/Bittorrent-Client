@@ -1,11 +1,11 @@
 use super::super::types::OpenPeerConnectionMessage;
 use std::sync::mpsc::Sender;
 
+#[derive(Debug)]
 pub struct OpenPeerConnectionSender {
     pub sender: Sender<OpenPeerConnectionMessage>,
 }
 
-#[allow(dead_code)]
 impl OpenPeerConnectionSender {
     pub fn close_connection(&self) {
         let _ = self.sender.send(OpenPeerConnectionMessage::CloseConnection);

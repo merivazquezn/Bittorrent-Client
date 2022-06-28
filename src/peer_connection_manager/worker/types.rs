@@ -1,3 +1,4 @@
+use crate::logger::CustomLogger;
 use crate::metainfo::Metainfo;
 use crate::peer::*;
 use crate::peer_connection_manager::open_peer_connection::*;
@@ -9,6 +10,10 @@ use log::*;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvError};
 use std::thread::JoinHandle;
+const LOGGER: CustomLogger = CustomLogger::init("Peer Connection Manager");
+// use arc and mutex
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct PeerConnectionManagerWorker {
     pub receiver: Receiver<PeerConnectionManagerMessage>,
@@ -21,7 +26,7 @@ pub struct PeerConnectionManagerWorker {
 }
 
 impl PeerConnectionManagerWorker {
-    fn open_connection_from_peer(
+    fn _open_connection_from_peer(
         &self,
         peer: Peer,
     ) -> Result<(OpenPeerConnectionSender, JoinHandle<()>), OpenPeerConnectionError> {
@@ -42,20 +47,78 @@ impl PeerConnectionManagerWorker {
         open_peer_connection_sender.send_bitfield();
         Ok((open_peer_connection_sender, handle))
     }
-    pub fn start_peer_connections(&mut self, peers: &[Peer]) {
-        info!("Starting connections with: {:?} peers", peers.len());
-        for peer in peers[0..10].iter() {
-            trace!("About to start connection with peer: {:?}", peer.ip);
-            match self.open_connection_from_peer(peer.clone()) {
-                Ok((open_peer_connection_sender, handle)) => {
-                    self.open_peer_connections
-                        .insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
+
+    fn open_connection_from_peer(
+        peer: Peer,
+        piece_manager_sender: PieceManagerSender,
+        piece_saver_sender: PieceSaverSender,
+        metainfo: Metainfo,
+        client_peer_id: &[u8],
+        ui_message_sender: UIMessageSender,
+    ) -> Result<(OpenPeerConnectionSender, JoinHandle<()>), OpenPeerConnectionError> {
+        let (open_peer_connection_sender, mut open_peer_connection_worker) =
+            new_open_peer_connection(
+                peer,
+                piece_manager_sender,
+                piece_saver_sender,
+                &metainfo,
+                client_peer_id,
+                ui_message_sender,
+            )?;
+
+        let handle = std::thread::spawn(move || {
+            open_peer_connection_worker.listen().unwrap();
+        });
+
+        open_peer_connection_sender.send_bitfield();
+        Ok((open_peer_connection_sender, handle))
+    }
+
+    pub fn start_peer_connections(&mut self, peers: Vec<Peer>) {
+        LOGGER.info(format!(
+            "Attempting connections with {:?} peers",
+            peers.len()
+        ));
+        let mut connection_attempts = vec![];
+        let open_peer_connections = Arc::new(Mutex::new(HashMap::new()));
+
+        for peer in peers {
+            let piece_manager_sender = self.piece_manager_sender.clone();
+            let piece_saver_sender = self.piece_saver_sender.clone();
+            let metainfo = self.metainfo.clone();
+            let client_peer_id = self.client_peer_id.clone();
+            let ui_message_sender = self.ui_message_sender.clone();
+            let open_peer_connections = open_peer_connections.clone();
+            connection_attempts.push(std::thread::spawn(move || {
+                if let Ok((open_peer_connection_sender, handle)) = Self::open_connection_from_peer(
+                    peer.clone(),
+                    piece_manager_sender,
+                    piece_saver_sender,
+                    metainfo,
+                    &client_peer_id,
+                    ui_message_sender,
+                ) {
+                    LOGGER.info(format!("Successfully connected to peer at {:?}", peer.ip));
+                    if let Ok(mut lock) = open_peer_connections.lock() {
+                        lock.insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
+                    }
                 }
-                Err(e) => {
-                    trace!("Error opening peer connection: {:?}", e);
-                }
-            }
+            }))
         }
+
+        for connection_attempt in connection_attempts {
+            let _ = connection_attempt.join();
+        }
+
+        let lock = Arc::try_unwrap(open_peer_connections)
+            .expect("no one should have a reference to open_peer_connections");
+        self.open_peer_connections = lock
+            .into_inner()
+            .expect("should be able to lock open_peer_connections");
+        LOGGER.info(format!(
+            "Connected successfully to {:?} peers",
+            self.open_peer_connections.len()
+        ));
     }
 
     fn download_piece(&self, peer_id: Vec<u8>, piece_index: u32) {
