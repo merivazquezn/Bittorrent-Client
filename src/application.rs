@@ -19,7 +19,7 @@ pub fn run_with_torrent(
     let peers: Vec<Peer> = get_peers_from_tracker(&mut client_info, ui_message_sender.clone())?;
 
     let client: TorrentClient = TorrentClient::new(&client_info, ui_message_sender)?;
-    client.run_with_peers(peers)?;
+    client.run_with_peers(peers, client_info)?;
 
     server.stop()?;
 

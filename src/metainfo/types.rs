@@ -44,6 +44,10 @@ impl Metainfo {
         debug!("Parsing torrent file");
         parse(&torrent_bytes)
     }
+
+    pub fn get_piece_count(&self) -> u32 {
+        self.info.pieces.len() as u32
+    }
 }
 
 impl PartialEq for Info {

@@ -1,4 +1,5 @@
 use std::num;
+
 #[derive(Debug, PartialEq)]
 /// Errors that can occur when parsing the config file
 pub enum ConfigError {
@@ -8,6 +9,7 @@ pub enum ConfigError {
     InvalidPath(String),
     /// there is a key missing in the config file
     MissingKey(String),
+    CreateDirectoryError,
 }
 
 impl From<std::num::ParseIntError> for ConfigError {
@@ -25,6 +27,9 @@ impl std::fmt::Display for ConfigError {
                 write!(f, "{} is not an existing directory", e)
             }
             ConfigError::MissingKey(key) => write!(f, "Missing key: {}", key),
+            ConfigError::CreateDirectoryError => {
+                write!(f, "Could not create download directory")
+            }
         }
     }
 }

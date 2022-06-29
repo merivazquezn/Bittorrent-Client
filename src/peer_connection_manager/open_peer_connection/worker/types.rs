@@ -53,8 +53,9 @@ impl OpenPeerConnectionWorker {
                         self.piece_manager_sender.failed_download(piece_index);
                         self.failed_download_in_a_row += 1;
                         if self.failed_download_in_a_row == 5 {
-                            self.piece_manager_sender.failed_connection(self.connection.get_peer_id());
-                            break
+                            self.piece_manager_sender
+                                .failed_connection(self.connection.get_peer_id());
+                            break;
                         }
                     } else {
                         self.failed_download_in_a_row = 0;

@@ -5,8 +5,11 @@ use std::fs::OpenOptions;
 use std::io::copy;
 use std::io::Write;
 
-// Creates downloads directory if it doesn't exist
-fn create_downloads_directory(path: &str) -> Result<(), DownloadManagerError> {
+/// Creates a directory if it doesn't exist.
+/// Receives the path of the directory
+/// If it alewady exists, does nothing.
+///
+pub fn create_directory(path: &str) -> Result<(), DownloadManagerError> {
     if !path.is_empty() && !std::path::Path::new(path).exists() {
         std::fs::create_dir_all(path)
             .map_err(|_| DownloadManagerError::CreateDirectoryError(path.to_string()))?;
@@ -49,7 +52,7 @@ pub fn save_piece_in_disk(
     if piece.data.is_empty() {
         return Err(DownloadManagerError::EmptyPieceError);
     }
-    create_downloads_directory(downloads_dir_path)?;
+    create_directory(downloads_dir_path)?;
 
     let mut file = File::create(format!("{}/{}", downloads_dir_path, piece.piece_number))?;
     file.write_all(&piece.data[..])?;

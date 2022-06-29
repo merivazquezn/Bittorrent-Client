@@ -222,8 +222,8 @@ mod tests {
         const CONFIG_PATH: &str = "config.txt";
         let torrent_path = "ubuntu.torrent";
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
-        let config = Config::from_path(CONFIG_PATH).unwrap();
-        let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
+        let config = Config::from_path(CONFIG_PATH).expect("Failed to load config");
+        let metainfo = Metainfo::from_torrent(torrent_path).expect("Failed to load metainfo");
         let connection = Box::new(MockHttpsService { read_bytes: vec![] });
         let mut tracker_service =
             TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
@@ -272,6 +272,4 @@ mod tests {
             }
         );
     }
-
-    // agregar tests que chequen la request
 }

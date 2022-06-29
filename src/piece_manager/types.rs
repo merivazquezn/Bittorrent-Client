@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
 
-
 type PeerId = Vec<u8>;
 type PieceId = u32;
 
@@ -22,7 +21,6 @@ pub enum PieceManagerMessage {
     Have(PeerId, PieceId),
     FirstConnectionsStarted(),
     FinishedStablishingConnections(),
-    Stop,
 }
 
 pub fn new_piece_manager(
@@ -47,8 +45,6 @@ pub fn new_piece_manager(
         PieceManagerSender { sender: tx },
         PieceManagerWorker {
             reciever: rx,
-            // bitfields: HashMap::new(),
-            // remaining_pieces,
             pieces_downloading: HashSet::new(),
             peers_per_piece,
             ui_message_sender,

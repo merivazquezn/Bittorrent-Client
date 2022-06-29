@@ -1,4 +1,5 @@
 use crate::config::ConfigError;
+use crate::download_manager::DownloadManagerError;
 use crate::http::HttpsServiceError;
 use crate::logger::LoggerError;
 use crate::metainfo::MetainfoParserError;
@@ -19,6 +20,7 @@ pub enum ApplicationError {
     JoinError(String),
     PeerConnectionError(PeerConnectionError),
     ServerError(ServerError),
+    DownloadError(DownloadManagerError),
 }
 
 impl From<ServerError> for ApplicationError {
@@ -63,6 +65,12 @@ impl From<PeerConnectionError> for ApplicationError {
     }
 }
 
+impl From<DownloadManagerError> for ApplicationError {
+    fn from(error: DownloadManagerError) -> Self {
+        ApplicationError::DownloadError(error)
+    }
+}
+
 impl From<Box<dyn std::any::Any + std::marker::Send>> for ApplicationError {
     fn from(error: Box<dyn std::any::Any + std::marker::Send>) -> Self {
         ApplicationError::JoinError(format!("{:?}", error))
@@ -76,14 +84,15 @@ impl Display for ApplicationError {
             ApplicationError::MetainfoError(error) => write!(f, "Metainfo Error - {}", error),
             ApplicationError::TrackerError(error) => write!(f, "Tracker Error - {}", error),
             ApplicationError::LoggerError(error) => write!(f, "Logger Error - {}", error),
+            ApplicationError::JoinError(cause) => write!(f, "Join Error - {}", cause),
+            ApplicationError::ServerError(error) => write!(f, "Server Error - {}", error),
+            ApplicationError::DownloadError(err) => write!(f, "Download Error - {}", err),
             ApplicationError::HttpsServiceError(error) => {
                 return write!(f, "HttpsService Error - {}", error);
             }
             ApplicationError::PeerConnectionError(error) => {
                 write!(f, "Peer Connection Error - {}", error)
             }
-            ApplicationError::JoinError(cause) => write!(f, "Join Error - {}", cause),
-            ApplicationError::ServerError(error) => write!(f, "Server Error - {}", error),
         }
     }
 }

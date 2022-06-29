@@ -8,8 +8,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
-type PeerId = Vec<u8>; 
+
+type PeerId = Vec<u8>;
+
 const FIRST_MIN_CONNECTIONS: usize = 5;
+
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
     pub peers_per_piece: HashMap<u32, Vec<PeerId>>,
@@ -30,30 +33,21 @@ impl PieceManagerWorker {
     }
 
     /// Updates the state after a piece downloading failure
-    /// Removes the piece of the pieces_downloading HashSet 
-    /// Reasks for the piece 
-    fn piece_failed_download(&mut self, piece_index: u32, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+    /// Removes the piece of the pieces_downloading HashSet
+    /// Reasks for the piece
+    fn piece_failed_download(
+        &mut self,
+        piece_index: u32,
+        peer_connection_manager_sender: &PeerConnectionManagerSender,
+    ) {
         self.pieces_downloading.remove(&piece_index);
         self.ask_for_piece(peer_connection_manager_sender, piece_index);
     }
 
     /// Returns true if there are no longer any pieces remaining to download nor downloading.
     fn last_piece_downloaded(&self) -> bool {
-        // shouldnt even have to check if downloading is empty.
-        self.peers_per_piece.is_empty() && self.pieces_downloading.is_empty()
+        self.peers_per_piece.is_empty()
     }
-
-    // /// function that recieves bitfield and return pieces 
-    // fn get_pieces_from_bitfield(&self, bitfield: &Bitfield) -> Vec<u32> {
-    //     let mut pieces = Vec::new();
-    //     for i in 0..bitfield.len() {
-    //         if bitfield[i] {
-    //             pieces.push(i as u32);
-    //         }
-    //     }
-    //     pieces
-    // }
-
 
     /// Gets a peers peer_id and bitfield.
     /// Iterates the peer_per_pieces HashMap and adds the peer_id to the vector of peer_ids for each piece in the bitfield.
@@ -67,12 +61,11 @@ impl PieceManagerWorker {
             });
     }
 
-
     /// Sends the peer_connection_manager the information to download a piece from X peer.
     /// Should discuss whether to aply some logic for this to be more efficient. Function should be called
     /// when a download failed, therefore we need to retry downloading the piece.
     /// Current logic: Randomly selects a peer from the peers_per_piece HashMap.
-    /// 
+    ///
     /// If there are no peers to give piece, does nothing. Eventually when receiving a have msg we will ask for it.
     /// If piece is already downloading does nothing.
     fn ask_for_piece(
@@ -89,18 +82,14 @@ impl PieceManagerWorker {
         }
     }
 
-
-
     /// For each piece of the file sends to peer_connection_manager one peer whom to download it from.
     fn ask_for_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
         trace!("Asking for pieces");
         let mut aux = self.peers_per_piece.clone();
-            aux.iter_mut().for_each(|(piece, _)| {
-                self.ask_for_piece(peer_connection_manager_sender, *piece);
-            });
+        aux.iter_mut().for_each(|(piece, _)| {
+            self.ask_for_piece(peer_connection_manager_sender, *piece);
+        });
     }
-
-
 
     /// Updates the state after receiving a peers bitfield.
     /// Updates the peers_per_pieces Hashmap.
@@ -108,21 +97,21 @@ impl PieceManagerWorker {
         self.update_peers_per_piece(&bitfield, peer_id);
     }
 
-
-
     /// Removes the peer from the bitfields vector and peers_per_piece hashmap.
     fn connection_failed(&mut self, peer_id: PeerId) {
-        self.peers_per_piece
-            .iter_mut()
-            .for_each(|(_, peer_ids)| {
-                peer_ids.retain(|x| x != &peer_id);
-            });
+        self.peers_per_piece.iter_mut().for_each(|(_, peer_ids)| {
+            peer_ids.retain(|x| x != &peer_id);
+        });
     }
 
     /// Updates the state after receiving a have message.
     /// If the piece is not downloading already, and the system is downloading, then it asks for the piece.
-    fn received_have(&mut self, peer_id: PeerId, piece_number: u32, peer_connection_manager_sender: &PeerConnectionManagerSender) {
-        // check if this works, vec is empty if not
+    fn received_have(
+        &mut self,
+        peer_id: PeerId,
+        piece_number: u32,
+        peer_connection_manager_sender: &PeerConnectionManagerSender,
+    ) {
         self.peers_per_piece
             .entry(piece_number)
             .or_insert(Vec::new())
@@ -131,18 +120,23 @@ impl PieceManagerWorker {
             self.ask_for_piece(peer_connection_manager_sender, piece_number)
         }
     }
-    
+
     /// Asks for the first FIRST_MIN_CONNECTIONS pieces.
-    fn ask_for_first_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+    fn ask_for_first_pieces(
+        &mut self,
+        peer_connection_manager_sender: &PeerConnectionManagerSender,
+    ) {
         let aux = self.peers_per_piece.clone();
-        let downloadable_first_pieces = aux.iter().take_while(|(_, peer_ids)| { !peer_ids.is_empty()
-        }).take(FIRST_MIN_CONNECTIONS);
+        let downloadable_first_pieces = aux
+            .iter()
+            .take_while(|(_, peer_ids)| !peer_ids.is_empty())
+            .take(FIRST_MIN_CONNECTIONS);
         downloadable_first_pieces.for_each(|(piece_number, _)| {
             self.ask_for_piece(peer_connection_manager_sender, *piece_number);
         });
     }
 
-    /// Starts downloading, begins with the first FIRST_MIN_CONNECTIONS pieces. 
+    /// Starts downloading, begins with the first FIRST_MIN_CONNECTIONS pieces.
     fn start_downloading(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
         self.is_downloading = true;
         self.ask_for_first_pieces(peer_connection_manager_sender)
@@ -156,7 +150,6 @@ impl PieceManagerWorker {
             let message = self.reciever.recv()?;
             trace!("Piece manager received message: {:?}", message);
             match message {
-                PieceManagerMessage::Stop => break,
                 PieceManagerMessage::Init(_) => {
                     continue;
                 }
@@ -175,8 +168,15 @@ impl PieceManagerWorker {
                     self.received_have(peer_id, piece_number, &peer_connection_manager_sender);
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {
-                    trace!("Piece manager received successful download of piece: {:?}", piece_index);
+                    trace!(
+                        "Piece manager received successful download of piece: {:?}",
+                        piece_index
+                    );
                     self.piece_succesfully_downloaded(piece_index);
+                    if self.last_piece_downloaded() {
+                        peer_connection_manager_sender.close_connections();
+                        break;
+                    }
                 }
                 PieceManagerMessage::FailedDownload(piece_index) => {
                     trace!("failed download of piece: {}", piece_index);
@@ -187,11 +187,8 @@ impl PieceManagerWorker {
                     self.connection_failed(peer_id);
                 }
             }
-            if self.last_piece_downloaded() {
-                peer_connection_manager_sender.close_connections();
-                break;
-            }
         }
+
         Ok(())
     }
 }
@@ -282,27 +279,23 @@ mod tests {
         assert_eq!(peer_id == vec![9, 5, 4] || peer_id == vec![9, 8, 7], true);
 
         // deleting the peer_id_1 from the peers_per_piece
-        peers_per_piece
-            .iter_mut()
-            .for_each(|(_, peer_ids)| {
-                peer_ids.retain(|x| x != &peer_id_1);
-            });
+        peers_per_piece.iter_mut().for_each(|(_, peer_ids)| {
+            peer_ids.retain(|x| x != &peer_id_1);
+        });
 
-            peers_per_piece.iter().for_each(|(piece_number, peer_ids)| {
-                if *piece_number == 0 {
-                    assert_eq!(peer_ids.len(), 1);
-                    assert_eq!(peer_ids[0], peer_id_3);
-                } else if *piece_number == 1 || *piece_number == 2 {
-                    assert_eq!(peer_ids.len(), 1);
-                    assert_eq!(peer_ids[0], peer_id_2);
-                } else if *piece_number == 4 {
-                    assert_eq!(peer_ids[0], peer_id_2);
-                    assert_eq!(peer_ids[1], peer_id_3);
-                } else if *piece_number == 3 {
-                    assert_eq!(peer_ids[0], peer_id_3);
-                }
-            });
-        
-
+        peers_per_piece.iter().for_each(|(piece_number, peer_ids)| {
+            if *piece_number == 0 {
+                assert_eq!(peer_ids.len(), 1);
+                assert_eq!(peer_ids[0], peer_id_3);
+            } else if *piece_number == 1 || *piece_number == 2 {
+                assert_eq!(peer_ids.len(), 1);
+                assert_eq!(peer_ids[0], peer_id_2);
+            } else if *piece_number == 4 {
+                assert_eq!(peer_ids[0], peer_id_2);
+                assert_eq!(peer_ids[1], peer_id_3);
+            } else if *piece_number == 3 {
+                assert_eq!(peer_ids[0], peer_id_3);
+            }
+        });
     }
 }

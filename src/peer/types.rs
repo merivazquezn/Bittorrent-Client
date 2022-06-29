@@ -51,7 +51,6 @@ impl Bitfield {
         self.0.len()
     }
 
-
     pub fn iter(&self) -> std::slice::Iter<u8> {
         self.0.iter()
     }

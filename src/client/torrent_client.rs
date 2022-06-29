@@ -1,5 +1,6 @@
 use super::ClientInfo;
 use crate::application_errors::ApplicationError;
+use crate::download_manager;
 use crate::peer::Peer;
 use crate::peer_connection_manager::*;
 use crate::piece_manager::*;
@@ -67,7 +68,11 @@ impl TorrentClient {
         })
     }
 
-    pub fn run_with_peers(mut self, peer_list: Vec<Peer>) -> Result<(), ApplicationError> {
+    pub fn run_with_peers(
+        mut self,
+        peer_list: Vec<Peer>,
+        client_info: ClientInfo,
+    ) -> Result<(), ApplicationError> {
         self.senders
             .piece_manager
             .start(self.senders.peer_connection_manager.clone());
@@ -96,22 +101,23 @@ impl TorrentClient {
             peer_connection_manager: peer_connection_manager_handle,
         };
 
-        Self::wait_to_end(
-            self.senders.piece_manager,
-            self.senders.piece_saver,
-            handles,
+        Self::wait_to_end(self.senders.piece_saver, handles)?;
+
+        info!("About to join pieces into target file");
+        download_manager::join_all_pieces(
+            client_info.metainfo.get_piece_count(),
+            &client_info.metainfo.info.name,
+            "./downloads",
         )?;
 
         Ok(())
     }
 
     fn wait_to_end(
-        piece_manager: PieceManagerSender,
         piece_saver: PieceSaverSender,
         handles: ClientHandles,
     ) -> Result<(), ApplicationError> {
         handles.piece_manager.join()?;
-        piece_manager.stop();
         piece_saver.stop();
         handles.piece_saver.join()?;
         handles.peer_connection_manager.join()?;

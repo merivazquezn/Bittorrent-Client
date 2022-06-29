@@ -1,5 +1,5 @@
 use super::errors::ConfigError;
-use log::*;
+use crate::download_manager;
 use std::collections::HashMap;
 use std::fs;
 use std::path;
@@ -46,6 +46,7 @@ impl Config {
         LOGGER.info(format!("Reading config file from path: {}", path));
         let content =
             fs::read_to_string(path).map_err(|_| ConfigError::InvalidPath(path.to_string()))?;
+
         let lines = content.lines();
         let config_dictionary = create_config_dict(lines);
         let config = create_config(&config_dictionary)?;
@@ -58,16 +59,20 @@ fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, Config
         .get(LISTEN_PORT)
         .ok_or_else(|| ConfigError::MissingKey(LISTEN_PORT.to_string()))?
         .parse()?;
-    trace!("Found listen_port: {}", listen_port);
+
     let log_path = config_dict
         .get(LOG_PATH)
         .ok_or_else(|| ConfigError::MissingKey(LOG_PATH.to_string()))?;
-    trace!("Found log_path: {}", log_path);
+
     let download_path = config_dict
         .get(DOWNLOAD_PATH)
         .ok_or_else(|| ConfigError::MissingKey(DOWNLOAD_PATH.to_string()))?;
-    trace!("Found download_path: {}", download_path);
-    trace!("Validating paths exist");
+
+    download_manager::create_directory(download_path)
+        .map_err(|_| ConfigError::CreateDirectoryError)?;
+
+    download_manager::create_directory(log_path).map_err(|_| ConfigError::CreateDirectoryError)?;
+
     validate_path(download_path)?;
     validate_path(log_path)?;
     Ok(Config {
@@ -152,12 +157,6 @@ mod test {
             config,
             Err(ConfigError::InvalidPort(std::num::ParseIntError { .. }))
         ));
-    }
-
-    #[test]
-    fn throws_on_invalid_path() {
-        let config = Config::from_path("src/config/test_files/wrong_path_log_config.txt");
-        assert!(matches!(config, Err(ConfigError::InvalidPath(_))));
     }
 
     #[test]

@@ -16,7 +16,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 pub const FIRST_MIN_CONNECTIONS: usize = 2;
 
-
 pub struct PeerConnectionManagerWorker {
     pub receiver: Receiver<PeerConnectionManagerMessage>,
     pub piece_manager_sender: PieceManagerSender,
@@ -28,7 +27,6 @@ pub struct PeerConnectionManagerWorker {
 }
 
 impl PeerConnectionManagerWorker {
-
     fn open_connection_from_peer(
         peer: Peer,
         piece_manager_sender: PieceManagerSender,

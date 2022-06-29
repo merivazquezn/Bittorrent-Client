@@ -16,10 +16,6 @@ impl PieceManagerSender {
             .send(PieceManagerMessage::Init(peer_connection_manager));
     }
 
-    pub fn stop(&self) {
-        let _ = self.sender.send(PieceManagerMessage::Stop);
-    }
-
     pub fn peer_pieces(&self, peer_id: Vec<u8>, bitfield: Bitfield) {
         let _ = self
             .sender
@@ -44,7 +40,6 @@ impl PieceManagerSender {
             .send(PieceManagerMessage::FailedConnection(peer_id));
     }
 
-
     pub fn have(&self, peer_id: Vec<u8>, piece_index: u32) {
         let _ = self
             .sender
@@ -62,5 +57,4 @@ impl PieceManagerSender {
             .sender
             .send(PieceManagerMessage::FinishedStablishingConnections());
     }
-    
 }
