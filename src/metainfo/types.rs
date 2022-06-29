@@ -25,7 +25,15 @@ pub struct Info {
     pub pieces: Vec<Vec<u8>>,
     ///the file name
     pub name: String,
-    ///the length in bytes of the file to download
+    ///the size of the torrent in bytes
+    pub length: u64,
+    /// files structure in case it is a multi-file torrent
+    pub files: Option<Vec<File>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct File {
+    pub path: String,
     pub length: u64,
 }
 

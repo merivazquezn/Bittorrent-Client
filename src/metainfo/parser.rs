@@ -37,22 +37,59 @@ fn build_metainfo(
     let name_key = b"name";
     let length_key = b"length";
     let announce_key = b"announce";
+    let files_key = b"files";
+    let path_key = b"path";
 
     let info_hashmap_decoded = get_from_bencoded_values_hashmap(hashmap, info_key)?;
     let info_hashmap = info_hashmap_decoded.get_as_dictionary()?;
 
+    let total_length = match get_from_bencoded_values_hashmap(info_hashmap, length_key) {
+        Ok(length) => *length.get_as_integer()? as u64,
+        Err(_) => {
+            let files_hashmap_decoded = get_from_bencoded_values_hashmap(info_hashmap, files_key)?;
+            let files = files_hashmap_decoded.get_as_list()?;
+            let mut total_length = 0;
+            for file in files {
+                let file_hashmap = file.get_as_dictionary()?;
+                let length = get_from_bencoded_values_hashmap(file_hashmap, length_key)?;
+                total_length += length.get_as_integer()?;
+            }
+            total_length as u64
+        }
+    };
+
     let pieces_as_vec_u8 = get_from_bencoded_values_hashmap(info_hashmap, pieces_key)?
         .get_as_string()?
         .to_vec();
+
+    let files: Option<Vec<File>> = match get_from_bencoded_values_hashmap(info_hashmap, files_key) {
+        Ok(files_bencoded) => {
+            let file_list = files_bencoded.get_as_list()?;
+            let mut files = Vec::new();
+            for file in file_list {
+                let file_hashmap = file.get_as_dictionary()?;
+                let path = bencode_list_to_string_path(&get_from_bencoded_values_hashmap(
+                    file_hashmap,
+                    path_key,
+                )?)?;
+                let length = *get_from_bencoded_values_hashmap(file_hashmap, length_key)?
+                    .get_as_integer()? as u64;
+                files.push(File { path, length });
+            }
+            Some(files)
+        }
+        Err(_) => None,
+    };
 
     let info = Info {
         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
             .get_as_integer()? as u32,
         pieces: get_vec_of_hashes(&pieces_as_vec_u8),
         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
-        length: *get_from_bencoded_values_hashmap(info_hashmap, length_key)?.get_as_integer()?
-            as u64,
+        length: total_length,
+        files,
     };
+
     let metainfo = Metainfo {
         info,
         info_hash: get_hash(hashmap, info_key),
@@ -60,6 +97,57 @@ fn build_metainfo(
     };
     validate(&metainfo)?;
     Ok(metainfo)
+
+    // if info_hashmap.contains_key(&files_key.to_vec()) {
+    //     // let files_list_bencode = get_from_bencoded_values_hashmap(&info_hashmap, files_key)?;
+    //     // let files_list = files_list_bencode.get_as_list()?;
+
+    //     let info = Info {
+    //         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
+    //             .get_as_integer()? as u32,
+    //         pieces: get_vec_of_hashes(&pieces_as_vec_u8),
+    //         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
+    //         length: total_length,
+    //         files: None,
+    //     };
+    //     let metainfo = Metainfo {
+    //         info,
+    //         info_hash: get_hash(hashmap, info_key),
+    //         announce: bencode_decoded_bytes_to_string(hashmap, announce_key)?,
+    //     };
+    //     validate(&metainfo)?;
+    //     Ok(metainfo)
+    // } else {
+    //     let info = Info {
+    //         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
+    //             .get_as_integer()? as u32,
+    //         pieces: get_vec_of_hashes(&pieces_as_vec_u8),
+    //         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
+    //         length: total_length,
+    //         files: None,
+    //     };
+    //     let metainfo = Metainfo {
+    //         info,
+    //         info_hash: get_hash(hashmap, info_key),
+    //         announce: bencode_decoded_bytes_to_string(hashmap, announce_key)?,
+    //     };
+    //     validate(&metainfo)?;
+    //     Ok(metainfo)
+    // }
+}
+
+// function that converts a Bencoded decoded List and turns it into a Bencode Decoded String
+fn bencode_list_to_string_path(list: &BencodeDecodedValue) -> Result<String, BencodeDecoderError> {
+    let mut path = String::new();
+    let mut list_iter = list.get_as_list()?.iter();
+    while let Some(value) = list_iter.next() {
+        let value_string = value.get_as_string()?;
+        path.push_str(&String::from_utf8_lossy(value_string));
+        if list_iter.next().is_some() {
+            path.push('/');
+        }
+    }
+    Ok(path)
 }
 
 // Converts the vector of pieces into a vector of each piece hash
@@ -177,6 +265,7 @@ mod tests {
             pieces: pieces,
             name: "sample.txt".to_string(),
             length: 20,
+            files: None,
         };
 
         let expected_metainfo: Metainfo = Metainfo {
@@ -242,6 +331,7 @@ mod tests {
             pieces: vec![vec![1, 2], vec![1, 3], vec![4, 0]], //array length of the first piece hash is not a multiple of 20!
             name: "sample.txt".to_string(),
             length: 20,
+            files: None,
         };
 
         let invalid_metainfo: Metainfo = Metainfo {

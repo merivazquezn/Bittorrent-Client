@@ -92,8 +92,18 @@ impl TrackerService {
     ) -> Result<TrackerResponse, TrackerError> {
         let response_dic = bencoded_response.get_as_dictionary()?;
         trace!("Parsing peer list from response");
-        let benencoded_peers_list = match response_dic.get(PEERS) {
-            Some(peers) => peers.get_as_list()?,
+        match response_dic.get(PEERS) {
+            Some(BencodeDecodedValue::List(peer_list)) => {
+                let peer_list = self.build_peer_list(peer_list)?;
+                Ok(TrackerResponse { peers: peer_list })
+            }
+            Some(BencodeDecodedValue::String(peer_list)) => {
+                let peer_list = self.build_peer_list_from_binary(peer_list)?;
+                Ok(TrackerResponse { peers: peer_list })
+            }
+            Some(_) => Err(TrackerError::InvalidResponse(
+                "Peer list was neither a list or a compact string".to_string(),
+            )),
             None => {
                 let error_message = response_dic
                     .get(&FAILURE_REASON.to_vec())
@@ -106,12 +116,9 @@ impl TrackerService {
                         "request failed and returned non utf8 reason".to_string(),
                     )
                 })?;
-                return Err(TrackerError::InvalidResponse(error_message));
+                Err(TrackerError::InvalidResponse(error_message))
             }
-        };
-
-        let peer_list = self.build_peer_list(benencoded_peers_list)?;
-        Ok(TrackerResponse { peers: peer_list })
+        }
     }
 
     fn build_peer_list(
@@ -160,6 +167,41 @@ impl TrackerService {
         }
 
         Ok(peer_list)
+    }
+
+    // given a bencoded_peer_list, which is a byte slice, it creates a vector of Peers, which are structs with ip, port, and peer_id.
+    // to do that, we go through the entire bencoded_peer_list, taking the first 4 bytes to form the IP and the next 2 bytes to form the port.
+    // we do that for every peer until we reach the end of the bencoded_peer_list.
+    // the peer_id is random
+    // to join the 4 bytes of the ip, we convert them into the form "xxx.xxx.xxx.xxx"
+    fn build_peer_list_from_binary(
+        &self,
+        bencoded_peer_list: &[u8],
+    ) -> Result<Vec<Peer>, TrackerError> {
+        let mut peer_list: Vec<Peer> = Vec::new();
+        let mut i = 0;
+        while i < bencoded_peer_list.len() {
+            let ip = &bencoded_peer_list[i..i + 4];
+            let port = &bencoded_peer_list[i + 4..i + 6];
+            let peer = Peer {
+                ip: self.convert_4_bytes_to_ip_string(ip),
+                port: u16::from_be_bytes([port[0], port[1]]),
+                peer_id: rand::thread_rng().gen::<[u8; 20]>().to_vec(),
+            };
+            peer_list.push(peer);
+            i += 6;
+        }
+
+        Ok(peer_list)
+    }
+
+    fn convert_4_bytes_to_ip_string(&self, ip_bytes: &[u8]) -> String {
+        let mut ip_string = String::new();
+        for i in ip_bytes.iter().take(4) {
+            ip_string.push_str(&format!("{}.", ip_bytes[*i as usize]));
+        }
+        ip_string.pop();
+        ip_string
     }
 }
 

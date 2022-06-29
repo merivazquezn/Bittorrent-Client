@@ -176,6 +176,7 @@ mod tests {
                 pieces: pieces,
                 length: 16,
                 name: "".to_string(),
+                files: None,
             },
             info_hash: vec![],
         }
