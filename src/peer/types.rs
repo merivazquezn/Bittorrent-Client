@@ -84,6 +84,19 @@ pub struct Peer {
     pub ip: String,
     pub port: u16,
     pub peer_id: Vec<u8>,
+    pub peer_message_service_provider:
+        fn(
+            ip: String,
+            port: u16,
+        ) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError>,
+}
+
+impl Peer {
+    pub fn connect(
+        &self,
+    ) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError> {
+        (self.peer_message_service_provider)(self.ip.clone(), self.port)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -221,9 +234,9 @@ pub struct PeerMessageService {
 }
 
 impl PeerMessageService {
-    pub fn connect_to_peer(peer: &Peer) -> Result<Self, PeerConnectionError> {
-        trace!("Connecting to peer at IP: {}", peer.ip);
-        let ipv4addr: SocketAddrV4 = format!("{}:{}", peer.ip, peer.port).parse().unwrap();
+    pub fn connect_to_peer(ip: String, port: u16) -> Result<Self, PeerConnectionError> {
+        trace!("Connecting to peer at IP: {}", ip);
+        let ipv4addr: SocketAddrV4 = format!("{}:{}", ip, port).parse().unwrap();
         let ipvaddr = SocketAddr::from(ipv4addr);
         let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(5))
             .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
@@ -571,4 +584,23 @@ impl IServerPeerMessageService for ServerMessageBitfieldMock {
             .unwrap();
         Ok(())
     }
+}
+
+pub fn peer_message_service_provider(
+    ip: String,
+    port: u16,
+) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError> {
+    let peer_message_service = PeerMessageService::connect_to_peer(ip, port)?;
+    Ok(Box::new(peer_message_service))
+}
+
+pub fn mock_peer_message_service_provider(
+    _ip: String,
+    _port: u16,
+) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError> {
+    Ok(Box::new(PeerMessageServiceMock {
+        counter: 0,
+        file: vec![],
+        block_size: 0,
+    }))
 }

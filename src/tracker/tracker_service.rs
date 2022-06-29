@@ -8,6 +8,7 @@ use crate::bencode::BencodeDecodedValue;
 use crate::bencode::*;
 use crate::http::IHttpService;
 use crate::metainfo::Metainfo;
+use crate::peer::peer_message_service_provider;
 use crate::peer::Peer;
 use log::*;
 use rand::Rng;
@@ -155,12 +156,14 @@ impl TrackerService {
                     rand::thread_rng().gen::<[u8; 20]>().to_vec()
                 }
             };
+
             let peer = Peer {
                 ip: u8_to_string(peer_ip).ok_or_else(|| {
                     TrackerError::InvalidResponse(format!("invalid peer ip: {:?}", peer_id))
                 })?,
                 port,
                 peer_id,
+                peer_message_service_provider,
             };
 
             peer_list.push(peer);
@@ -187,6 +190,7 @@ impl TrackerService {
                 ip: self.convert_4_bytes_to_ip_string(ip),
                 port: u16::from_be_bytes([port[0], port[1]]),
                 peer_id: rand::thread_rng().gen::<[u8; 20]>().to_vec(),
+                peer_message_service_provider,
             };
             peer_list.push(peer);
             i += 6;
@@ -268,7 +272,8 @@ mod tests {
             Peer {
                 ip: "0.0.0.0".to_string(),
                 port: 10000,
-                peer_id: [0u8; 20].to_vec()
+                peer_id: [0u8; 20].to_vec(),
+                peer_message_service_provider
             }
         );
     }

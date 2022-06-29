@@ -28,12 +28,12 @@ pub fn new_open_peer_connection(
     client_peer_id: &[u8],
     ui_message_sender: UIMessageSender,
 ) -> Result<(OpenPeerConnectionSender, OpenPeerConnectionWorker), OpenPeerConnectionError> {
-    let peer_message_stream = PeerMessageService::connect_to_peer(&peer)?;
+    let peer_message_stream = peer.connect()?;
     let mut connection = PeerConnection::new(
         peer,
         client_peer_id,
         metainfo,
-        Box::new(peer_message_stream),
+        peer_message_stream,
         ui_message_sender,
     );
     connection.open_connection()?;

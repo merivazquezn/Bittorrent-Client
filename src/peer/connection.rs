@@ -233,6 +233,7 @@ mod tests {
             ip: "".to_string(),
             port: 0,
             peer_id: vec![],
+            peer_message_service_provider,
         };
         const BLOCK_SIZE: u32 = 2;
         let peer_message_stream_mock = PeerMessageServiceMock {
@@ -276,6 +277,7 @@ mod tests {
             ip: "".to_string(),
             port: 0,
             peer_id: vec![],
+            peer_message_service_provider: mock_peer_message_service_provider,
         };
         const BLOCK_SIZE: u32 = 2;
         let peer_message_stream_mock = PeerMessageServiceMock {
