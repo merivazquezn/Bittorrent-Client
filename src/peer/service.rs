@@ -1,22 +1,16 @@
 use super::constants::*;
 use super::errors::*;
-use super::messages::*;
-use super::utils::*;
+use super::types::*;
+use super::utils::is_keep_alive_message;
 use super::IPeerMessageServiceError;
 use crate::boxed_result::BoxedResult;
+use crate::server::payload_from_request_message;
+use crate::server::RequestMessage;
 use log::*;
 use std::io::{Read, Write};
-use std::net::SocketAddrV4;
-use std::net::SocketAddrV6;
 use std::net::TcpStream;
+use std::net::{SocketAddr, SocketAddrV4};
 use std::time::Duration;
-
-#[derive(Debug, PartialEq)]
-pub struct Peer {
-    pub ip: String,
-    pub port: u16,
-    pub peer_id: Vec<u8>,
-}
 
 pub struct PeerMessageService {
     stream: TcpStream,
@@ -24,16 +18,12 @@ pub struct PeerMessageService {
 }
 
 impl PeerMessageService {
-    pub fn connect_to_peer(peer: &Peer) -> Result<Self, PeerConnectionError> {
-        let stream: TcpStream = if is_ipv4(&peer.ip) {
-            let socket = SocketAddrV4::new(ipv4_from_str(&peer.ip)?, peer.port);
-            TcpStream::connect(socket)?
-        } else {
-            let socket = SocketAddrV6::new(ipv6_from_str(&peer.ip)?, peer.port, 0, 0);
-            TcpStream::connect(socket)?
-        };
-
-        trace!("Connecting to peer at IP: {}", peer.ip);
+    pub fn connect_to_peer(ip: String, port: u16) -> Result<Self, PeerConnectionError> {
+        trace!("Connecting to peer at IP: {}", ip);
+        let ipv4addr: SocketAddrV4 = format!("{}:{}", ip, port).parse().unwrap();
+        let ipvaddr = SocketAddr::from(ipv4addr);
+        let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(5))
+            .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
         stream
             .set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))
             .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
@@ -44,6 +34,23 @@ impl PeerMessageService {
             stream,
             max_retries: MAX_RETRIES,
         })
+    }
+
+    pub fn from_peer_connection(stream: TcpStream) -> Self {
+        Self {
+            stream,
+            max_retries: MAX_RETRIES,
+        }
+    }
+
+    fn create_handshake_message(&self, info_hash: &[u8], peer_id: &[u8]) -> Vec<u8> {
+        let mut handshake_message = Vec::new();
+        handshake_message.extend_from_slice(&[PSTRLEN]);
+        handshake_message.extend_from_slice(b"BitTorrent protocol");
+        handshake_message.extend_from_slice(&[0u8; 8]);
+        handshake_message.extend_from_slice(info_hash);
+        handshake_message.extend_from_slice(peer_id);
+        handshake_message
     }
 
     fn try_read_exact(&mut self, buf: &mut [u8]) -> BoxedResult<()> {
@@ -123,29 +130,8 @@ impl IPeerMessageService for PeerMessageService {
             length: message_length,
             payload,
         };
-        debug!("message received: {:?}", msg.id);
+        //debug!("message received: {:?}", msg.id);
         Ok(msg)
-    }
-
-    fn handshake(
-        &mut self,
-        info_hash: &[u8],
-        peer_id: &[u8],
-    ) -> Result<(), IPeerMessageServiceError> {
-        let handshake_message = create_handshake_message(info_hash, peer_id);
-        self.write_all(&handshake_message).map_err(|_| {
-            IPeerMessageServiceError::SendingMessageError(
-                "Couldn't send handshake message to other peer".to_string(),
-            )
-        })?;
-        let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
-        self.read_exact(&mut handshake_response).map_err(|_| {
-            IPeerMessageServiceError::ReceivingMessageError(
-                "Couldn't read handshake from other peer".into(),
-            )
-        })?;
-        debug!("handshake successful");
-        Ok(())
     }
 
     fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
@@ -158,7 +144,53 @@ impl IPeerMessageService for PeerMessageService {
                 "Couldn't send message to other peer".to_string(),
             )
         })?;
-        debug!("message sent: {:?}", message.id);
+        // debug!("message sent: {:?}", message.id);
+        Ok(())
+    }
+}
+
+impl IClientPeerMessageService for PeerMessageService {
+    fn handshake(
+        &mut self,
+        info_hash: &[u8],
+        peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        let handshake_message = self.create_handshake_message(info_hash, peer_id);
+        self.write_all(&handshake_message).map_err(|_| {
+            IPeerMessageServiceError::SendingMessageError(
+                "Couldn't send handshake message to other peer".to_string(),
+            )
+        })?;
+        let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
+        self.read_exact(&mut handshake_response).map_err(|_| {
+            IPeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read handshake from other peer".into(),
+            )
+        })?;
+        debug!("client handshake successful");
+        Ok(())
+    }
+}
+
+impl IServerPeerMessageService for PeerMessageService {
+    fn handshake(
+        &mut self,
+        info_hash: &[u8],
+        peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        let mut handshake_response = [0u8; HANDSHAKE_LENGTH];
+        self.read_exact(&mut handshake_response).map_err(|_| {
+            IPeerMessageServiceError::ReceivingMessageError(
+                "Couldn't read handshake from other peer".into(),
+            )
+        })?;
+        let handshake_message = self.create_handshake_message(info_hash, peer_id);
+        self.write_all(&handshake_message).map_err(|_| {
+            IPeerMessageServiceError::SendingMessageError(
+                "Couldn't send handshake message to other peer".to_string(),
+            )
+        })?;
+        debug!("server handshake successful");
         Ok(())
     }
 }
@@ -173,7 +205,7 @@ impl IPeerMessageService for PeerMessageServiceMock {
     fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let msg = PeerMessage::piece(
             0,
-            self.counter * self.block_size,
+            (self.counter * self.block_size) as usize,
             self.file[(self.counter * self.block_size) as usize
                 ..(self.block_size + self.counter * self.block_size) as usize]
                 .to_vec(),
@@ -182,6 +214,12 @@ impl IPeerMessageService for PeerMessageServiceMock {
         Ok(msg)
     }
 
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
+}
+
+impl IClientPeerMessageService for PeerMessageServiceMock {
     fn handshake(
         &mut self,
         _info_hash: &[u8],
@@ -189,18 +227,164 @@ impl IPeerMessageService for PeerMessageServiceMock {
     ) -> Result<(), IPeerMessageServiceError> {
         Ok(())
     }
-
-    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
-        Ok(())
-    }
 }
 
 pub trait IPeerMessageService {
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError>;
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError>;
+}
+
+pub trait IClientPeerMessageService: IPeerMessageService {
     fn handshake(
         &mut self,
         info_hash: &[u8],
         peer_id: &[u8],
     ) -> Result<(), IPeerMessageServiceError>;
-    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError>;
-    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError>;
+}
+
+pub trait IServerPeerMessageService: IPeerMessageService {
+    fn handshake(
+        &mut self,
+        info_hash: &[u8],
+        peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError>;
+}
+
+pub struct ServerMessageServiceMock {
+    pub times_called: u32,
+}
+
+impl IPeerMessageService for ServerMessageServiceMock {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        let mut piece_file: File =
+            File::create("./src/server/tests/test_1/received_piece_0").expect("Creation failed!");
+        piece_file.write_all(&message.payload).unwrap();
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        if self.times_called == 0 {
+            self.times_called += 1;
+            Ok(PeerMessage {
+                id: PeerMessageId::Request,
+                length: 12,
+                payload: payload_from_request_message(RequestMessage {
+                    index: 0,
+                    begin: 0,
+                    length: 8,
+                }),
+            })
+        } else {
+            Ok(PeerMessage {
+                id: PeerMessageId::Cancel,
+                length: 0,
+                payload: Vec::new(),
+            })
+        }
+    }
+}
+
+pub struct ServerMessageServiceUnsuccesfulMock {
+    pub times_called: u32,
+}
+
+impl IPeerMessageService for ServerMessageServiceUnsuccesfulMock {
+    fn send_message(&mut self, _message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        if self.times_called == 0 {
+            self.times_called += 1;
+            Ok(PeerMessage {
+                id: PeerMessageId::Request,
+                length: 0,
+                payload: payload_from_request_message(RequestMessage {
+                    index: 0,
+                    begin: 0,
+                    length: 8,
+                }),
+            })
+        } else {
+            Ok(PeerMessage {
+                id: PeerMessageId::Cancel,
+                length: 0,
+                payload: Vec::new(),
+            })
+        }
+    }
+}
+
+impl IServerPeerMessageService for ServerMessageServiceMock {
+    fn handshake(
+        &mut self,
+        _info_hash: &[u8],
+        _peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        Ok(())
+    }
+}
+
+pub struct ServerMessageBitfieldMock;
+
+use std::fs::File;
+impl IPeerMessageService for ServerMessageBitfieldMock {
+    fn send_message(&mut self, message: &PeerMessage) -> Result<(), IPeerMessageServiceError> {
+        use std::fs::OpenOptions;
+        let mut messages_file: File = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open("./src/server/tests/test_3/initialize_connection.txt")
+            .unwrap();
+
+        let id = match message.id {
+            PeerMessageId::Bitfield => 5,
+            PeerMessageId::Unchoke => 1,
+            _ => -1,
+        };
+
+        messages_file
+            .write_all(format!("{:?}\n", id).as_bytes())
+            .unwrap();
+        Ok(())
+    }
+
+    fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
+        Ok(PeerMessage::choke())
+    }
+}
+
+impl IServerPeerMessageService for ServerMessageBitfieldMock {
+    fn handshake(
+        &mut self,
+        _info_hash: &[u8],
+        _peer_id: &[u8],
+    ) -> Result<(), IPeerMessageServiceError> {
+        let mut messages_file: File =
+            File::create("./src/server/tests/test_3/initialize_connection.txt")
+                .expect("Failed to create test file");
+        messages_file
+            .write_all("handshake\n".to_string().as_bytes())
+            .unwrap();
+        Ok(())
+    }
+}
+
+pub fn peer_message_service_provider(
+    ip: String,
+    port: u16,
+) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError> {
+    let peer_message_service = PeerMessageService::connect_to_peer(ip, port)?;
+    Ok(Box::new(peer_message_service))
+}
+
+pub fn mock_peer_message_service_provider(
+    _ip: String,
+    _port: u16,
+) -> Result<Box<dyn IClientPeerMessageService + Send>, PeerConnectionError> {
+    Ok(Box::new(PeerMessageServiceMock {
+        counter: 0,
+        file: vec![],
+        block_size: 0,
+    }))
 }

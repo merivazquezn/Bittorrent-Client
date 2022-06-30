@@ -1,9 +1,10 @@
-use super::constants::*;
 use super::errors::IPeerMessageServiceError;
 use super::errors::PeerConnectionError;
+use super::service::*;
 use super::types::*;
 use super::utils::*;
 use super::Peer;
+use crate::constants::*;
 use crate::metainfo::Metainfo;
 use crate::ui::UIMessageSender;
 use log::*;
@@ -207,7 +208,17 @@ mod tests {
     use super::*;
     use crate::metainfo::Info;
     use crate::metainfo::Metainfo;
+    use sha1::{Digest, Sha1};
 
+    fn get_pieces_hash_from_bytes(file: &Vec<u8>) -> Vec<Vec<u8>> {
+        let mut pieces = Vec::new();
+        for chunk in file.chunks(8 as usize) {
+            let mut hasher = Sha1::new();
+            hasher.update(chunk);
+            pieces.push(hasher.finalize()[..].to_vec());
+        }
+        pieces
+    }
     #[test]
     fn gets_real_piece() {
         let file = vec![0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -220,8 +231,8 @@ mod tests {
             announce: "".to_string(),
             info: Info {
                 piece_length: 8,
-                pieces: pieces,
-                length: 16,
+                pieces: get_pieces_hash_from_bytes(&file),
+                length: file.len() as u64,
                 name: "".to_string(),
                 files: None,
             },
@@ -232,13 +243,12 @@ mod tests {
             ip: "".to_string(),
             port: 0,
             peer_id: vec![],
-            peer_message_service_provider,
+            peer_message_service_provider: mock_peer_message_service_provider,
         };
-        const BLOCK_SIZE: u32 = 2;
         let peer_message_stream_mock = PeerMessageServiceMock {
             counter: 0,
             file: file.clone(),
-            block_size: BLOCK_SIZE,
+            block_size: 2 as u32,
         };
         let mut peer_connection = PeerConnection::new(
             peer_mock,
@@ -248,8 +258,8 @@ mod tests {
             UIMessageSender::no_ui(),
         );
 
-        let piece = peer_connection.request_piece(0, BLOCK_SIZE);
-        assert_eq!(file[0..8], piece.unwrap());
+        let piece = peer_connection.request_piece(0, 2 as u32).unwrap();
+        assert_eq!(file[0..8], piece);
     }
 
     #[test]
@@ -278,11 +288,10 @@ mod tests {
             peer_id: vec![],
             peer_message_service_provider: mock_peer_message_service_provider,
         };
-        const BLOCK_SIZE: u32 = 2;
         let peer_message_stream_mock = PeerMessageServiceMock {
             counter: 0,
             file: file.clone(),
-            block_size: BLOCK_SIZE,
+            block_size: 2 as u32,
         };
         let mut peer_connection = PeerConnection::new(
             peer_mock,

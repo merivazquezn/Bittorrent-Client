@@ -1,4 +1,5 @@
 use super::super::types::OpenPeerConnectionMessage;
+use crate::constants::*;
 use crate::peer::*;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
@@ -23,7 +24,6 @@ impl OpenPeerConnectionWorker {
     }
 
     fn download_piece(&mut self, piece_index: u32) -> Result<(), PeerConnectionError> {
-        const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
         let piece_data: Vec<u8> = self
             .connection
             .request_piece(piece_index, BLOCK_SIZE)

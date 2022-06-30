@@ -1,5 +1,5 @@
+use bittorrent_rustico::constants::*;
 use bittorrent_rustico::peer::*;
-pub const BLOCK_SIZE: u32 = 16 * u32::pow(2, 10);
 use std::vec::Vec;
 
 struct PeerMessageServiceMockExtended {
