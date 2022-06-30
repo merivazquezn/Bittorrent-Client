@@ -17,3 +17,8 @@ If you want to run application without UI, avoid setting the UI environment vari
 ```
 RUST_LOG=info cargo run debian.torrent
 ```
+
+run integration tests:
+```
+RUST_LOG=trace cargo test --test "*" -- --nocapture
+```

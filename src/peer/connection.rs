@@ -76,8 +76,7 @@ impl PeerConnection {
     fn wait_until_ready(&mut self) -> Result<(), IPeerMessageServiceError> {
         loop {
             self.wait_for_message()?;
-
-            if self.peer_choking && self.bitfield.is_empty() {
+            if !self.peer_choking && self.bitfield.non_empty() {
                 break;
             }
         }
@@ -101,7 +100,6 @@ impl PeerConnection {
             let message = self.wait_for_message().map_err(|_| {
                 PeerConnectionError::PieceRequestingError("Failed while waiting for message".into())
             })?;
-
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
@@ -137,10 +135,12 @@ impl PeerConnection {
             piece.extend(block);
             counter += block_size;
             if counter >= self.metainfo.info.piece_length {
+                trace!("validating piece {}", piece_index);
                 if valid_piece(&piece, piece_index, &self.metainfo) {
                     debug!("recieved full valid piece, piece index: {}", piece_index);
                     break Ok(piece);
                 } else {
+                    trace!("recieved invalid piece, piece index: {}", piece_index);
                     break Err(PeerConnectionError::PieceRequestingError(
                         "Invalid piece received".to_string(),
                     ));
@@ -192,7 +192,6 @@ impl PeerConnection {
                     "Error trying to send interested message".to_string(),
                 )
             })?;
-
         self.wait_until_ready()?;
         self.ui_message_sender.send_new_connection();
         Ok(())

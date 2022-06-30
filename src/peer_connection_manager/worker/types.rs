@@ -14,7 +14,7 @@ const LOGGER: CustomLogger = CustomLogger::init("Peer Connection Manager");
 // use arc and mutex
 use std::sync::Arc;
 use std::sync::Mutex;
-pub const FIRST_MIN_CONNECTIONS: usize = 2;
+pub const FIRST_MIN_CONNECTIONS: usize = 3;
 
 pub struct PeerConnectionManagerWorker {
     pub receiver: Receiver<PeerConnectionManagerMessage>,
@@ -80,6 +80,7 @@ impl PeerConnectionManagerWorker {
                 ) {
                     LOGGER.info(format!("Successfully connected to peer at {:?}", peer.ip));
                     if let Ok(mut lock) = open_peer_connections.lock() {
+                        info!("Adding peer connection {} to map", peer.ip);
                         lock.insert(peer.peer_id.clone(), (open_peer_connection_sender, handle));
                         if lock.len() == FIRST_MIN_CONNECTIONS {
                             piece_manager_sender.first_connections_started();
@@ -120,13 +121,14 @@ impl PeerConnectionManagerWorker {
     pub fn listen(self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
+            trace!("Peer connection manager received message: {:?}", message);
+
             match message {
                 PeerConnectionManagerMessage::CloseConnections => {
                     self.close_connections();
                     break;
                 }
                 PeerConnectionManagerMessage::DownloadPiece(peer_id, piece_index) => {
-                    trace!("Downloading piece: {}", piece_index);
                     self.download_piece(peer_id, piece_index)
                 }
             }

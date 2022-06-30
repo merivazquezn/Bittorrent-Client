@@ -46,8 +46,10 @@ impl PieceSaverWorker {
 
         loop {
             let message = self.receiver.recv()?;
+
             match message {
                 PieceSaverMessage::StopSaving => {
+                    trace!("Piece saver received stop saving");
                     break;
                 }
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {

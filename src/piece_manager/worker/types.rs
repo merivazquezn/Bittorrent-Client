@@ -154,7 +154,6 @@ impl PieceManagerWorker {
                     continue;
                 }
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
-                    trace!("Piece manager received bitfield from peer: {:?}", peer_id);
                     self.receiving_peer_pieces(peer_id, bitfield);
                 }
                 PieceManagerMessage::FirstConnectionsStarted() => {
@@ -164,14 +163,9 @@ impl PieceManagerWorker {
                     self.ask_for_pieces(&peer_connection_manager_sender);
                 }
                 PieceManagerMessage::Have(peer_id, piece_number) => {
-                    trace!("Piece manager received Have msg from peer: {:?}", peer_id);
                     self.received_have(peer_id, piece_number, &peer_connection_manager_sender);
                 }
                 PieceManagerMessage::SuccessfulDownload(piece_index) => {
-                    trace!(
-                        "Piece manager received successful download of piece: {:?}",
-                        piece_index
-                    );
                     self.piece_succesfully_downloaded(piece_index);
                     if self.last_piece_downloaded() {
                         peer_connection_manager_sender.close_connections();
@@ -179,11 +173,9 @@ impl PieceManagerWorker {
                     }
                 }
                 PieceManagerMessage::FailedDownload(piece_index) => {
-                    trace!("failed download of piece: {}", piece_index);
                     self.piece_failed_download(piece_index, &peer_connection_manager_sender);
                 }
                 PieceManagerMessage::FailedConnection(peer_id) => {
-                    trace!("failed connection with: {:?}", peer_id);
                     self.connection_failed(peer_id);
                 }
             }

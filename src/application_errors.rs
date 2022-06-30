@@ -9,6 +9,7 @@ use crate::tracker::TrackerError;
 use std::fmt;
 use std::fmt::Display;
 
+#[derive(Debug)]
 /// The error type that is returned by the application
 /// Each error holds inside the error of the exact type
 pub enum ApplicationError {

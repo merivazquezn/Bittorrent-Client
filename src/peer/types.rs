@@ -43,7 +43,7 @@ impl Bitfield {
         Bitfield(vec![])
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn non_empty(&self) -> bool {
         !self.0.is_empty()
     }
 

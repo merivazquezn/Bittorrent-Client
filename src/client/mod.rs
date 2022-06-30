@@ -6,3 +6,4 @@ mod utils;
 pub use constants::*;
 pub use info::ClientInfo;
 pub use torrent_client::*;
+pub use utils::*;
