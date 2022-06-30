@@ -104,10 +104,12 @@ impl TorrentClient {
         Self::wait_to_end(self.senders.piece_saver, handles)?;
 
         info!("About to join pieces into target file");
-        download_manager::join_all_pieces(
+
+        download_manager::make_target_file(
             client_info.metainfo.get_piece_count(),
             &client_info.metainfo.info.name,
             "./downloads",
+            client_info.config.persist_pieces,
         )?;
 
         Ok(())

@@ -8,6 +8,7 @@ const LISTEN_PORT: &str = "listen_port";
 const LOG_PATH: &str = "log_path";
 const DOWNLOAD_PATH: &str = "download_path";
 const SEPARATOR: &str = "=";
+const PERSIST_PIECES: &str = "persist_pieces";
 use crate::logger::CustomLogger;
 const LOGGER: CustomLogger = CustomLogger::init("Config");
 
@@ -21,6 +22,8 @@ pub struct Config {
     pub log_path: String,
     /// file path where the downloaded file will be located at
     pub download_path: String,
+    /// whether to persist pieces in the disk or delete them after download
+    pub persist_pieces: bool,
 }
 
 impl Config {
@@ -68,6 +71,10 @@ fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, Config
         .get(DOWNLOAD_PATH)
         .ok_or_else(|| ConfigError::MissingKey(DOWNLOAD_PATH.to_string()))?;
 
+    let persist_pieces = config_dict
+        .get(PERSIST_PIECES)
+        .ok_or_else(|| ConfigError::MissingKey(PERSIST_PIECES.to_string()))?;
+
     download_manager::create_directory(download_path)
         .map_err(|_| ConfigError::CreateDirectoryError)?;
 
@@ -75,10 +82,12 @@ fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, Config
 
     validate_path(download_path)?;
     validate_path(log_path)?;
+
     Ok(Config {
         listen_port,
         log_path: log_path.into(),
         download_path: download_path.into(),
+        persist_pieces: persist_pieces == "true",
     })
 }
 
@@ -112,6 +121,7 @@ mod test {
         assert_eq!(config.listen_port, 4424);
         assert_eq!(config.log_path, "src/config/test_files/");
         assert_eq!(config.download_path, "src/config/test_files/");
+        assert_eq!(config.persist_pieces, true);
     }
 
     #[test]

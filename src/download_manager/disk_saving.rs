@@ -4,10 +4,11 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::copy;
 use std::io::Write;
+use std::path::Path;
 
 /// Creates a directory if it doesn't exist.
 /// Receives the path of the directory
-/// If it alewady exists, does nothing.
+/// If it already exists, does nothing.
 ///
 pub fn create_directory(path: &str) -> Result<(), DownloadManagerError> {
     if !path.is_empty() && !std::path::Path::new(path).exists() {
@@ -18,7 +19,6 @@ pub fn create_directory(path: &str) -> Result<(), DownloadManagerError> {
     Ok(())
 }
 
-#[allow(dead_code)]
 /// Saves in disk a non-empty piece in disk in the specified path with the number of piece as file name
 /// If the piece is empty, it returns an error
 ///
@@ -77,6 +77,27 @@ pub fn join_all_pieces(
             .map_err(|_| DownloadManagerError::MissingPieceError(piece_no))?;
 
         copy(&mut piece_file, &mut target_file)?;
+    }
+
+    Ok(())
+}
+
+fn delete_pieces_files(pieces_dir: &str) -> Result<(), DownloadManagerError> {
+    let path: &Path = Path::new(pieces_dir);
+    std::fs::remove_dir_all(path)?;
+    Ok(())
+}
+
+pub fn make_target_file(
+    piece_count: u32,
+    target_file_name: &str,
+    downloads_dir_path: &str,
+    persist_pieces: bool,
+) -> Result<(), DownloadManagerError> {
+    join_all_pieces(piece_count, target_file_name, downloads_dir_path)?;
+
+    if !persist_pieces {
+        delete_pieces_files(format!("{}/pieces", downloads_dir_path).as_str())?;
     }
 
     Ok(())

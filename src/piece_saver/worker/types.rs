@@ -8,6 +8,7 @@ use log::*;
 use sha1::{Digest, Sha1};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
+
 const LOGGER: CustomLogger = CustomLogger::init("Piece Saver");
 
 pub struct PieceSaverWorker {
@@ -25,20 +26,34 @@ impl PieceSaverWorker {
         hasher.finalize().to_vec()
     }
 
-    fn valid_piece(&self, piece_bytes: Vec<u8>, piece_index: u32) -> bool {
+    fn valid_piece(&self, piece_bytes: &Vec<u8>, piece_index: u32) -> bool {
         let real_piece_sha1 = self.sha1_pieces[piece_index as usize].to_vec();
         let recieved_piece_sha1 = self.sha1_of(piece_bytes.as_slice());
         recieved_piece_sha1 == real_piece_sha1
     }
 
-    pub fn make_validation_and_save_piece(&self, piece_index: u32, piece_bytes: Vec<u8>) {
-        if self.valid_piece(piece_bytes.clone(), piece_index) {
-            let piece = Piece {
-                piece_number: piece_index,
-                data: piece_bytes,
-            };
-            save_piece_in_disk(&piece, &self.download_path).unwrap();
+    fn make_validation_and_save_piece(&self, piece_index: u32, piece_bytes: Vec<u8>) -> bool {
+        if !self.valid_piece(&piece_bytes, piece_index) {
+            return false;
         }
+
+        let piece = Piece {
+            piece_number: piece_index,
+            data: piece_bytes,
+        };
+
+        let download_path = format!("{}/pieces", String::from(&self.download_path));
+        match save_piece_in_disk(&piece, &download_path) {
+            Ok(()) => true,
+            Err(_) => false,
+        }
+    }
+
+    fn downloaded_piece_successfully(&self, piece_index: u32, logger: &Logger) {
+        self.piece_manager_sender.successful_download(piece_index);
+        self.ui_message_sender.send_downloaded_piece();
+        LOGGER.info(format!("Piece {:^5} downloaded successfully", piece_index));
+        let _ = logger.log_piece(piece_index);
     }
 
     pub fn listen(&self) -> Result<(), RecvError> {
@@ -54,10 +69,14 @@ impl PieceSaverWorker {
                 }
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {
                     trace!("Piece saver received piece: {:?}", piece_index);
-                    self.make_validation_and_save_piece(piece_index, piece_bytes);
-                    self.ui_message_sender.send_downloaded_piece();
-                    LOGGER.info(format!("Piece {:^5} downloaded successfully", piece_index));
-                    let _ = logger.log_piece(piece_index);
+                    let successfuly_downloaded: bool =
+                        self.make_validation_and_save_piece(piece_index, piece_bytes);
+
+                    if successfuly_downloaded {
+                        self.downloaded_piece_successfully(piece_index, &logger);
+                    } else {
+                        self.piece_manager_sender.failed_download(piece_index);
+                    }
                 }
             }
         }

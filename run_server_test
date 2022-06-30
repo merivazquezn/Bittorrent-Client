@@ -1,0 +1,9 @@
+#!/bin/sh
+
+### run command "cargo test" 1000 times
+
+for i in {1..1000}
+do
+    cargo test
+done
+

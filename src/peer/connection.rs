@@ -104,12 +104,6 @@ impl PeerConnection {
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
-                    // debug!(
-                    //     "block {} of {} received",
-                    //     (begin / BLOCK_SIZE) + 1,
-                    //     block_count,
-                    // );
-                    // PeerConnection::draw_ascii_progress_bar((begin / BLOCK_SIZE) + 1, block_count);
                     break Ok(block);
                 } else {
                     break Err(PeerConnectionError::PieceRequestingError(
@@ -122,7 +116,7 @@ impl PeerConnection {
 
     // Requests a specific piece from the peer.
     // It does it sequentially, by requesting blocks of data, until the whole piece is recieved.
-    // Once it is complete, we verify its sha1 hash, and return the piece if it is valid.
+    // Returns the piece unchecked
     pub fn request_piece(
         &mut self,
         piece_index: u32,
@@ -131,43 +125,17 @@ impl PeerConnection {
         let mut counter = 0;
         let mut piece: Vec<u8> = vec![];
         debug!("requesting piece: {}", piece_index);
-        loop {
+        while counter < self.metainfo.info.piece_length {
             let block: Vec<u8> = self.request_block(piece_index, counter, block_size)?;
             piece.extend(block);
             counter += block_size;
-            if counter >= self.metainfo.info.piece_length {
-                trace!("validating piece {}", piece_index);
-                if valid_piece(&piece, piece_index, &self.metainfo) {
-                    debug!("recieved full valid piece, piece index: {}", piece_index);
-                    break Ok(piece);
-                } else {
-                    trace!("recieved invalid piece, piece index: {}", piece_index);
-                    break Err(PeerConnectionError::PieceRequestingError(
-                        "Invalid piece received".to_string(),
-                    ));
-                }
-            }
-        }
-    }
-
-    fn _draw_ascii_progress_bar(current_progress: u32, total_blocks: u32) {
-        let progress_bar_width = total_blocks;
-        let progress_bar_length =
-            (current_progress as f32 / total_blocks as f32) * progress_bar_width as f32;
-        let progress_bar_length = progress_bar_length as u32;
-        let mut progress_bar = String::new();
-        for i in 0..progress_bar_length {
-            if i == current_progress {
-                break;
-            }
-            progress_bar.push('#');
-        }
-        for _ in current_progress..progress_bar_width {
-            progress_bar.push('-');
         }
 
-        let final_bar = format!("\t\t\t\t\t\t\t[{}]\n\n", progress_bar);
-        _print_green(&final_bar);
+        debug!(
+            "recieved piece (not validated yet), piece index: {}",
+            piece_index
+        );
+        Ok(piece)
     }
 
     //Executes all steps needed to start an active connection with Peer
@@ -197,10 +165,6 @@ impl PeerConnection {
         self.ui_message_sender.send_new_connection();
         Ok(())
     }
-}
-
-fn _print_green(text: &str) {
-    println!("\x1b[32m{}\x1b[0m", text);
 }
 
 #[cfg(test)]

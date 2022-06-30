@@ -35,6 +35,7 @@ impl OpenPeerConnectionWorker {
 
         self.piece_saver_sender
             .validate_and_save_piece(piece_index, piece_data);
+
         Ok(())
     }
 
