@@ -214,11 +214,22 @@ impl GeneralInformationTab {
         });
         Ok(())
     }
+    fn closed_connection_to_torrent(
+        &self,
+        torrent: &str,
+    ) -> Result<(), GeneralInformationTabError> {
+        self.model.edit(torrent, |item| {
+            let active_connections = item.property::<u32>("activeconnections") - 1;
+            item.set_property("activeconnections", &active_connections);
+        });
+        Ok(())
+    }
 
     pub fn update(&mut self, message: &UIMessage) -> Result<(), GeneralInformationTabError> {
         match message {
             UIMessage::AddTorrent(metainfo) => self.add_torrent(metainfo)?,
             UIMessage::NewConnection(torrent) => self.add_connection_to_torrent(torrent)?,
+            UIMessage::ClosedConnection(torrent) => self.closed_connection_to_torrent(torrent)?,
             UIMessage::PieceDownloaded(torrent) => self.piece_downloaded(torrent)?,
             UIMessage::TorrentInitialPeers(torrent, amount) => {
                 self.set_initial_torrent_peers(torrent, *amount)?

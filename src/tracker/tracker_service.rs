@@ -202,7 +202,7 @@ impl TrackerService {
     fn convert_4_bytes_to_ip_string(&self, ip_bytes: &[u8]) -> String {
         let mut ip_string = String::new();
         for i in ip_bytes.iter().take(4) {
-            ip_string.push_str(&format!("{}.", ip_bytes[*i as usize]));
+            ip_string.push_str(&format!("{}.", *i));
         }
         ip_string.pop();
         ip_string

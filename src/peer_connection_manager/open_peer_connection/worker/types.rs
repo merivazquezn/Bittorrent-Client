@@ -55,16 +55,19 @@ impl OpenPeerConnectionWorker {
                         self.failed_download_in_a_row += 1;
                         if self.failed_download_in_a_row == 5 {
                             self.piece_manager_sender
-                                .failed_connection(self.connection.get_peer_id());
-                            break;
+                                .failed_connection_in_piece(self.connection.get_peer_id(), piece_index);
+                                error!("SE SACO A UN PEER DESDE OPNE PEER SE MANDO MSJ A PIECE MAN");
+                                break;
                         }
                     } else {
+                        self.piece_manager_sender.successful_download(piece_index);
                         self.failed_download_in_a_row = 0;
                     }
                 }
                 OpenPeerConnectionMessage::CloseConnection => break,
             }
         }
+        trace!("peer connection worker with ip: {:?} closed", self.connection.get_peer_ip());
         Ok(())
     }
 }

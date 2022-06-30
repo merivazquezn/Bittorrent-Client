@@ -17,7 +17,7 @@ pub struct ClientHandles {
 
 struct ClientSenders {
     pub piece_manager: PieceManagerSender,
-    pub piece_saver: PieceSaverSender,
+    pub _piece_saver: PieceSaverSender,
     pub peer_connection_manager: PeerConnectionManagerSender,
 }
 
@@ -57,7 +57,7 @@ impl TorrentClient {
         Ok(TorrentClient {
             senders: ClientSenders {
                 piece_manager: piece_manager_sender,
-                piece_saver: piece_saver_sender,
+                _piece_saver: piece_saver_sender,
                 peer_connection_manager: peer_connection_manager_sender,
             },
             workers: ClientWorkers {
@@ -101,7 +101,7 @@ impl TorrentClient {
             peer_connection_manager: peer_connection_manager_handle,
         };
 
-        Self::wait_to_end(self.senders.piece_saver, handles)?;
+        Self::wait_to_end(handles)?;
 
         info!("About to join pieces into target file");
 
@@ -116,13 +116,17 @@ impl TorrentClient {
     }
 
     fn wait_to_end(
-        piece_saver: PieceSaverSender,
+        // piece_saver: PieceSaverSender,
         handles: ClientHandles,
     ) -> Result<(), ApplicationError> {
         handles.piece_manager.join()?;
-        piece_saver.stop();
+        info!("Piece manager joined");
+        // piece_saver.stop();
         handles.piece_saver.join()?;
+        info!("Piece saver joined");
+
         handles.peer_connection_manager.join()?;
+        info!("Peer connection joined");
 
         info!("All workers stopped running");
         Ok(())

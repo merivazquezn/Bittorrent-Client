@@ -115,7 +115,7 @@ impl PeerConnectionManagerWorker {
             connection.close_connection();
             handle.join().unwrap();
         }
-        self.piece_saver_sender.stop();
+        self.piece_saver_sender.stop_saving();
     }
 
     pub fn listen(self) -> Result<(), RecvError> {
@@ -125,6 +125,7 @@ impl PeerConnectionManagerWorker {
 
             match message {
                 PeerConnectionManagerMessage::CloseConnections => {
+                    trace!("Closing connections");
                     self.close_connections();
                     break;
                 }
@@ -132,6 +133,10 @@ impl PeerConnectionManagerWorker {
                     self.download_piece(peer_id, piece_index)
                 }
             }
+            info!(
+                "Total of connected peers: {}",
+                self.open_peer_connections.len()
+            );
         }
         Ok(())
     }

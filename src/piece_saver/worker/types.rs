@@ -32,6 +32,7 @@ impl PieceSaverWorker {
         recieved_piece_sha1 == real_piece_sha1
     }
 
+
     fn make_validation_and_save_piece(&self, piece_index: u32, piece_bytes: Vec<u8>) -> bool {
         if !self.valid_piece(&piece_bytes, piece_index) {
             return false;
@@ -64,7 +65,7 @@ impl PieceSaverWorker {
 
             match message {
                 PieceSaverMessage::StopSaving => {
-                    trace!("Piece saver received stop saving");
+                    LOGGER.info_str("Stopping Piece Saver Worker");
                     break;
                 }
                 PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {

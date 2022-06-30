@@ -18,8 +18,8 @@ impl PieceSaverSender {
         ));
     }
 
-    pub fn stop(&self) {
-        // Msg not yet implemented by logger
-        // logger.stop_logging();
-    }
+    // pub fn stop(&self) {
+    //     // Msg not yet implemented by logger
+    //     // logger.stop_logging();
+    // }
 }
