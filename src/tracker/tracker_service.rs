@@ -12,35 +12,19 @@ use crate::peer::peer_message_service_provider;
 use crate::peer::Peer;
 use log::*;
 use rand::Rng;
+use std::collections::HashMap;
+use std::time::Duration;
+
+pub trait ITrackerService {
+    fn get_response(&mut self) -> Result<TrackerResponse, TrackerError>;
+}
 
 pub struct TrackerService {
     request_parameters: RequestParameters,
-    http_service: Box<dyn IHttpService>,
+    http_service: Box<dyn IHttpService + Send>,
 }
 
-impl TrackerService {
-    pub fn from_metainfo(
-        metainfo: &Metainfo,
-        listen_port: u16,
-        peer_id: &[u8; 20],
-        http_service: Box<dyn IHttpService>,
-    ) -> TrackerService {
-        debug!("Parsing tracker request parameters");
-        TrackerService {
-            request_parameters: RequestParameters {
-                info_hash: metainfo.info_hash.clone(),
-                peer_id: peer_id.to_vec(),
-                port: listen_port,
-                // for downloading once, it's ok to set it to 0
-                uploaded: 0,
-                downloaded: 0,
-                left: 0,
-                event: Event::Started,
-            },
-            http_service,
-        }
-    }
-
+impl ITrackerService for TrackerService {
     /// Obtains peer list from the tracker
     ///
     /// Receives a [`RequestParameters`] struct with the necessary information to make the request
@@ -62,6 +46,7 @@ impl TrackerService {
     /// use bittorrent_rustico::metainfo::Metainfo;
     /// use bittorrent_rustico::http::HttpsService;
     /// use rand::Rng;
+    /// use bittorrent_rustico::tracker::ITrackerService;
     ///
     /// const CONFIG_PATH: &str = "config.txt";
     /// let torrent_path = "ubuntu.torrent";
@@ -70,10 +55,11 @@ impl TrackerService {
     /// let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
     /// let mut http_service = HttpsService::from_url(&metainfo.announce).unwrap();
     /// let mut tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, Box::new(http_service));
-    /// let peer_list = tracker_service.get_peers().unwrap();
+    /// let peer_list = tracker_service.get_response().unwrap().peers;
     /// println!("{:?}", peer_list);
     /// ```
-    pub fn get_peers(&mut self) -> Result<TrackerResponse, TrackerError> {
+    ///
+    fn get_response(&mut self) -> Result<TrackerResponse, TrackerError> {
         debug!("Sending tracker get request");
         let response: Vec<u8> = self.http_service.get(
             "/announce",
@@ -85,22 +71,42 @@ impl TrackerService {
             Err(err) => Err(err),
         }
     }
+}
 
-    // Builds the TrackerResponse from the bencoded data
-    fn parse_response(
+impl TrackerService {
+    pub fn from_metainfo(
+        metainfo: &Metainfo,
+        listen_port: u16,
+        peer_id: &[u8; 20],
+        http_service: Box<dyn IHttpService + Send>,
+    ) -> Self {
+        debug!("Parsing tracker request parameters");
+        TrackerService {
+            request_parameters: RequestParameters {
+                info_hash: metainfo.info_hash.clone(),
+                peer_id: peer_id.to_vec(),
+                port: listen_port,
+                uploaded: 0,
+                downloaded: 0,
+                left: 0,
+                event: Event::Started,
+            },
+            http_service,
+        }
+    }
+
+    fn get_peers_from_response(
         &self,
-        bencoded_response: BencodeDecodedValue,
-    ) -> Result<TrackerResponse, TrackerError> {
-        let response_dic = bencoded_response.get_as_dictionary()?;
-        trace!("Parsing peer list from response");
+        response_dic: &HashMap<Vec<u8>, BencodeDecodedValue>,
+    ) -> Result<Vec<Peer>, TrackerError> {
         match response_dic.get(PEERS) {
             Some(BencodeDecodedValue::List(peer_list)) => {
                 let peer_list = self.build_peer_list(peer_list)?;
-                Ok(TrackerResponse { peers: peer_list })
+                Ok(peer_list)
             }
             Some(BencodeDecodedValue::String(peer_list)) => {
                 let peer_list = self.build_peer_list_from_binary(peer_list)?;
-                Ok(TrackerResponse { peers: peer_list })
+                Ok(peer_list)
             }
             Some(_) => Err(TrackerError::InvalidResponse(
                 "Peer list was neither a list or a compact string".to_string(),
@@ -122,6 +128,40 @@ impl TrackerService {
         }
     }
 
+    fn get_min_interval_from_response(
+        &self,
+        response: BencodeDecodedValue,
+    ) -> Result<Duration, TrackerError> {
+        let response_dic = response.get_as_dictionary()?;
+        let interval = response_dic
+            .get(INTERVAL)
+            .ok_or_else(|| TrackerError::InvalidResponse("interval not found".to_string()))?
+            .get_as_integer()?;
+
+        Ok(Duration::from_secs(*interval as u64))
+    }
+
+    // Builds the TrackerResponse from the bencoded data
+    fn parse_response(
+        &self,
+        bencoded_response: BencodeDecodedValue,
+    ) -> Result<TrackerResponse, TrackerError> {
+        let response_dic = bencoded_response.get_as_dictionary()?;
+        trace!("Parsing peer list from response");
+
+        let peers = self.get_peers_from_response(response_dic)?;
+        match self.get_min_interval_from_response(bencoded_response) {
+            Ok(interval_rec) => Ok(TrackerResponse {
+                peers,
+                interval: Some(interval_rec),
+            }),
+            Err(_) => Ok(TrackerResponse {
+                peers,
+                interval: None,
+            }),
+        }
+    }
+
     fn build_peer_list(
         &self,
         bencoded_peer_list: &[BencodeDecodedValue],
@@ -140,7 +180,6 @@ impl TrackerService {
                 }
             };
             let port = match peer_dic.get(PORT) {
-                // parse the port as a u16
                 Some(port) => *port.get_as_integer()? as u16,
                 None => {
                     return Err(TrackerError::InvalidResponse(format!(
@@ -209,9 +248,25 @@ impl TrackerService {
     }
 }
 
-// tests
-#[cfg(test)]
+pub struct MockTrackerService {
+    pub times_called: u32,
+}
 
+impl ITrackerService for MockTrackerService {
+    fn get_response(&mut self) -> Result<TrackerResponse, TrackerError> {
+        if self.times_called == 0 {
+            self.times_called += 1;
+            Ok(TrackerResponse {
+                peers: vec![],
+                interval: None,
+            })
+        } else {
+            Err(TrackerError::InvalidResponse("request failed".to_string()))
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::bencode;
@@ -231,12 +286,9 @@ mod tests {
         let connection = Box::new(MockHttpsService { read_bytes: vec![] });
         let mut tracker_service =
             TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
-        let result = tracker_service.get_peers();
-        println!("result {:?}", result);
-        assert!(matches!(
-            tracker_service.get_peers(),
-            Err(TrackerError::BencodeError(_))
-        ));
+        let response = tracker_service.get_response();
+
+        assert!(matches!(response, Err(TrackerError::BencodeError(_))));
     }
 
     #[test]
@@ -266,9 +318,9 @@ mod tests {
         });
         let mut tracker_service =
             TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
-        assert_eq!(tracker_service.get_peers().unwrap().peers.len(), 1);
+        assert_eq!(tracker_service.get_response().unwrap().peers.len(), 1);
         assert_eq!(
-            tracker_service.get_peers().unwrap().peers[0],
+            tracker_service.get_response().unwrap().peers[0],
             Peer {
                 ip: "0.0.0.0".to_string(),
                 port: 10000,

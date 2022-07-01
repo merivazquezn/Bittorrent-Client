@@ -1,4 +1,5 @@
 use crate::peer::Peer;
+use std::time::Duration;
 
 #[allow(dead_code)]
 pub enum Event {
@@ -20,4 +21,5 @@ pub struct RequestParameters {
 #[derive(Debug, PartialEq)]
 pub struct TrackerResponse {
     pub peers: Vec<Peer>,
+    pub interval: Option<Duration>,
 }

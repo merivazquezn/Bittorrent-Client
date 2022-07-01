@@ -3,16 +3,18 @@ use crate::application_errors::ApplicationError;
 use crate::client::ClientInfo;
 use crate::http::HttpsService;
 use crate::logger::CustomLogger;
-use crate::peer::Peer;
+use crate::tracker::ITrackerService;
+use crate::tracker::TrackerResponse;
 use crate::tracker::TrackerService;
 use crate::ui::UIMessageSender;
 use std::collections::HashMap;
+
 const LOGGER: CustomLogger = CustomLogger::init("Tracker");
 
-pub fn get_peers_from_tracker(
+pub fn get_response_from_tracker(
     client_info: &mut ClientInfo,
     ui_message_sender: UIMessageSender,
-) -> Result<Vec<Peer>, ApplicationError> {
+) -> Result<(TrackerResponse, TrackerService), ApplicationError> {
     LOGGER.info(format!(
         "Fetching Peers from tracker at: {}",
         client_info.metainfo.announce
@@ -24,13 +26,22 @@ pub fn get_peers_from_tracker(
         &client_info.peer_id,
         Box::new(http_service),
     );
-    let tracker_response = tracker_service.get_peers()?;
+    let tracker_response = tracker_service.get_response()?;
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     LOGGER.info(format!(
         "Received {} peers from tracker",
         tracker_response.peers.len()
     ));
-    Ok(tracker_response.peers)
+    match tracker_response.interval {
+        Some(interval) => {
+            LOGGER.info(format!("Tracker interval: {:?}", interval));
+        }
+        None => {
+            LOGGER.info_str("Tracker interval not set");
+        }
+    }
+
+    Ok((tracker_response, tracker_service))
 }
 
 // Transforms a slice of bytes into an url-encoded String

@@ -1,6 +1,7 @@
 use super::super::types::OpenPeerConnectionMessage;
 use crate::constants::*;
 use crate::peer::*;
+use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
 use log::*;
@@ -11,7 +12,9 @@ pub struct OpenPeerConnectionWorker {
     pub connection: PeerConnection,
     pub piece_manager_sender: PieceManagerSender,
     pub piece_saver_sender: PieceSaverSender,
+    pub peer_connection_manager_sender: PeerConnectionManagerSender,
     pub failed_download_in_a_row: u32,
+    pub is_open: bool,
 }
 
 #[allow(dead_code)]
@@ -53,21 +56,31 @@ impl OpenPeerConnectionWorker {
                     if self.download_piece(piece_index).is_err() {
                         self.piece_manager_sender.failed_download(piece_index);
                         self.failed_download_in_a_row += 1;
-                        if self.failed_download_in_a_row == 5 {
+                        if self.failed_download_in_a_row == 1 {
                             self.piece_manager_sender
-                                .failed_connection_in_piece(self.connection.get_peer_id(), piece_index);
-                                error!("SE SACO A UN PEER DESDE OPNE PEER SE MANDO MSJ A PIECE MAN");
-                                break;
+                                .failed_connection(self.connection.get_peer_id());
+
+                            // self.peer_connection_manager_sender
+                            //     .failed_connection(self.connection.get_peer_id());
+                            self.is_open = false;
+                            // self.ui_message_sender.send_closes_conection();
+                            error!("SE SACO A UN PEER DESDE OPNE PEER SE MANDO MSJ A PIECE MAN");
+                            self.peer_connection_manager_sender
+                                .failed_connection(self.connection.get_peer_id());
+
+                            break;
                         }
                     } else {
-                        self.piece_manager_sender.successful_download(piece_index);
                         self.failed_download_in_a_row = 0;
                     }
                 }
                 OpenPeerConnectionMessage::CloseConnection => break,
             }
         }
-        trace!("peer connection worker with ip: {:?} closed", self.connection.get_peer_ip());
+        trace!(
+            "peer connection worker with ip: {:?} closed",
+            self.connection.get_peer_ip()
+        );
         Ok(())
     }
 }

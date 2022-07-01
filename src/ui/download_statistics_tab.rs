@@ -204,8 +204,7 @@ impl DownloadStatisticsTab {
             UIMessage::TorrentInitialPeers(torrent, amount) => {
                 self.set_initial_torrent_peers(torrent, *amount)?
             }
-            UIMessage::ClosedConnection(_) => {
-            }
+            UIMessage::ClosedConnection(_) => {}
             _ => unreachable!(),
         }
         Ok(())

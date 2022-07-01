@@ -219,7 +219,10 @@ impl GeneralInformationTab {
         torrent: &str,
     ) -> Result<(), GeneralInformationTabError> {
         self.model.edit(torrent, |item| {
-            let active_connections = item.property::<u32>("activeconnections") - 1;
+            let mut active_connections = 0;
+            if item.property::<u32>("activeconnections") > 0 {
+                active_connections = item.property::<u32>("activeconnections") - 1;
+            }
             item.set_property("activeconnections", &active_connections);
         });
         Ok(())

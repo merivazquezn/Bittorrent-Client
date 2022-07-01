@@ -26,12 +26,11 @@ impl PieceSaverWorker {
         hasher.finalize().to_vec()
     }
 
-    fn valid_piece(&self, piece_bytes: &Vec<u8>, piece_index: u32) -> bool {
+    fn valid_piece(&self, piece_bytes: &[u8], piece_index: u32) -> bool {
         let real_piece_sha1 = self.sha1_pieces[piece_index as usize].to_vec();
-        let recieved_piece_sha1 = self.sha1_of(piece_bytes.as_slice());
+        let recieved_piece_sha1 = self.sha1_of(piece_bytes);
         recieved_piece_sha1 == real_piece_sha1
     }
-
 
     fn make_validation_and_save_piece(&self, piece_index: u32, piece_bytes: Vec<u8>) -> bool {
         if !self.valid_piece(&piece_bytes, piece_index) {

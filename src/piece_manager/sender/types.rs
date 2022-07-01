@@ -34,10 +34,10 @@ impl PieceManagerSender {
             .send(PieceManagerMessage::FailedDownload(piece_index));
     }
 
-    pub fn failed_connection_in_piece(&self, peer_id: Vec<u8>, piece_index: u32) {
+    pub fn failed_connection(&self, peer_id: Vec<u8>) {
         let _ = self
             .sender
-            .send(PieceManagerMessage::FailedConnection(peer_id, piece_index));
+            .send(PieceManagerMessage::FailedConnection(peer_id));
     }
 
     pub fn have(&self, peer_id: Vec<u8>, piece_index: u32) {
@@ -56,5 +56,9 @@ impl PieceManagerSender {
         let _ = self
             .sender
             .send(PieceManagerMessage::FinishedStablishingConnections());
+    }
+
+    pub fn reasked_tracker(&self) {
+        let _ = self.sender.send(PieceManagerMessage::ReaskedTracker());
     }
 }

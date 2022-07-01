@@ -13,4 +13,5 @@ pub use constants::*;
 pub use errors::ServerError;
 use logger::*;
 pub use thread_pool::ThreadPool;
+pub use utils::client_has_piece;
 pub use utils::payload_from_request_message;

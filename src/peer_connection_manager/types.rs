@@ -6,11 +6,13 @@ use crate::piece_saver::sender::PieceSaverSender;
 use crate::ui::UIMessageSender;
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::time::Instant;
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum PeerConnectionManagerMessage {
     DownloadPiece(Vec<u8>, u32),
+    FailedConnection(Vec<u8>),
     CloseConnections,
 }
 
@@ -29,10 +31,12 @@ pub fn new_peer_connection_manager(
             receiver: rx,
             piece_manager_sender,
             piece_saver_sender,
-            open_peer_connections: HashMap::new(),
+            peer_connections: HashMap::new(),
             metainfo: metainfo.clone(),
             client_peer_id: client_peer_id.to_vec(),
             ui_message_sender,
+            tracker_request_count: 0,
+            last_time_requested: Instant::now(),
         },
     )
 }

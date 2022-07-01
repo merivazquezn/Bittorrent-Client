@@ -23,4 +23,9 @@ impl PeerConnectionManagerSender {
             ));
     }
 
+    pub fn failed_connection(&self, peer_id: Vec<u8>) {
+        let _ = self
+            .sender
+            .send(PeerConnectionManagerMessage::FailedConnection(peer_id));
+    }
 }

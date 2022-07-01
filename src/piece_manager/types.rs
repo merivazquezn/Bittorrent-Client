@@ -17,10 +17,11 @@ pub enum PieceManagerMessage {
     Init(PeerConnectionManagerSender),
     SuccessfulDownload(PieceId),
     FailedDownload(PieceId),
-    FailedConnection(PeerId, PieceId),
+    FailedConnection(PeerId),
     Have(PeerId, PieceId),
     FirstConnectionsStarted(),
     FinishedStablishingConnections(),
+    ReaskedTracker(),
 }
 
 pub fn new_piece_manager(
@@ -50,6 +51,7 @@ pub fn new_piece_manager(
             ui_message_sender,
             is_downloading: false,
             piece_asked_to: HashMap::new(),
+            pieces_without_peer: HashSet::new(),
         },
     )
 }

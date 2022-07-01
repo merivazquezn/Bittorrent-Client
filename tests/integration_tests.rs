@@ -1,14 +1,14 @@
 use bittorrent_rustico::client::*;
 use bittorrent_rustico::config::*;
 use bittorrent_rustico::constants::*;
-use bittorrent_rustico::download_manager::join_all_pieces;
 use bittorrent_rustico::metainfo::*;
 use bittorrent_rustico::peer::*;
+use bittorrent_rustico::tracker::*;
 use bittorrent_rustico::ui::*;
 use sha1::{Digest, Sha1};
 use std::fs::File;
 use std::io::Read;
-
+use std::time::Duration;
 mod mock_service_creation;
 use mock_service_creation::*;
 
@@ -64,7 +64,7 @@ fn integration_test() {
     let info = Info {
         piece_length: BLOCK_SIZE,
         pieces: get_pieces_hash_from_bytes(&file),
-        name: String::from("integration_test"),
+        name: String::from("entire_download"),
         length: file.len() as u64,
         files: None,
     };
@@ -82,10 +82,17 @@ fn integration_test() {
         metainfo,
     };
     let client: TorrentClient = TorrentClient::new(&client_info, UIMessageSender::no_ui()).unwrap();
-    client.run_with_peers(peers, client_info).unwrap();
-    join_all_pieces(3, "entire_download", "tests/downloads").unwrap();
-    // assert file tests/entire_download equals file
-    let mut entire_file: File = File::open("tests/downloads/entire_download").unwrap();
+
+    let tracker_service = MockTrackerService { times_called: 0 };
+    let tracker_response = TrackerResponse {
+        interval: None::<Duration>,
+        peers: peers,
+    };
+
+    client
+        .run(client_info, Box::new(tracker_service), tracker_response)
+        .unwrap();
+    let mut entire_file: File = File::open("./tests/downloads/entire_download").unwrap();
     let mut buf: Vec<u8> = Vec::new();
     let _ = entire_file.read_to_end(&mut buf).unwrap();
     assert_eq!(file, buf);

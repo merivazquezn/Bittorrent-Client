@@ -1,5 +1,7 @@
 use super::errors::DownloadManagerError;
 use super::types::Piece;
+use crate::server::client_has_piece;
+use log::*;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::copy;
@@ -71,9 +73,13 @@ pub fn join_all_pieces(
         .open(format!("{}/{}", downloads_dir_path, target_file_name))?;
 
     for piece_no in 0..piece_count {
+        // info!(
+        //     "joining pieces of {}/pieces/{}",
+        //     downloads_dir_path, piece_no
+        // );
         let mut piece_file: File = OpenOptions::new()
             .read(true)
-            .open(format!("{}/{}", downloads_dir_path, piece_no))
+            .open(format!("{}/pieces/{}", downloads_dir_path, piece_no))
             .map_err(|_| DownloadManagerError::MissingPieceError(piece_no))?;
 
         copy(&mut piece_file, &mut target_file)?;
@@ -95,12 +101,23 @@ pub fn make_target_file(
     persist_pieces: bool,
 ) -> Result<(), DownloadManagerError> {
     join_all_pieces(piece_count, target_file_name, downloads_dir_path)?;
-
+    info!("Pieces were joined");
     if !persist_pieces {
         delete_pieces_files(format!("{}/pieces", downloads_dir_path).as_str())?;
     }
 
     Ok(())
+}
+
+pub fn get_existing_pieces(piece_count: u32, pieces_dir: &str) -> Vec<u32> {
+    let mut pieces: Vec<u32> = Vec::new();
+    for i in 0..piece_count {
+        if client_has_piece(i as usize, pieces_dir) {
+            pieces.push(i);
+        }
+    }
+
+    pieces
 }
 
 mod tests {
@@ -193,7 +210,7 @@ mod tests {
         let piece_count = 3;
 
         let mut file_0 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_1/0",
+            "./src/download_manager/test_downloads/join/test_1/pieces/0",
         ))
         .unwrap();
         let mut buf_0: Vec<u8> = Vec::new();
@@ -203,7 +220,7 @@ mod tests {
         file_0.write_all(buf_0.as_slice()).unwrap();
 
         let mut file_1 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_1/1",
+            "./src/download_manager/test_downloads/join/test_1/pieces/1",
         ))
         .unwrap();
         let mut buf_1: Vec<u8> = Vec::new();
@@ -213,7 +230,7 @@ mod tests {
         file_1.write_all(buf_1.as_slice()).unwrap();
 
         let mut file_2 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_1/2",
+            "./src/download_manager/test_downloads/join/test_1/pieces/2",
         ))
         .unwrap();
         let mut buf_2: Vec<u8> = Vec::new();
@@ -249,7 +266,7 @@ mod tests {
         let piece_count = 3;
 
         let mut file_0 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_2/0",
+            "./src/download_manager/test_downloads/join/test_2/pieces/0",
         ))
         .unwrap();
         let mut buf_0: Vec<u8> = Vec::new();
@@ -259,7 +276,7 @@ mod tests {
         file_0.write_all(buf_0.as_slice()).unwrap();
 
         let mut file_1 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_2/1",
+            "./src/download_manager/test_downloads/join/test_2/pieces/1",
         ))
         .unwrap();
         let mut buf_1: Vec<u8> = Vec::new();
@@ -285,7 +302,7 @@ mod tests {
         let piece_count = 3;
 
         let mut file_0 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_3/0",
+            "./src/download_manager/test_downloads/join/test_3/pieces/0",
         ))
         .unwrap();
         let mut buf_0: Vec<u8> = Vec::new();
@@ -295,7 +312,7 @@ mod tests {
         file_0.write_all(buf_0.as_slice()).unwrap();
 
         let mut file_1 = File::create(format!(
-            "./src/download_manager/test_downloads/join/test_3/2",
+            "./src/download_manager/test_downloads/join/test_3/pieces/2",
         ))
         .unwrap();
         let mut buf_1: Vec<u8> = Vec::new();

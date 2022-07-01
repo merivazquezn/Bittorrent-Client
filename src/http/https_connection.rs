@@ -83,6 +83,7 @@ impl IHttpService for HttpsService {
         }
     }
 }
+
 #[cfg(test)]
 pub struct MockHttpsService {
     pub read_bytes: Vec<u8>,

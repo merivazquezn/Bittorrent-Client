@@ -1,10 +1,12 @@
 use super::ClientInfo;
 use crate::application_errors::ApplicationError;
 use crate::download_manager;
-use crate::peer::Peer;
+use crate::download_manager::get_existing_pieces;
 use crate::peer_connection_manager::*;
 use crate::piece_manager::*;
 use crate::piece_saver::*;
+use crate::tracker::ITrackerService;
+use crate::tracker::TrackerResponse;
 use crate::ui::UIMessageSender;
 use log::*;
 use std::thread::JoinHandle;
@@ -68,10 +70,11 @@ impl TorrentClient {
         })
     }
 
-    pub fn run_with_peers(
+    pub fn run(
         mut self,
-        peer_list: Vec<Peer>,
         client_info: ClientInfo,
+        tracker_service: Box<dyn ITrackerService + Send>,
+        tracker_response: TrackerResponse,
     ) -> Result<(), ApplicationError> {
         self.senders
             .piece_manager
@@ -81,18 +84,33 @@ impl TorrentClient {
             self.workers.piece_saver.listen().unwrap();
         });
 
+        let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
+
+        let initial_pieces: Vec<u32> = get_existing_pieces(
+            client_info.metainfo.get_piece_count(),
+            format!("{}/pieces", client_info.config.download_path).as_str(),
+        );
         let piece_manager_handle = std::thread::spawn(move || {
             let _ = self
                 .workers
                 .piece_manager
-                .listen(self.senders.peer_connection_manager);
+                .listen(peer_connection_manager_sender_clone, initial_pieces);
         });
 
+        let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
         let peer_connection_manager_handle = std::thread::spawn(move || {
+            self.workers.peer_connection_manager.start_peer_connections(
+                tracker_response.peers,
+                peer_connection_manager_sender_clone.clone(),
+            );
             self.workers
                 .peer_connection_manager
-                .start_peer_connections(peer_list);
-            self.workers.peer_connection_manager.listen().unwrap();
+                .listen(
+                    tracker_service,
+                    tracker_response.interval,
+                    peer_connection_manager_sender_clone,
+                )
+                .unwrap();
         });
 
         let handles = ClientHandles {
@@ -108,20 +126,16 @@ impl TorrentClient {
         download_manager::make_target_file(
             client_info.metainfo.get_piece_count(),
             &client_info.metainfo.info.name,
-            "./downloads",
+            &client_info.config.download_path,
             client_info.config.persist_pieces,
         )?;
 
         Ok(())
     }
 
-    fn wait_to_end(
-        // piece_saver: PieceSaverSender,
-        handles: ClientHandles,
-    ) -> Result<(), ApplicationError> {
+    fn wait_to_end(handles: ClientHandles) -> Result<(), ApplicationError> {
         handles.piece_manager.join()?;
         info!("Piece manager joined");
-        // piece_saver.stop();
         handles.piece_saver.join()?;
         info!("Piece saver joined");
 
