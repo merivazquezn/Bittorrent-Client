@@ -13,7 +13,7 @@ pub struct Model(pub RefCell<Vec<DownloadStatistics>>);
 /// Basic declaration of our type for the GObject type system
 #[glib::object_subclass]
 impl ObjectSubclass for Model {
-    const NAME: &'static str = "Model";
+    const NAME: &'static str = "ModelDownloadSttatistics";
     type Type = super::Model;
     type ParentType = glib::Object;
     type Interfaces = (gio::ListModel,);

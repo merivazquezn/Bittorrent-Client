@@ -49,9 +49,9 @@ impl PieceSaverWorker {
         }
     }
 
-    fn downloaded_piece_successfully(&self, piece_index: u32, logger: &Logger) {
+    fn downloaded_piece_successfully(&self, piece_index: u32, peer_id: Vec<u8>, logger: &Logger) {
         self.piece_manager_sender.successful_download(piece_index);
-        self.ui_message_sender.send_downloaded_piece();
+        self.ui_message_sender.send_downloaded_piece(peer_id);
         LOGGER.info(format!("Piece {:^5} downloaded successfully", piece_index));
         let _ = logger.log_piece(piece_index);
     }
@@ -67,13 +67,13 @@ impl PieceSaverWorker {
                     LOGGER.info_str("Stopping Piece Saver Worker");
                     break;
                 }
-                PieceSaverMessage::ValidateAndSavePiece(piece_index, piece_bytes) => {
+                PieceSaverMessage::ValidateAndSavePiece(piece_index, peer_id, piece_bytes) => {
                     trace!("Piece saver received piece: {:?}", piece_index);
                     let successfuly_downloaded: bool =
                         self.make_validation_and_save_piece(piece_index, piece_bytes);
 
                     if successfuly_downloaded {
-                        self.downloaded_piece_successfully(piece_index, &logger);
+                        self.downloaded_piece_successfully(piece_index, peer_id, &logger);
                     } else {
                         self.piece_manager_sender.failed_download(piece_index);
                     }

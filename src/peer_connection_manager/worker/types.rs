@@ -141,7 +141,6 @@ impl PeerConnectionManagerWorker {
         ));
         let mut connection_attempts = vec![];
         let open_peer_connections = Arc::new(Mutex::new(HashMap::new()));
-
         for peer in peers {
             let piece_manager_sender = self.piece_manager_sender.clone();
             let piece_saver_sender = self.piece_saver_sender.clone();
@@ -281,8 +280,8 @@ impl PeerConnectionManagerWorker {
                         self.piece_manager_sender.reasked_tracker();
                         self.tracker_request_count += 1;
                     }
-                    self.piece_manager_sender.failed_connection(peer_id);
-                    self.ui_message_sender.send_closed_connection();
+                    self.piece_manager_sender.failed_connection(peer_id.clone());
+                    self.ui_message_sender.send_closed_connection(peer_id);
                     warn!("EXITING IF");
                 }
             }

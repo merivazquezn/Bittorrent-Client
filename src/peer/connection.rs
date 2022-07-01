@@ -6,8 +6,9 @@ use super::utils::*;
 use super::Peer;
 use crate::constants::*;
 use crate::metainfo::Metainfo;
-use crate::ui::UIMessageSender;
+use crate::ui::{PeerStatistics, UIMessageSender};
 use log::*;
+use std::time::SystemTime;
 
 pub struct PeerConnection {
     _am_choking: bool,
@@ -20,7 +21,7 @@ pub struct PeerConnection {
     bitfield: Bitfield,
     peer_id: Vec<u8>,
     peer: Peer,
-    ui_message_sender: UIMessageSender,
+    pub ui_message_sender: UIMessageSender,
 }
 
 impl PeerConnection {
@@ -62,6 +63,15 @@ impl PeerConnection {
             PeerMessageId::Unchoke => {
                 self.peer_choking = false;
             }
+            PeerMessageId::Choke => {
+                self.peer_choking = true;
+            }
+            PeerMessageId::Interested => {
+                self._peer_interested = true;
+            }
+            PeerMessageId::NotInterested => {
+                self._peer_interested = false;
+            }
             PeerMessageId::Bitfield => {
                 self.bitfield.set_bitfield(&message.payload);
             }
@@ -77,6 +87,20 @@ impl PeerConnection {
     fn wait_until_ready(&mut self) -> Result<(), IPeerMessageServiceError> {
         loop {
             self.wait_for_message()?;
+            self.ui_message_sender.update_peer_state(
+                self.peer_id.clone(),
+                PeerConnectionState {
+                    client: (PeerState {
+                        chocked: self.peer_choking,
+                        interested: self._peer_interested,
+                    }),
+                    peer: (PeerState {
+                        chocked: self._am_choking,
+                        interested: self._am_interested,
+                    }),
+                },
+            );
+
             if !self.peer_choking && self.bitfield.non_empty() {
                 break;
             }
@@ -92,15 +116,29 @@ impl PeerConnection {
         index: u32,
         begin: u32,
         lenght: u32,
+        ui_message_sender: UIMessageSender,
     ) -> Result<Vec<u8>, PeerConnectionError> {
         let _block_count = self.metainfo.info.piece_length / BLOCK_SIZE;
 
-        self.message_service
-            .send_message(&PeerMessage::request(index, begin, lenght))?;
+        // calculate duration between sending the message and moving on to next instruction
+        let msg = PeerMessage::request(index, begin, lenght);
+        let time_stamp_now = SystemTime::now();
+        self.message_service.send_message(&msg)?;
+        let time_stamp_after = SystemTime::now();
+        ui_message_sender.send_upload_rate(
+            std::mem::size_of_val(&*msg.payload) as f32
+                / (time_stamp_after
+                    .duration_since(time_stamp_now)
+                    .unwrap()
+                    .as_secs_f32()),
+            &self.peer_id,
+        );
+
         loop {
             let message = self.wait_for_message().map_err(|_| {
                 PeerConnectionError::PieceRequestingError("Failed while waiting for message".into())
             })?;
+
             if message.id == PeerMessageId::Piece {
                 if valid_block(&message.payload, index, begin) {
                     let block = message.payload[8..].to_vec();
@@ -121,15 +159,24 @@ impl PeerConnection {
         &mut self,
         piece_index: u32,
         block_size: u32,
+        ui_message_sender: UIMessageSender,
     ) -> Result<Vec<u8>, PeerConnectionError> {
         let mut counter = 0;
         let mut piece: Vec<u8> = vec![];
         debug!("requesting piece: {}", piece_index);
+        // measure time spent donwloading piece
+        let start = SystemTime::now();
         while counter < self.metainfo.info.piece_length {
-            let block: Vec<u8> = self.request_block(piece_index, counter, block_size)?;
+            let ui_sender_clone = ui_message_sender.clone();
+            let block: Vec<u8> =
+                self.request_block(piece_index, counter, block_size, ui_sender_clone)?;
             piece.extend(block);
             counter += block_size;
         }
+        let elapsed = start.elapsed().unwrap();
+
+        ui_message_sender
+            .send_download_rate(piece.len() as f32 / (elapsed.as_secs_f32()), &self.peer_id);
 
         debug!(
             "recieved piece (not validated yet), piece index: {}",
@@ -163,6 +210,26 @@ impl PeerConnection {
             })?;
         self.wait_until_ready()?;
         self.ui_message_sender.send_new_connection();
+        let peer_statistics = PeerStatistics {
+            torrentname: self.metainfo.info.name.clone(),
+            peerid: self.peer_id.clone(),
+            ip: self.peer.ip.clone(),
+            port: self.peer.port,
+            uploadrate: 0,
+            downloadrate: 0,
+            state: PeerConnectionState {
+                client: PeerState {
+                    chocked: self.peer_choking,
+                    interested: self._am_interested,
+                },
+                peer: PeerState {
+                    chocked: self._am_choking,
+                    interested: self._peer_interested,
+                },
+            },
+        };
+
+        self.ui_message_sender.send_peer_statistics(peer_statistics);
         Ok(())
     }
 }
@@ -222,7 +289,10 @@ mod tests {
             UIMessageSender::no_ui(),
         );
 
-        let piece = peer_connection.request_piece(0, 2 as u32).unwrap();
+        // measure time spent requesting a piece
+        let piece = peer_connection
+            .request_piece(0, 2 as u32, UIMessageSender::no_ui())
+            .unwrap();
         assert_eq!(file[0..8], piece);
     }
 
@@ -266,7 +336,7 @@ mod tests {
         );
 
         assert!(matches!(
-            peer_connection.request_piece(1, BLOCK_SIZE),
+            peer_connection.request_piece(1, BLOCK_SIZE, UIMessageSender::no_ui()),
             Err(PeerConnectionError::PieceRequestingError(_))
         ));
     }

@@ -1,7 +1,9 @@
-use super::torrent_list_row::TorrentInformation;
-use super::torrent_model::Model;
+use crate::peer::PeerConnectionState;
+
+use super::download_statistics_model::Model;
+use super::download_statistics_row::DownloadStatistics;
+use super::messages::PeerStatistics;
 use super::UIMessage;
-use crate::metainfo::Metainfo;
 use gtk::{self};
 use gtk::{
     glib::{self, clone},
@@ -9,8 +11,6 @@ use gtk::{
     ResponseType,
 };
 use gtk::{PolicyType, ScrolledWindow};
-use sha1::{Digest, Sha1};
-
 pub struct DownloadStatisticsTab {
     pub container: gtk::Box,
     pub model: Model,
@@ -44,20 +44,19 @@ impl DownloadStatisticsTab {
             clone!(@weak window => @default-panic,  move |item| {
                 let box_ = gtk::ListBoxRow::new();
                 let item = item
-                    .downcast_ref::<TorrentInformation>()
+                    .downcast_ref::<DownloadStatistics>()
                     .expect("Row data is of wrong type");
                 let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 5);
 
                 let label = gtk::Label::new(None);
-                item.bind_property("name", &label, "label")
+                item.bind_property("ipport", &label, "label")
                     .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
                     .build();
                 hbox.pack_start(&label, false, false, 0);
-                let label = gtk::Label::new(None);
-                item.bind_property("infohash", &label, "label")
-                    .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
-                    .build();
-                hbox.pack_start(&label, false, false, 0);
+
+                Self::add_peer_data(&hbox, item, "Downloaded Pieces:", "downloadedpieces");
+                Self::add_peer_data(&hbox, item, "Download Rate:", "downloadrate");
+                Self::add_peer_data(&hbox, item, "Client is", "clientstate");
 
                 // When the info button is clicked, a new modal dialog is created for seeing
                 // the corresponding row
@@ -91,7 +90,7 @@ impl DownloadStatisticsTab {
     fn dialog(
         edit_button: &gtk::Button,
         window: &gtk::ApplicationWindow,
-        item: &TorrentInformation,
+        item: &DownloadStatistics,
     ) {
         edit_button.connect_clicked(clone!(@weak window, @strong item => move |_| {
             let dialog = gtk::Dialog::builder()
@@ -107,26 +106,21 @@ impl DownloadStatisticsTab {
 
             let content_area = dialog.content_area();
 
-            Self::add_torrent_data(&content_area, &item, "Name: ", "name");
-            Self::add_torrent_data(&content_area, &item, "Verification Hash: ", "infohash");
-            Self::add_torrent_data(&content_area, &item, "Total Size in MB: ", "totalsize");
-            Self::add_torrent_data(&content_area, &item, "Total Piece Count: ", "totalpiececount");
-            Self::add_torrent_data(&content_area, &item, "Peer Count: ", "peercount");
-            Self::add_torrent_data(&content_area, &item, "Download Percentage: ", "downloadpercentage");
-            Self::add_torrent_data(&content_area, &item, "Downloaded Pieces: ", "downloadedpieces");
-            Self::add_torrent_data(&content_area, &item, "Active Connections: ", "activeconnections");
-            Self::add_torrent_data(&content_area, &item, "File Structure: ", "filestructure");
+            Self::add_peer_data(&content_area, &item, "Torrent:", "torrentname");
+            Self::add_peer_data(&content_area, &item, "Peer ID:", "id");
+            Self::add_peer_data(&content_area, &item, "IP:", "ipport");
+            Self::add_peer_data(&content_area, &item, "Client State:", "clientstate");
+            Self::add_peer_data(&content_area, &item, "Peer State:", "peerstate");
+            Self::add_peer_data(&content_area, &item, "Downloaded Pieces:", "downloadedpieces");
+            Self::add_peer_data(&content_area, &item, "Download Rate:", "downloadrate");
+            Self::add_peer_data(&content_area, &item, "Upload Rate:", "uploadrate");
+
 
             dialog.show_all();
         }));
     }
 
-    fn add_torrent_data(
-        content_area: &gtk::Box,
-        item: &TorrentInformation,
-        label: &str,
-        value: &str,
-    ) {
+    fn add_peer_data(content_area: &gtk::Box, item: &DownloadStatistics, label: &str, value: &str) {
         let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         container.add(&gtk::Label::new(Some(label)));
         let label = gtk::Label::new(None);
@@ -137,75 +131,90 @@ impl DownloadStatisticsTab {
         content_area.add(&container);
     }
 
-    // function that converts Vec<u8> bytes to ascii characters
-    fn bytes_to_ascii(&self, bytes: &[u8]) -> String {
-        format!("{:02x?}", bytes)
-            .replace('[', "")
-            .replace(']', "")
-            .replace(", ", "")
+    fn bps_to_mbps(&self, bps: f32) -> f32 {
+        bps / 1024.0 / 1024.0
     }
 
-    fn sha1_of(&self, vec: &[u8]) -> String {
-        let mut hasher = Sha1::new();
-        hasher.update(vec);
-        self.bytes_to_ascii(&hasher.finalize())
-    }
-
-    fn bytes_to_megabytes(&self, bytes: u64) -> u64 {
-        bytes / 1024 / 1024
-    }
-
-    fn add_torrent(&self, metainfo: &Metainfo) -> Result<(), DownloadStatisticsTabError> {
-        self.model.append(&TorrentInformation::new(
-            &metainfo.info.name,
-            &self.sha1_of(&metainfo.info_hash),
-            self.bytes_to_megabytes(metainfo.info.length),
-            metainfo.info.pieces.len() as u32,
-            &metainfo.info.name,
+    fn add_peer(&self, peer_statistics: PeerStatistics) -> Result<(), DownloadStatisticsTabError> {
+        self.model.append(&DownloadStatistics::new(
+            &peer_statistics.torrentname,
+            &peer_statistics.peerid,
+            &peer_statistics.ip,
+            peer_statistics.port,
+            peer_statistics.state.client,
+            peer_statistics.state.peer,
         ));
         Ok(())
     }
 
-    fn set_initial_torrent_peers(
+    fn update_download_rate(
         &self,
-        torrent: &str,
-        amount: u32,
+        rate: f32,
+        peer_id: &[u8],
     ) -> Result<(), DownloadStatisticsTabError> {
-        self.model.edit(torrent, |item| {
-            item.set_property("peercount", &amount);
+        self.model.edit(peer_id, |item| {
+            item.set_property("downloadrate", &self.bps_to_mbps(rate));
         });
         Ok(())
     }
 
-    fn add_connection_to_torrent(&self, torrent: &str) -> Result<(), DownloadStatisticsTabError> {
-        self.model.edit(torrent, |item| {
-            let active_connections = item.property::<u32>("activeconnections") + 1;
-            item.set_property("activeconnections", &active_connections);
-        });
-        Ok(())
-    }
-
-    fn piece_downloaded(&self, torrent: &str) -> Result<(), DownloadStatisticsTabError> {
-        self.model.edit(torrent, |item| {
+    fn update_downloaded_pieces(&self, peer_id: &[u8]) -> Result<(), DownloadStatisticsTabError> {
+        self.model.edit(peer_id, |item| {
             let downloaded_pieces = item.property::<u32>("downloadedpieces") + 1;
-            let download_percentage: f32 =
-                (downloaded_pieces) as f32 / item.property::<u32>("totalpiececount") as f32;
             item.set_property("downloadedpieces", &downloaded_pieces);
-            item.set_property("downloadpercentage", &download_percentage);
         });
+        Ok(())
+    }
+
+    fn update_upload_rate(
+        &self,
+        rate: f32,
+        peer_id: &[u8],
+    ) -> Result<(), DownloadStatisticsTabError> {
+        self.model.edit(peer_id, |item| {
+            item.set_property("uploadrate", &self.bps_to_mbps(rate));
+        });
+        Ok(())
+    }
+
+    fn update_connection_state(
+        &self,
+        peer_id: &[u8],
+        state: PeerConnectionState,
+    ) -> Result<(), DownloadStatisticsTabError> {
+        self.model.edit_state(peer_id, state);
+        Ok(())
+    }
+
+    fn close_connection(&self, peer_id: &[u8]) -> Result<(), DownloadStatisticsTabError> {
+        self.model.remove(peer_id);
         Ok(())
     }
 
     pub fn update(&mut self, message: &UIMessage) -> Result<(), DownloadStatisticsTabError> {
         match message {
-            UIMessage::AddTorrent(metainfo) => self.add_torrent(metainfo)?,
-            UIMessage::NewConnection(torrent) => self.add_connection_to_torrent(torrent)?,
-            UIMessage::PieceDownloaded(torrent) => self.piece_downloaded(torrent)?,
-            UIMessage::TorrentInitialPeers(torrent, amount) => {
-                self.set_initial_torrent_peers(torrent, *amount)?
+            UIMessage::AddPeerStatistics(peer_statistics) => {
+                self.add_peer(peer_statistics.clone())?
             }
-            UIMessage::ClosedConnection(_) => {}
-            _ => unreachable!(),
+            UIMessage::PieceDownloaded(_, peer_id) => {
+                self.update_downloaded_pieces(peer_id)?;
+            }
+            UIMessage::UpdatePeerUploadRate(rate, peer_id) => {
+                self.update_download_rate(*rate, peer_id)?;
+            }
+            UIMessage::UpdatePeerDownloadRate(rate, peer_id) => {
+                self.update_upload_rate(*rate, peer_id)?;
+            }
+            UIMessage::UpdateDownloadedPiece(peer_id) => {
+                self.update_downloaded_pieces(peer_id)?;
+            }
+            UIMessage::ClosedConnection(_, peer_id) => {
+                self.close_connection(peer_id)?;
+            }
+            UIMessage::UpdatePeerConnectionState(peer_id, peer_conn_state) => {
+                self.update_connection_state(peer_id, peer_conn_state.clone())?;
+            }
+            _ => {}
         }
         Ok(())
     }

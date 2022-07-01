@@ -218,7 +218,7 @@ impl PieceManagerWorker {
         for piece in initial.iter() {
             self.piece_succesfully_downloaded(*piece);
             // se le avisa a la ui que se descargo para que lo muestre por pantalla (en realidad ya lo habria descargado porque es del initial pieces)
-            self.ui_message_sender.send_downloaded_piece();
+            //self.ui_message_sender.send_downloaded_piece();
         }
     }
 

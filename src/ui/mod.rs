@@ -10,7 +10,7 @@ mod torrent_model;
 mod utils;
 
 pub use app::run_ui;
-pub use messages::{UIMessage, UIMessageSender};
+pub use messages::{PeerStatistics, UIMessage, UIMessageSender};
 pub use notebook::{Notebook, NotebookError};
 pub use torrent_list_row::TorrentInformation;
 pub use torrent_model::Model;

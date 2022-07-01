@@ -29,15 +29,22 @@ impl OpenPeerConnectionWorker {
     fn download_piece(&mut self, piece_index: u32) -> Result<(), PeerConnectionError> {
         let piece_data: Vec<u8> = self
             .connection
-            .request_piece(piece_index, BLOCK_SIZE)
+            .request_piece(
+                piece_index,
+                BLOCK_SIZE,
+                self.connection.ui_message_sender.clone(),
+            )
             .map_err(|_| {
                 PeerConnectionError::PieceRequestingError(
                     "Error trying to request piece".to_string(),
                 )
             })?;
 
-        self.piece_saver_sender
-            .validate_and_save_piece(piece_index, piece_data);
+        self.piece_saver_sender.validate_and_save_piece(
+            piece_index,
+            self.connection.get_peer_id(),
+            piece_data,
+        );
 
         Ok(())
     }

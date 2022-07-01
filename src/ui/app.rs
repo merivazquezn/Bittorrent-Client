@@ -1,6 +1,7 @@
 use super::Notebook;
 use super::UIMessage;
 use glib::{Continue, PRIORITY_DEFAULT};
+use gtk::gdk_pixbuf::PixbufLoader;
 use gtk::prelude::*;
 use gtk::{self, glib};
 use gtk::{Application, ApplicationWindow};
@@ -8,6 +9,7 @@ use log::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
+
 // struct GeneralTorrentInformation {
 //     name: String,
 //     info_hash: String,
@@ -25,7 +27,7 @@ use std::sync::mpsc::Sender;
 
 pub fn run_ui(client_sender: Sender<glib::Sender<UIMessage>>) {
     let app = Application::builder()
-        .application_id("org.gtk-rs.example")
+        .application_id("org.gtk-rs.bittorrent")
         .build();
 
     app.connect_activate(move |app| {
@@ -40,11 +42,20 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
     // Create a window
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("My GTK App")
+        .title("Bittorrent Rústico")
+        .default_height(480)
+        .default_width(640)
         .build();
 
+    let loader = PixbufLoader::with_type("ico").unwrap();
+    loader.write(include_bytes!("resources/logo.ico")).unwrap();
+    loader.close().unwrap();
+    window.set_icon(Some(&loader.pixbuf().unwrap()));
+
     let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
-    client_sender.send(tx_messages).unwrap();
+    client_sender
+        .send(tx_messages)
+        .expect("could not send sender to client");
 
     let notebook = Rc::new(RefCell::new(Notebook::new(&window)));
 
@@ -56,11 +67,6 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
         Continue(true)
     });
 
-    let gtk_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .build();
-    gtk_box.add(&notebook.borrow().notebook);
-
-    window.add(&gtk_box);
+    window.add(&notebook.borrow().notebook);
     window.show_all();
 }

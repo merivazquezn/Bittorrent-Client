@@ -2,13 +2,15 @@ use super::errors::*;
 use super::service::*;
 use super::utils::bitmap_from_pieces_vector;
 
-struct PeerState {
-    _chocked: bool,
-    _interested: bool,
+#[derive(Clone)]
+pub struct PeerState {
+    pub chocked: bool,
+    pub interested: bool,
 }
+#[derive(Clone)]
 pub struct PeerConnectionState {
-    _client: PeerState,
-    _peer: PeerState,
+    pub client: PeerState,
+    pub peer: PeerState,
 }
 
 #[derive(Clone, Debug)]

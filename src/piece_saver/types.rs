@@ -6,7 +6,7 @@ use std::sync::mpsc;
 
 #[derive(Debug)]
 pub enum PieceSaverMessage {
-    ValidateAndSavePiece(u32, Vec<u8>),
+    ValidateAndSavePiece(u32, Vec<u8>, Vec<u8>),
     StopSaving,
 }
 

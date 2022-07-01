@@ -11,8 +11,9 @@ pub struct DownloadStatistics {
     ipport: RefCell<Option<String>>,
     clientstate: RefCell<Option<String>>,
     peerstate: RefCell<Option<String>>,
-    downloadrate: RefCell<Option<String>>,
-    uploadrate: RefCell<Option<String>>,
+    downloadrate: RefCell<f32>,
+    uploadrate: RefCell<f32>,
+    downloadedpieces: RefCell<u32>,
 }
 
 // Basic declaration of our type for the GObject type system
@@ -35,9 +36,9 @@ impl ObjectImpl for DownloadStatistics {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| {
             vec![
                 glib::ParamSpecString::new(
-                    "name",
-                    "Name",
-                    "Name",
+                    "torrentname",
+                    "TorrentName",
+                    "TorrentName",
                     None, // Default value
                     glib::ParamFlags::READWRITE,
                 ),
@@ -69,18 +70,31 @@ impl ObjectImpl for DownloadStatistics {
                     None, // Default value
                     glib::ParamFlags::READWRITE,
                 ),
-                glib::ParamSpecString::new(
+                glib::ParamSpecFloat::new(
                     "downloadrate",
                     "DownloadRate",
                     "DownloadRate",
-                    None, // Default value
+                    0f32,
+                    9999999f32,
+                    0f32,
                     glib::ParamFlags::READWRITE,
                 ),
-                glib::ParamSpecString::new(
+                glib::ParamSpecFloat::new(
                     "uploadrate",
                     "UploadRate",
                     "UploadRate",
-                    None, // Default value
+                    0f32,
+                    9999999f32,
+                    0f32,
+                    glib::ParamFlags::READWRITE,
+                ),
+                glib::ParamSpecUInt::new(
+                    "downloadedpieces",
+                    "DownloadedPieces",
+                    "DownloadedPieces",
+                    0,
+                    9999999,
+                    0,
                     glib::ParamFlags::READWRITE,
                 ),
             ]
@@ -139,19 +153,26 @@ impl ObjectImpl for DownloadStatistics {
                     .expect("type conformity checked by `Object::set_property`");
                 self.uploadrate.replace(uploadrate);
             }
+            "downloadedpieces" => {
+                let downloadedpieces = value
+                    .get()
+                    .expect("type conformity checked by `Object::set_property`");
+                self.downloadedpieces.replace(downloadedpieces);
+            }
             _ => unimplemented!(),
         }
     }
 
     fn property(&self, _obj: &Self::Type, _id: usize, pspec: &glib::ParamSpec) -> glib::Value {
         match pspec.name() {
-            "name" => self.torrentname.borrow().to_value(),
+            "torrentname" => self.torrentname.borrow().to_value(),
             "id" => self.id.borrow().to_value(),
             "ipport" => self.ipport.borrow().to_value(),
             "clientstate" => self.clientstate.borrow().to_value(),
             "peerstate" => self.peerstate.borrow().to_value(),
             "downloadrate" => self.downloadrate.borrow().to_value(),
             "uploadrate" => self.uploadrate.borrow().to_value(),
+            "downloadedpieces" => self.downloadedpieces.borrow().to_value(),
             _ => unimplemented!(),
         }
     }
