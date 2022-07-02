@@ -5,6 +5,7 @@ use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
 use log::*;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, RecvError};
 
 pub struct OpenPeerConnectionWorker {
@@ -50,6 +51,36 @@ impl OpenPeerConnectionWorker {
     }
 
     pub fn listen(&mut self) -> Result<(), RecvError> {
+        // in a new thread, use self.connection.ui_message_sender to send download_rate to UI
+        // the way download_rate is calculated, is by dividing the number rof self.connection.last_downloaded_pieces, which
+        // is an atomicuint wrapped in an Arc
+        // by the number of seconds since the last time the download_rate was calculated
+        // the calculation is done every 5 seconds
+        // we will join the thread when the connection is closed
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ui_msg_sender = self.connection.ui_message_sender.clone();
+        let last_downloaded_pieces = self.connection.last_downloaded_pieces.clone();
+        let peer_conn_id = self.connection.get_peer_id();
+        let rate_measure_handle = std::thread::spawn(move || {
+            let mut time = std::time::Instant::now();
+            loop {
+                // print last_downloaded_pieces
+                if rx.try_recv().is_ok() {
+                    return;
+                }
+                if time.elapsed().as_secs() >= 5 {
+                    let downloaded_pieces = last_downloaded_pieces.load(Ordering::Relaxed);
+                    // donloaded_pieces / time elapsed as secods float
+                    let download_rate = downloaded_pieces as f32 / time.elapsed().as_secs() as f32;
+                    ui_msg_sender.send_download_rate(download_rate, &peer_conn_id);
+                    time = std::time::Instant::now();
+                }
+                last_downloaded_pieces.store(0, Ordering::Relaxed);
+
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        });
+
         loop {
             let message = self.receiver.recv()?;
             trace!(
@@ -85,6 +116,8 @@ impl OpenPeerConnectionWorker {
                 OpenPeerConnectionMessage::CloseConnection => break,
             }
         }
+        tx.send(true).unwrap();
+        rate_measure_handle.join().unwrap();
         trace!(
             "peer connection worker with ip: {:?} closed",
             self.connection.get_peer_ip()

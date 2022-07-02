@@ -46,7 +46,6 @@ pub fn new_piece_manager(
         PieceManagerSender { sender: tx },
         PieceManagerWorker {
             reciever: rx,
-            pieces_downloading: HashSet::new(),
             allowed_peers_to_download_piece: peers_per_piece,
             ui_message_sender,
             is_downloading: false,

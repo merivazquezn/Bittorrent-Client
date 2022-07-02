@@ -13,7 +13,6 @@ const FIRST_MIN_CONNECTIONS: usize = 100;
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
     pub allowed_peers_to_download_piece: HashMap<u32, Vec<PeerId>>,
-    pub pieces_downloading: HashSet<u32>,
     pub ready_to_download_pieces: HashSet<u32>,
     pub ui_message_sender: UIMessageSender,
     pub is_downloading: bool,
@@ -23,7 +22,12 @@ pub struct PieceManagerWorker {
 }
 
 impl PieceManagerWorker {
-    fn piece_succesfully_downloaded(&mut self, piece_index: u32, peerd_id: PeerId) {
+    fn piece_succesfully_downloaded(
+        &mut self,
+        piece_index: u32,
+        peerd_id: PeerId,
+        peer_connection_manager_sender: &PeerConnectionManagerSender,
+    ) {
         self.ready_to_download_pieces.remove(&piece_index);
         self.allowed_peers_to_download_piece.remove(&piece_index);
         self.piece_asked_to.remove(&piece_index);
@@ -32,6 +36,7 @@ impl PieceManagerWorker {
             .get_mut(&peerd_id)
             .unwrap();
         *count -= 1;
+        self.ask_for_piece(peer_connection_manager_sender);
     }
 
     fn piece_failed_download(
@@ -92,7 +97,7 @@ impl PieceManagerWorker {
         let piece = self.get_optimal_piece_to_download();
 
         if piece.is_none() {
-            warn!("no pieces available to download");
+            warn!("All pieces are sent to download");
             return;
         }
 
@@ -166,10 +171,7 @@ impl PieceManagerWorker {
             self.allowed_peers_to_download_piece
                 .insert(piece_number, vec);
 
-            if self.is_downloading
-                && !self.pieces_downloading.contains(&piece_number)
-                && self.pieces_without_peer.contains(&piece_number)
-            {
+            if self.is_downloading && self.pieces_without_peer.contains(&piece_number) {
                 trace!("Asking for piece {} after have msg", piece_number);
                 self.ask_for_piece(peer_connection_manager_sender)
             }
@@ -255,7 +257,11 @@ impl PieceManagerWorker {
                         "Piece manager received successful download of piece: {:?}",
                         piece_index
                     );
-                    self.piece_succesfully_downloaded(piece_index, peer_id);
+                    self.piece_succesfully_downloaded(
+                        piece_index,
+                        peer_id,
+                        &peer_connection_manager_sender.clone(),
+                    );
                     trace!(
                         "Piece manager updated with piece successfully downloaded: {:?}",
                         piece_index

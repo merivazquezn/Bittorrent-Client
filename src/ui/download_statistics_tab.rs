@@ -35,50 +35,61 @@ impl DownloadStatisticsTab {
 
         let scrolled_window = ScrolledWindow::builder()
             .hscrollbar_policy(PolicyType::Never) // Disable horizontal scrolling
-            .min_content_height(1400)
+            .overlay_scrolling(true)
+            .vexpand(true)
             .build();
 
         let listbox = gtk::ListBox::new();
+
         listbox.bind_model(
             Some(&model),
             clone!(@weak window => @default-panic,  move |item| {
                 let box_ = gtk::ListBoxRow::new();
+                box_.set_widget_name("listboxrow");
+
                 let item = item
                     .downcast_ref::<DownloadStatistics>()
                     .expect("Row data is of wrong type");
                 let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 5);
 
-                let label = gtk::Label::new(None);
-                item.bind_property("ipport", &label, "label")
-                    .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
-                    .build();
-                hbox.pack_start(&label, false, false, 0);
+                let summary_box =  gtk::Box::builder()
+                .spacing(2)
+                .margin(10)
+                .orientation(gtk::Orientation::Vertical)
+                .halign(gtk::Align::Start)
+                .build();
 
-                Self::add_peer_data(&hbox, item, "Downloaded Pieces:", "downloadedpieces");
-                Self::add_peer_data(&hbox, item, "Download Rate:", "downloadrate");
-                Self::add_peer_data(&hbox, item, "Client is", "clientstate");
-
+                Self::add_peer_data(&summary_box, item, "IP:", "ipport");
+                Self::add_peer_data(&summary_box, item, "Downloaded Pieces:", "downloadedpieces");
+                Self::add_peer_data(&summary_box, item, "Download Rate (MBps):", "downloadrate");
+                Self::add_peer_data(&summary_box, item, "Client State:", "clientstate");
                 // When the info button is clicked, a new modal dialog is created for seeing
                 // the corresponding row
-                let edit_button = gtk::Button::with_label("Info");
-                Self::dialog(&edit_button, &window, item);
+                let details_button = gtk::Button::with_label("Details");
+                details_button.set_halign(gtk::Align::End);
+                details_button.set_widget_name("details-button");
+                Self::dialog(&details_button, &window, item);
 
-                hbox.pack_start(&edit_button, false, false, 0);
-                box_.add(&hbox);
 
+                hbox.pack_start(&summary_box, true, true, 0);
+                hbox.pack_start(&details_button, false, false, 0);
                 // When a row is activated (select + enter) we simply emit the clicked
                 // signal on the corresponding edit button to open the edit dialog
-                box_.connect_activate(clone!(@weak edit_button => move |_| {
-                    edit_button.emit_clicked();
+                box_.connect_activate(clone!(@weak details_button => move |_| {
+                    details_button.emit_clicked();
                 }));
 
+                box_.add(&hbox);
                 box_.show_all();
 
                 box_.upcast::<gtk::Widget>()
             }),
         );
 
-        scrolled_window.add(&listbox);
+        let backgorund = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        backgorund.set_widget_name("background");
+        backgorund.pack_start(&listbox, true, true, 0);
+        scrolled_window.add(&backgorund);
         vbox.pack_start(&scrolled_window, true, true, 0);
 
         DownloadStatisticsTab {
@@ -96,8 +107,6 @@ impl DownloadStatisticsTab {
             let dialog = gtk::Dialog::builder()
                 .title("Edit Item")
                 .parent(&window)
-                .default_height(400)
-                .default_width(400)
                 .build();
 
             dialog.add_button("Close", ResponseType::Close);
@@ -105,6 +114,7 @@ impl DownloadStatisticsTab {
             dialog.connect_response(|dialog, _| dialog.close());
 
             let content_area = dialog.content_area();
+            content_area.set_widget_name("dialog");
 
             Self::add_peer_data(&content_area, &item, "Torrent:", "torrentname");
             Self::add_peer_data(&content_area, &item, "Peer ID:", "id");
@@ -122,7 +132,9 @@ impl DownloadStatisticsTab {
 
     fn add_peer_data(content_area: &gtk::Box, item: &DownloadStatistics, label: &str, value: &str) {
         let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        container.add(&gtk::Label::new(Some(label)));
+        let label = gtk::Label::new(Some(label));
+        label.set_widget_name("label-descriptor");
+        container.add(&label);
         let label = gtk::Label::new(None);
         item.bind_property(value, &label, "label")
             .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
@@ -131,8 +143,8 @@ impl DownloadStatisticsTab {
         content_area.add(&container);
     }
 
-    fn bps_to_mbps(&self, bps: f32) -> f32 {
-        bps / 1024.0 / 1024.0
+    fn bytesps_to_mbps(&self, bps: f32) -> f32 {
+        bps / 125000f32
     }
 
     fn add_peer(&self, peer_statistics: PeerStatistics) -> Result<(), DownloadStatisticsTabError> {
@@ -153,7 +165,9 @@ impl DownloadStatisticsTab {
         peer_id: &[u8],
     ) -> Result<(), DownloadStatisticsTabError> {
         self.model.edit(peer_id, |item| {
-            item.set_property("downloadrate", &self.bps_to_mbps(rate));
+            if self.bytesps_to_mbps(rate) > 0f32 {
+                item.set_property("downloadrate", &self.bytesps_to_mbps(rate));
+            }
         });
         Ok(())
     }
@@ -163,6 +177,7 @@ impl DownloadStatisticsTab {
             let downloaded_pieces = item.property::<u32>("downloadedpieces") + 1;
             item.set_property("downloadedpieces", &downloaded_pieces);
         });
+        // self.sort();
         Ok(())
     }
 
@@ -172,7 +187,7 @@ impl DownloadStatisticsTab {
         peer_id: &[u8],
     ) -> Result<(), DownloadStatisticsTabError> {
         self.model.edit(peer_id, |item| {
-            item.set_property("uploadrate", &self.bps_to_mbps(rate));
+            item.set_property("uploadrate", &self.bytesps_to_mbps(rate));
         });
         Ok(())
     }
@@ -186,11 +201,22 @@ impl DownloadStatisticsTab {
         Ok(())
     }
 
+    fn sort(&self) {
+        let sorted = self.model.sort_by_download_rate();
+        // remove all items by index
+        self.model.clear();
+        for item in sorted {
+            self.model.append(&item);
+        }
+    }
+
     fn close_connection(&self, peer_id: &[u8]) -> Result<(), DownloadStatisticsTabError> {
         self.model.edit(peer_id, |item| {
             item.set_property("clientstate", &"Disconnected");
             item.set_property("peerstate", &"Disconnected");
+            item.set_property("downloadrate", &0f32);
         });
+        self.sort();
         Ok(())
     }
 
@@ -203,10 +229,10 @@ impl DownloadStatisticsTab {
                 self.update_downloaded_pieces(peer_id)?;
             }
             UIMessage::UpdatePeerUploadRate(rate, peer_id) => {
-                self.update_download_rate(*rate, peer_id)?;
+                self.update_upload_rate(*rate, peer_id)?;
             }
             UIMessage::UpdatePeerDownloadRate(rate, peer_id) => {
-                self.update_upload_rate(*rate, peer_id)?;
+                self.update_download_rate(*rate, peer_id)?;
             }
             UIMessage::UpdateDownloadedPiece(peer_id) => {
                 self.update_downloaded_pieces(peer_id)?;

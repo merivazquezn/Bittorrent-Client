@@ -1,0 +1,49 @@
+notebook>header>tabs>tab {
+    border-top: 3px solid rgba(104, 46, 46, 0.958);
+    border-left: 3px solid rgba(104, 46, 46, 0.958);
+    border-right: 3px solid rgba(104, 46, 46, 0.958);
+    border-bottom: 0px;
+    background-color: rgba(250, 194, 119, 0.958);
+}
+
+notebook>header {
+    background-color: rgba(116, 58, 7, 0.499);
+}
+
+box#background {
+    padding: 5px;
+    background-color: rgba(53, 41, 25, 0.958);
+}
+
+box#dialog {
+    padding: 10px;
+    background-color: rgba(200, 156, 97, 0.958);
+}
+
+list {
+    background-color: rgba(200, 156, 97, 0.958);
+}
+
+#listboxrow {
+    border: 3px solid rgba(55, 39, 30, 0.958);
+    margin: 10px;
+    box-shadow: rgba(0, 0, 0, 0.2) 5px 5px;
+}
+
+label {
+    color: black;
+    font-size: large;
+    font-family: Roboto, Arial, sans-serif;
+}
+
+label#label-descriptor {
+    font-weight: bold;
+    font-size: large;
+}
+
+button {
+    border: 5px solid rgb(123, 77, 21);
+    background-color: orange;
+    margin: 10px;
+    box-shadow: rgba(0, 0, 0, 0.2) 5px 5px;
+}

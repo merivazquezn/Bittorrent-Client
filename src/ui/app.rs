@@ -3,7 +3,7 @@ use super::UIMessage;
 use glib::{Continue, PRIORITY_DEFAULT};
 use gtk::gdk_pixbuf::PixbufLoader;
 use gtk::prelude::*;
-use gtk::{self, glib};
+use gtk::{self, gdk, glib};
 use gtk::{Application, ApplicationWindow};
 use log::*;
 use std::cell::RefCell;
@@ -51,6 +51,15 @@ fn build_ui(app: &Application, client_sender: &Sender<glib::Sender<UIMessage>>) 
     loader.write(include_bytes!("resources/logo.ico")).unwrap();
     loader.close().unwrap();
     window.set_icon(Some(&loader.pixbuf().unwrap()));
+
+    let provider = gtk::CssProvider::new();
+    let style = include_bytes!("resources/styles.css");
+    provider.load_from_data(style).expect("Failed to load CSS");
+    gtk::StyleContext::add_provider_for_screen(
+        &gdk::Screen::default().expect("Error initializing gtk css provider."),
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 
     let (tx_messages, rx_messages) = glib::MainContext::channel(PRIORITY_DEFAULT);
     client_sender

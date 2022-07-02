@@ -35,14 +35,15 @@ impl GeneralInformationTab {
 
         let scrolled_window = ScrolledWindow::builder()
             .hscrollbar_policy(PolicyType::Never) // Disable horizontal scrolling
-            .min_content_height(1400)
+            .overlay_scrolling(true)
+            .vexpand(true)
             .build();
-
         let listbox = gtk::ListBox::new();
         listbox.bind_model(
             Some(&model),
             clone!(@weak window => @default-panic,  move |item| {
                 let box_ = gtk::ListBoxRow::new();
+                box_.set_widget_name("listboxrow");
                 let item = item
                     .downcast_ref::<TorrentInformation>()
                     .expect("Row data is of wrong type");
@@ -50,31 +51,30 @@ impl GeneralInformationTab {
                 .orientation(gtk::Orientation::Horizontal)
                 .build();
                 let summary_box =  gtk::Box::builder()
-                .homogeneous(true)
                 .spacing(2)
                 .margin(10)
                 .orientation(gtk::Orientation::Vertical)
                 .halign(gtk::Align::Start)
                 .build();
                 Self::add_torrent_data(&summary_box, item, "torrent:", "name");
-                Self::add_torrent_data(&summary_box, item, "connected peers:", "activeconnections");
-                Self::add_torrent_percentage(&summary_box, item, "", "downloadpercentage");
+                Self::add_torrent_data(&summary_box, item, "active peers:", "activeconnections");
+                Self::add_torrent_percentage(&summary_box, item, "%", "downloadpercentage");
 
                 // When the info button is clicked, a new modal dialog is created for seeing
                 // the corresponding row
-                let edit_button = gtk::Button::with_label("Details");
-                edit_button.set_halign(gtk::Align::End);
+                let details_button = gtk::Button::with_label("Details");
+                details_button.set_halign(gtk::Align::End);
+                details_button.set_widget_name("details-button");
+                Self::dialog(&details_button, &window, item);
 
-                Self::dialog(&edit_button, &window, item);
-
-                hbox.pack_start(&summary_box, false, false, 0);
-                hbox.pack_start(&edit_button, false, false, 0);
+                hbox.pack_start(&summary_box, true, true, 0);
+                hbox.pack_start(&details_button, false, false, 0);
                 box_.add(&hbox);
 
                 // When a row is activated (select + enter) we simply emit the clicked
                 // signal on the corresponding edit button to open the edit dialog
-                box_.connect_activate(clone!(@weak edit_button => move |_| {
-                    edit_button.emit_clicked();
+                box_.connect_activate(clone!(@weak details_button => move |_| {
+                    details_button.emit_clicked();
                 }));
 
                 box_.show_all();
@@ -83,7 +83,10 @@ impl GeneralInformationTab {
             }),
         );
 
-        scrolled_window.add(&listbox);
+        let backgorund = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        backgorund.set_widget_name("background");
+        backgorund.pack_start(&listbox, true, true, 0);
+        scrolled_window.add(&backgorund);
         vbox.pack_start(&scrolled_window, true, true, 0);
 
         GeneralInformationTab {
@@ -101,8 +104,6 @@ impl GeneralInformationTab {
             let dialog = gtk::Dialog::builder()
                 .title("Edit Item")
                 .parent(&window)
-                .default_height(400)
-                .default_width(400)
                 .build();
 
             dialog.add_button("Close", ResponseType::Close);
@@ -110,7 +111,7 @@ impl GeneralInformationTab {
             dialog.connect_response(|dialog, _| dialog.close());
 
             let content_area = dialog.content_area();
-
+            content_area.set_widget_name("dialog");
             Self::add_torrent_data(&content_area, &item, "Name: ", "name");
             Self::add_torrent_data(&content_area, &item, "Verification Hash: ", "infohash");
             Self::add_torrent_data(&content_area, &item, "Total Size in MB: ", "totalsize");
@@ -131,28 +132,39 @@ impl GeneralInformationTab {
         label: &str,
         value: &str,
     ) {
-        let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        container.add(&gtk::Label::new(Some(label)));
-        let label = gtk::Label::new(None);
+        let container = gtk::Box::builder()
+            .spacing(10)
+            .halign(gtk::Align::Start)
+            .build();
+
+        let label = gtk::Label::new(Some(label));
+        label.set_widget_name("label-descriptor");
+
+        container.add(&label);
+        let label = gtk::Label::builder().halign(gtk::Align::Start).build();
         item.bind_property(value, &label, "label")
             .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
             .build();
-        container.add(&label);
-        content_area.add(&container);
+        container.pack_start(&label, false, false, 0);
+        content_area.pack_start(&container, false, false, 0);
     }
 
     fn add_torrent_percentage(
         content_area: &gtk::Box,
         item: &TorrentInformation,
-        label: &str,
+        _label: &str,
         value: &str,
     ) {
         let progress_bar = gtk::ProgressBar::builder()
-            .show_text(true)
-            .text(label)
             .hexpand(true)
+            .halign(gtk::Align::Center)
+            .valign(gtk::Align::Center)
             .build();
-        let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let container = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+        let label = gtk::Label::builder().halign(gtk::Align::Start).build();
+        label.set_label("download progress:");
+        label.set_widget_name("label-descriptor");
+        container.pack_start(&label, false, false, 0);
         item.bind_property(value, &progress_bar, "fraction")
             .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
             .build();

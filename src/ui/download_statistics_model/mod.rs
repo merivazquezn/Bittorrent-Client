@@ -2,9 +2,8 @@
 
 mod imp;
 
-use crate::peer::PeerConnectionState;
-
 use super::download_statistics_row::DownloadStatistics;
+use crate::peer::PeerConnectionState;
 use glib::subclass::prelude::*;
 use gtk::{gio, glib, prelude::*};
 
@@ -45,6 +44,26 @@ impl Model {
         }
     }
 
+    pub fn sort_by_download_rate(&self) -> Vec<DownloadStatistics> {
+        let imp = self.imp();
+        let sorted = &mut *imp.0.borrow_mut().clone();
+        sorted.sort_by(|a, b| {
+            let a_rate = a.property::<f32>("downloadrate");
+            let b_rate = b.property::<f32>("downloadrate");
+            a_rate.partial_cmp(&b_rate).unwrap()
+        });
+        let mut sorted = sorted.to_vec();
+        sorted.reverse();
+        sorted
+    }
+    // implement clear using self.remove() only!
+    pub fn clear(&self) {
+        let len = self.imp().0.borrow().len();
+        for _ in 0..len {
+            self.remove_by_index(0);
+        }
+    }
+
     pub fn edit_state(&self, peer_id: &[u8], peer_conn_state: PeerConnectionState) {
         let _client_interested = match peer_conn_state.client.interested {
             true => "interested",
@@ -72,6 +91,13 @@ impl Model {
                 item.set_property("clientstate", &peer_state);
             }
         }
+    }
+
+    pub fn remove_by_index(&self, index: usize) {
+        let imp = self.imp();
+        let mut data = imp.0.borrow_mut();
+        data.remove(index);
+        self.items_changed(index as u32, 1, 0);
     }
 
     pub fn remove(&self, peer_id: &[u8]) {

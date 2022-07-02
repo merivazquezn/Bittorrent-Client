@@ -8,7 +8,8 @@ use crate::constants::*;
 use crate::metainfo::Metainfo;
 use crate::ui::{PeerStatistics, UIMessageSender};
 use log::*;
-use std::time::SystemTime;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 pub struct PeerConnection {
     _am_choking: bool,
@@ -16,11 +17,12 @@ pub struct PeerConnection {
     peer_choking: bool,
     _peer_interested: bool,
     message_service: Box<dyn IClientPeerMessageService + Send>,
-    metainfo: Metainfo,
+    pub metainfo: Metainfo,
     client_peer_id: Vec<u8>,
     bitfield: Bitfield,
     peer_id: Vec<u8>,
     peer: Peer,
+    pub last_downloaded_pieces: Arc<AtomicUsize>,
     pub ui_message_sender: UIMessageSender,
 }
 
@@ -42,6 +44,7 @@ impl PeerConnection {
             message_service,
             bitfield: Bitfield::new(),
             peer_id: peer.peer_id.clone(),
+            last_downloaded_pieces: Arc::new(AtomicUsize::new(0)),
             ui_message_sender,
             peer,
         }
@@ -116,23 +119,13 @@ impl PeerConnection {
         index: u32,
         begin: u32,
         lenght: u32,
-        ui_message_sender: UIMessageSender,
+        _ui_message_sender: UIMessageSender,
     ) -> Result<Vec<u8>, PeerConnectionError> {
         let _block_count = self.metainfo.info.piece_length / BLOCK_SIZE;
 
         // calculate duration between sending the message and moving on to next instruction
         let msg = PeerMessage::request(index, begin, lenght);
-        let time_stamp_now = SystemTime::now();
         self.message_service.send_message(&msg)?;
-        let time_stamp_after = SystemTime::now();
-        ui_message_sender.send_upload_rate(
-            std::mem::size_of_val(&*msg.payload) as f32
-                / (time_stamp_after
-                    .duration_since(time_stamp_now)
-                    .unwrap()
-                    .as_secs_f32()),
-            &self.peer_id,
-        );
 
         loop {
             let message = self.wait_for_message().map_err(|_| {
@@ -164,8 +157,6 @@ impl PeerConnection {
         let mut counter = 0;
         let mut piece: Vec<u8> = vec![];
         debug!("requesting piece: {}", piece_index);
-        // measure time spent donwloading piece
-        let start = SystemTime::now();
         while counter < self.metainfo.info.piece_length {
             let ui_sender_clone = ui_message_sender.clone();
             let block: Vec<u8> =
@@ -173,10 +164,9 @@ impl PeerConnection {
             piece.extend(block);
             counter += block_size;
         }
-        let elapsed = start.elapsed().unwrap();
 
-        ui_message_sender
-            .send_download_rate(piece.len() as f32 / (elapsed.as_secs_f32()), &self.peer_id);
+        self.last_downloaded_pieces
+            .fetch_add(piece.len(), Ordering::SeqCst);
 
         debug!(
             "recieved piece (not validated yet), piece index: {}",
