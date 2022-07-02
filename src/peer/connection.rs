@@ -92,11 +92,11 @@ impl PeerConnection {
                 PeerConnectionState {
                     client: (PeerState {
                         chocked: self.peer_choking,
-                        interested: self._peer_interested,
+                        interested: self._am_interested,
                     }),
                     peer: (PeerState {
                         chocked: self._am_choking,
-                        interested: self._am_interested,
+                        interested: self._peer_interested,
                     }),
                 },
             );

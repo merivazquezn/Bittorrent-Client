@@ -50,7 +50,8 @@ impl PieceSaverWorker {
     }
 
     fn downloaded_piece_successfully(&self, piece_index: u32, peer_id: Vec<u8>, logger: &Logger) {
-        self.piece_manager_sender.successful_download(piece_index);
+        self.piece_manager_sender
+            .successful_download(piece_index, peer_id.clone());
         self.ui_message_sender.send_downloaded_piece(peer_id);
         LOGGER.info(format!("Piece {:^5} downloaded successfully", piece_index));
         let _ = logger.log_piece(piece_index);
@@ -75,7 +76,8 @@ impl PieceSaverWorker {
                     if successfuly_downloaded {
                         self.downloaded_piece_successfully(piece_index, peer_id, &logger);
                     } else {
-                        self.piece_manager_sender.failed_download(piece_index);
+                        self.piece_manager_sender
+                            .failed_download(piece_index, peer_id);
                     }
                 }
             }

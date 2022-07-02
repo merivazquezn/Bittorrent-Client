@@ -61,7 +61,8 @@ impl OpenPeerConnectionWorker {
                 OpenPeerConnectionMessage::SendBitfield => self.send_bitfield(),
                 OpenPeerConnectionMessage::DownloadPiece(piece_index) => {
                     if self.download_piece(piece_index).is_err() {
-                        self.piece_manager_sender.failed_download(piece_index);
+                        self.piece_manager_sender
+                            .failed_download(piece_index, self.connection.get_peer_id());
                         self.failed_download_in_a_row += 1;
                         if self.failed_download_in_a_row == 1 {
                             self.piece_manager_sender

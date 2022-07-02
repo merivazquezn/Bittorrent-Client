@@ -81,12 +81,9 @@ impl PeerConnectionManagerWorker {
     }
 
     fn set_peer_connection_to_closed(&mut self, peer_id: Vec<u8>) {
-        warn!("ENTRE CA");
         if let Some(peer_connection) = self.peer_connections.get_mut(&peer_id) {
-            warn!("ENTRE ACA DEBERIA TMB");
             peer_connection.is_open = false;
         }
-        warn!("SALI CA");
     }
 
     fn update_peer_connections(
@@ -94,7 +91,6 @@ impl PeerConnectionManagerWorker {
         tracker_service: &mut Box<dyn ITrackerService>,
         peer_connection_manager_sender: PeerConnectionManagerSender,
     ) {
-        warn!("UPDATEANDO PEER");
         if let Ok(tracker_response) = tracker_service.get_response() {
             for peer in tracker_response.peers {
                 if !self.peer_connections.contains_key(&peer.peer_id) {
@@ -116,7 +112,6 @@ impl PeerConnectionManagerWorker {
                                     is_open: true,
                                 },
                             );
-                            warn!("ADDED PEER");
                             self.ui_message_sender.send_new_connection();
                         }
                         Err(error) => {
@@ -272,7 +267,6 @@ impl PeerConnectionManagerWorker {
                 PeerConnectionManagerMessage::FailedConnection(peer_id) => {
                     self.set_peer_connection_to_closed(peer_id.clone());
                     if self.able_to_reach_tracker_again(interval) {
-                        warn!("ENTERING IF");
                         self.update_peer_connections(
                             &mut tracker_service,
                             peer_connection_manager_sender.clone(),
@@ -282,7 +276,6 @@ impl PeerConnectionManagerWorker {
                     }
                     self.piece_manager_sender.failed_connection(peer_id.clone());
                     self.ui_message_sender.send_closed_connection(peer_id);
-                    warn!("EXITING IF");
                 }
             }
             info!("Total of connected peers: {}", self.peer_connections.len());

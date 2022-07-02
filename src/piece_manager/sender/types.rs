@@ -22,16 +22,17 @@ impl PieceManagerSender {
             .send(PieceManagerMessage::PeerPieces(peer_id, bitfield));
     }
 
-    pub fn successful_download(&self, piece_index: u32) {
-        let _ = self
-            .sender
-            .send(PieceManagerMessage::SuccessfulDownload(piece_index));
+    pub fn successful_download(&self, piece_index: u32, peer_id: Vec<u8>) {
+        let _ = self.sender.send(PieceManagerMessage::SuccessfulDownload(
+            piece_index,
+            peer_id,
+        ));
     }
 
-    pub fn failed_download(&self, piece_index: u32) {
+    pub fn failed_download(&self, piece_index: u32, peer_id: Vec<u8>) {
         let _ = self
             .sender
-            .send(PieceManagerMessage::FailedDownload(piece_index));
+            .send(PieceManagerMessage::FailedDownload(piece_index, peer_id));
     }
 
     pub fn failed_connection(&self, peer_id: Vec<u8>) {

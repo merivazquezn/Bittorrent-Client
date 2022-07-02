@@ -15,8 +15,8 @@ type PieceId = u32;
 pub enum PieceManagerMessage {
     PeerPieces(PeerId, Bitfield),
     Init(PeerConnectionManagerSender),
-    SuccessfulDownload(PieceId),
-    FailedDownload(PieceId),
+    SuccessfulDownload(PieceId, PeerId),
+    FailedDownload(PieceId, PeerId),
     FailedConnection(PeerId),
     Have(PeerId, PieceId),
     FirstConnectionsStarted(),
@@ -47,11 +47,14 @@ pub fn new_piece_manager(
         PieceManagerWorker {
             reciever: rx,
             pieces_downloading: HashSet::new(),
-            peers_per_piece,
+            allowed_peers_to_download_piece: peers_per_piece,
             ui_message_sender,
             is_downloading: false,
             piece_asked_to: HashMap::new(),
             pieces_without_peer: HashSet::new(),
+            // hashamp full from 0 to number_of_pieces - 1
+            ready_to_download_pieces: remaining_pieces,
+            peer_pieces_to_download_count: HashMap::new(),
         },
     )
 }

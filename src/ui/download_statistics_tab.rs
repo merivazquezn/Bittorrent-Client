@@ -187,7 +187,10 @@ impl DownloadStatisticsTab {
     }
 
     fn close_connection(&self, peer_id: &[u8]) -> Result<(), DownloadStatisticsTabError> {
-        self.model.remove(peer_id);
+        self.model.edit(peer_id, |item| {
+            item.set_property("clientstate", &"Disconnected");
+            item.set_property("peerstate", &"Disconnected");
+        });
         Ok(())
     }
 
