@@ -9,7 +9,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
 
 type PeerId = Vec<u8>;
-const FIRST_MIN_CONNECTIONS: usize = 100;
+const FIRST_MIN_CONNECTIONS: usize = 20;
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
     pub allowed_peers_to_download_piece: HashMap<u32, Vec<PeerId>>,

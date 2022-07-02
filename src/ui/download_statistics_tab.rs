@@ -55,7 +55,7 @@ impl DownloadStatisticsTab {
                 let summary_box =  gtk::Box::builder()
                 .spacing(2)
                 .margin(10)
-                .orientation(gtk::Orientation::Vertical)
+                .orientation(gtk::Orientation::Horizontal)
                 .halign(gtk::Align::Start)
                 .build();
 
@@ -86,8 +86,23 @@ impl DownloadStatisticsTab {
             }),
         );
 
-        let backgorund = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        let backgorund = gtk::Box::new(gtk::Orientation::Vertical, 0);
         backgorund.set_widget_name("background");
+
+        let sort_by_download_rate_button = gtk::Button::with_label("Sort By Download Rate");
+        sort_by_download_rate_button.set_halign(gtk::Align::End);
+        sort_by_download_rate_button.set_widget_name("details-button");
+
+        sort_by_download_rate_button.connect_clicked(clone!(@strong model => move |_| {
+            let sorted = model.sort_by_download_rate();
+            // remove all items by index
+            model.clear();
+            for item in sorted {
+                model.append(&item);
+            }
+        }));
+
+        backgorund.pack_start(&sort_by_download_rate_button, false, false, 0);
         backgorund.pack_start(&listbox, true, true, 0);
         scrolled_window.add(&backgorund);
         vbox.pack_start(&scrolled_window, true, true, 0);
@@ -131,7 +146,8 @@ impl DownloadStatisticsTab {
     }
 
     fn add_peer_data(content_area: &gtk::Box, item: &DownloadStatistics, label: &str, value: &str) {
-        let container = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        let container = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+        container.set_widget_name("row-element");
         let label = gtk::Label::new(Some(label));
         label.set_widget_name("label-descriptor");
         container.add(&label);
@@ -165,9 +181,7 @@ impl DownloadStatisticsTab {
         peer_id: &[u8],
     ) -> Result<(), DownloadStatisticsTabError> {
         self.model.edit(peer_id, |item| {
-            if self.bytesps_to_mbps(rate) > 0f32 {
-                item.set_property("downloadrate", &self.bytesps_to_mbps(rate));
-            }
+            item.set_property("downloadrate", &self.bytesps_to_mbps(rate));
         });
         Ok(())
     }
@@ -177,7 +191,6 @@ impl DownloadStatisticsTab {
             let downloaded_pieces = item.property::<u32>("downloadedpieces") + 1;
             item.set_property("downloadedpieces", &downloaded_pieces);
         });
-        // self.sort();
         Ok(())
     }
 
@@ -202,7 +215,7 @@ impl DownloadStatisticsTab {
     }
 
     fn sort(&self) {
-        let sorted = self.model.sort_by_download_rate();
+        let sorted = self.model.send_closed_connections_to_bottom();
         // remove all items by index
         self.model.clear();
         for item in sorted {

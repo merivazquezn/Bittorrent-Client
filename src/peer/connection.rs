@@ -22,7 +22,8 @@ pub struct PeerConnection {
     bitfield: Bitfield,
     peer_id: Vec<u8>,
     peer: Peer,
-    pub last_downloaded_pieces: Arc<AtomicUsize>,
+    last_download_rate_update: std::time::Instant,
+    last_downloaded_pieces: Arc<AtomicUsize>,
     pub ui_message_sender: UIMessageSender,
 }
 
@@ -45,6 +46,7 @@ impl PeerConnection {
             bitfield: Bitfield::new(),
             peer_id: peer.peer_id.clone(),
             last_downloaded_pieces: Arc::new(AtomicUsize::new(0)),
+            last_download_rate_update: std::time::Instant::now(),
             ui_message_sender,
             peer,
         }
@@ -165,9 +167,17 @@ impl PeerConnection {
             counter += block_size;
         }
 
-        self.last_downloaded_pieces
-            .fetch_add(piece.len(), Ordering::SeqCst);
+        self.last_downloaded_pieces.fetch_add(1, Ordering::Relaxed);
 
+        if self.last_downloaded_pieces.load(Ordering::Relaxed) == 1 {
+            let time = self.last_download_rate_update.elapsed().as_secs_f32();
+            self.ui_message_sender.send_download_rate(
+                2f32 * self.metainfo.info.piece_length as f32 / time,
+                &self.get_peer_id(),
+            );
+            self.last_download_rate_update = std::time::Instant::now();
+            self.last_downloaded_pieces.store(0, Ordering::Relaxed);
+        }
         debug!(
             "recieved piece (not validated yet), piece index: {}",
             piece_index

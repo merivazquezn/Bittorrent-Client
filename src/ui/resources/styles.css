@@ -6,6 +6,10 @@ notebook>header>tabs>tab {
     background-color: rgba(250, 194, 119, 0.958);
 }
 
+box#row-element {
+    margin-right: 12px;
+}
+
 notebook>header {
     background-color: rgba(116, 58, 7, 0.499);
 }

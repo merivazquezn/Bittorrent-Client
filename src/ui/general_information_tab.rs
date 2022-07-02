@@ -14,6 +14,7 @@ use sha1::{Digest, Sha1};
 pub struct GeneralInformationTab {
     pub container: gtk::Box,
     pub model: Model,
+    pub start_time: std::time::Instant,
 }
 
 #[derive(Debug)]
@@ -58,6 +59,7 @@ impl GeneralInformationTab {
                 .build();
                 Self::add_torrent_data(&summary_box, item, "torrent:", "name");
                 Self::add_torrent_data(&summary_box, item, "active peers:", "activeconnections");
+                Self::add_torrent_data(&summary_box, item, "minutes left:", "timeleft");
                 Self::add_torrent_percentage(&summary_box, item, "%", "downloadpercentage");
 
                 // When the info button is clicked, a new modal dialog is created for seeing
@@ -92,6 +94,7 @@ impl GeneralInformationTab {
         GeneralInformationTab {
             container: vbox,
             model,
+            start_time: std::time::Instant::now(),
         }
     }
 
@@ -227,6 +230,14 @@ impl GeneralInformationTab {
                 (downloaded_pieces) as f32 / item.property::<u32>("totalpiececount") as f32;
             item.set_property("downloadedpieces", &downloaded_pieces);
             item.set_property("downloadpercentage", &download_percentage);
+
+            let download_speed = item.property::<u32>("downloadedpieces") as f32
+                / self.start_time.elapsed().as_secs_f32();
+            let pieces_left = item.property::<u32>("totalpiececount") - downloaded_pieces;
+            if download_speed > 0f32 {
+                let time_left = pieces_left as f32 / download_speed / 60f32;
+                item.set_property("timeleft", &format!("{:.2}", time_left));
+            }
         });
         Ok(())
     }

@@ -44,6 +44,24 @@ impl Model {
         }
     }
 
+    pub fn send_closed_connections_to_bottom(&self) -> Vec<DownloadStatistics> {
+        let imp = self.imp();
+        let mut data = imp.0.borrow_mut().clone();
+        let mut closed_connections = Vec::new();
+        let mut open_connections = Vec::new();
+        for item in data.iter_mut() {
+            if item.property::<String>("clientstate") == "Disconnected" {
+                closed_connections.push(item.clone());
+            } else {
+                open_connections.push(item.clone());
+            }
+        }
+        data.clear();
+        data.append(&mut open_connections);
+        data.append(&mut closed_connections);
+        data.to_vec()
+    }
+
     pub fn sort_by_download_rate(&self) -> Vec<DownloadStatistics> {
         let imp = self.imp();
         let sorted = &mut *imp.0.borrow_mut().clone();
