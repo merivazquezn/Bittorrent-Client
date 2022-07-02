@@ -59,6 +59,7 @@ impl DownloadStatisticsTab {
                 .halign(gtk::Align::Start)
                 .build();
 
+                Self::add_peer_data(&summary_box, item, "Torrent:", "torrentname");
                 Self::add_peer_data(&summary_box, item, "IP:", "ipport");
                 Self::add_peer_data(&summary_box, item, "Downloaded Pieces:", "downloadedpieces");
                 Self::add_peer_data(&summary_box, item, "Download Rate (MBps):", "downloadrate");
@@ -95,14 +96,35 @@ impl DownloadStatisticsTab {
 
         sort_by_download_rate_button.connect_clicked(clone!(@strong model => move |_| {
             let sorted = model.sort_by_download_rate();
-            // remove all items by index
             model.clear();
             for item in sorted {
                 model.append(&item);
             }
         }));
 
-        backgorund.pack_start(&sort_by_download_rate_button, false, false, 0);
+        let sort_by_torrent_button = gtk::Button::with_label("Sort By Torrent");
+        sort_by_torrent_button.set_halign(gtk::Align::End);
+        sort_by_torrent_button.set_widget_name("details-button");
+
+        sort_by_torrent_button.connect_clicked(clone!(@strong model => move |_| {
+            let sorted = model.sort_by_torrent();
+            model.clear();
+            for item in sorted {
+                model.append(&item);
+            }
+        }));
+
+        let sort_buttons_box = gtk::Box::builder()
+            .spacing(2)
+            .margin(10)
+            .orientation(gtk::Orientation::Horizontal)
+            .halign(gtk::Align::End)
+            .build();
+        // sort_buttons_box.set_widget_name("sort-buttons-box");
+        sort_buttons_box.pack_start(&sort_by_download_rate_button, false, false, 0);
+        sort_buttons_box.pack_start(&sort_by_torrent_button, false, false, 0);
+
+        backgorund.pack_start(&sort_buttons_box, false, false, 0);
         backgorund.pack_start(&listbox, true, true, 0);
         scrolled_window.add(&backgorund);
         vbox.pack_start(&scrolled_window, true, true, 0);

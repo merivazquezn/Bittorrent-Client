@@ -74,6 +74,16 @@ impl Model {
         sorted.reverse();
         sorted
     }
+    pub fn sort_by_torrent(&self) -> Vec<DownloadStatistics> {
+        let imp = self.imp();
+        let sorted = &mut *imp.0.borrow_mut().clone();
+        sorted.sort_by(|a, b| {
+            let a_rate = a.property::<String>("torrentname");
+            let b_rate = b.property::<String>("torrentname");
+            a_rate.partial_cmp(&b_rate).unwrap()
+        });
+        sorted.to_vec()
+    }
     // implement clear using self.remove() only!
     pub fn clear(&self) {
         let len = self.imp().0.borrow().len();

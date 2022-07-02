@@ -10,6 +10,7 @@ box#row-element {
     margin-right: 12px;
 }
 
+
 notebook>header {
     background-color: rgba(116, 58, 7, 0.499);
 }
@@ -48,6 +49,7 @@ label#label-descriptor {
 button {
     border: 5px solid rgb(123, 77, 21);
     background-color: orange;
+    border-radius: 5px;
     margin: 10px;
     box-shadow: rgba(0, 0, 0, 0.2) 5px 5px;
 }

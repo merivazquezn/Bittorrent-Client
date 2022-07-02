@@ -9,7 +9,6 @@ pub fn run_with_torrent(
     torrent_path: &str,
     ui_message_sender: Option<glib::Sender<UIMessage>>,
 ) -> Result<(), ApplicationError> {
-    pretty_env_logger::init();
     let mut client_info = ClientInfo::new(torrent_path)?;
     let ui_message_sender = init_ui(ui_message_sender, &mut client_info);
 
