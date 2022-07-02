@@ -5,6 +5,7 @@ pub mod types;
 pub mod worker;
 
 pub use errors::PeerConnectionManagerError;
+pub use open_peer_connection::*;
 pub use sender::PeerConnectionManagerSender;
 pub use types::*;
 pub use worker::PeerConnectionManagerWorker;

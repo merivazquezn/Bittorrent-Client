@@ -22,6 +22,13 @@ pub enum IPeerMessageServiceError {
     InvalidResponse(String),
     UnhandledMessage,
     InvalidMessageId,
+    IOError(std::io::Error),
+}
+
+impl From<std::io::Error> for IPeerMessageServiceError {
+    fn from(error: std::io::Error) -> Self {
+        IPeerMessageServiceError::IOError(error)
+    }
 }
 
 impl From<LoggerError> for PeerConnectionError {
@@ -48,13 +55,18 @@ impl fmt::Display for IPeerMessageServiceError {
             IPeerMessageServiceError::PeerHandshakeError(reason) => write!(f, "{}", reason),
             IPeerMessageServiceError::SendingMessageError(reason) => write!(f, "{}", reason),
             IPeerMessageServiceError::InvalidResponse(reason) => write!(f, "{}", reason),
-            IPeerMessageServiceError::ReceivingMessageError(reason) => write!(f, "{}", reason),
+            IPeerMessageServiceError::ReceivingMessageError(reason) => {
+                write!(f, "{}", reason)
+            }
             IPeerMessageServiceError::UnhandledMessage => write!(
                 f,
                 "Peer received a message which does not know how to handle"
             ),
             IPeerMessageServiceError::InvalidMessageId => {
                 write!(f, "Received message id which is not valid")
+            }
+            IPeerMessageServiceError::IOError(error) => {
+                write!(f, "IO Error when flushing: {}", error)
             }
         }
     }

@@ -19,6 +19,9 @@ pub enum ServerError {
 
     /// The logger couldn't be created, saves the LoggerError with its underlying cause
     LoggerCreationError(LoggerError),
+
+    /// Other errors related to the server creation, includes a message with the reason of failure
+    ServerCreationError(String),
 }
 
 #[derive(Debug)]
@@ -72,6 +75,9 @@ impl fmt::Display for ServerError {
             ServerError::PieceRequestError(reason) => write!(f, "Piece request error: {}", reason),
             ServerError::LoggerCreationError(error) => {
                 write!(f, "Logger creation error: {}", error)
+            }
+            ServerError::ServerCreationError(reason) => {
+                write!(f, "Server creation error: {}", reason)
             }
         }
     }

@@ -29,7 +29,6 @@ pub fn request_from_payload(payload: Vec<u8>) -> Result<RequestMessage, ServerEr
 
 pub fn payload_from_request_message(request: RequestMessage) -> Vec<u8> {
     let mut payload: Vec<u8> = Vec::new();
-    // The problem is probably here, for some reason this is not writing a 12 bytes length vectorx
     payload.extend_from_slice(&(request.index as u32).to_be_bytes());
     payload.extend_from_slice(&(request.begin as u32).to_be_bytes());
     payload.extend_from_slice(&(request.length as u32).to_be_bytes());

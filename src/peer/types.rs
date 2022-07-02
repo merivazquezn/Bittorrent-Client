@@ -193,10 +193,11 @@ impl PeerMessage {
     }
 
     pub fn bitfield(pieces: Vec<bool>) -> PeerMessage {
+        let bitmap = bitmap_from_pieces_vector(&pieces);
         PeerMessage {
             id: PeerMessageId::Bitfield,
-            length: 0,
-            payload: bitmap_from_pieces_vector(&pieces),
+            length: (bitmap.len() + 1) as u32,
+            payload: bitmap,
         }
     }
 

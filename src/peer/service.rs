@@ -99,11 +99,14 @@ impl PeerMessageService {
 impl IPeerMessageService for PeerMessageService {
     fn wait_for_message(&mut self) -> Result<PeerMessage, IPeerMessageServiceError> {
         let mut message_length = [0u8; MESSAGE_LENGTH_SIZE];
-        self.read_exact(&mut message_length).map_err(|_| {
-            IPeerMessageServiceError::ReceivingMessageError(
-                "Couldn't read message from other peer".to_string(),
-            )
+
+        self.read_exact(&mut message_length).map_err(|err| {
+            IPeerMessageServiceError::ReceivingMessageError(format!(
+                "Couldn't read message from other peer: {:?}",
+                err
+            ))
         })?;
+
         let message_length = u32::from_be_bytes(message_length);
 
         if is_keep_alive_message(message_length) {
@@ -130,7 +133,7 @@ impl IPeerMessageService for PeerMessageService {
             length: message_length,
             payload,
         };
-        //debug!("message received: {:?}", msg.id);
+
         Ok(msg)
     }
 
@@ -144,7 +147,6 @@ impl IPeerMessageService for PeerMessageService {
                 "Couldn't send message to other peer".to_string(),
             )
         })?;
-        // debug!("message sent: {:?}", message.id);
         Ok(())
     }
 }
@@ -190,6 +192,7 @@ impl IServerPeerMessageService for PeerMessageService {
                 "Couldn't send handshake message to other peer".to_string(),
             )
         })?;
+        self.stream.flush()?;
         debug!("server handshake successful");
         Ok(())
     }

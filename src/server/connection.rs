@@ -63,14 +63,17 @@ impl ServerConnection {
     pub fn run(&mut self, logger: ServerLogger, pieces_dir: &str) -> Result<(), ServerError> {
         self.send_init_messages()?;
 
+        println!("Server: Handshake done, now listening for messages");
         loop {
             let message: PeerMessage = match self.message_service.wait_for_message() {
                 Ok(message) => {
+                    println!("Server received message: {:?}", message);
                     let cloned_message = message.clone();
                     let _ = logger.received_message(cloned_message);
                     message
                 }
-                Err(_) => {
+                Err(e) => {
+                    println!("Server: wait for message failed: {}", e);
                     debug!("Server connection was closed by client or timeout ocurred");
                     break;
                 }
@@ -106,6 +109,7 @@ impl ServerConnection {
 
         let piece_vector: Vec<bool> = get_pieces_vector(self.metainfo.info.pieces.len());
         let bitfield_message: PeerMessage = PeerMessage::bitfield(piece_vector);
+
         self.message_service.send_message(&bitfield_message)?;
         Ok(())
     }

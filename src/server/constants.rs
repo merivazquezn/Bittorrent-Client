@@ -2,10 +2,10 @@
 pub const POOL_WORKERS: usize = 5;
 
 /// Localhost ip address
-pub const LOCALHOST: &str = "127.0.0.0";
+pub const LOCALHOST: &str = "127.0.0.1";
 
 /// Directory where the client store the downloaded pieces
-pub const PIECES_DIR: &str = "./downloads";
+pub const PIECES_DIR: &str = "./downloads/pieces";
 
 /// Directory where the server store the logs
 pub const LOGS_DIR: &str = "./logs";
