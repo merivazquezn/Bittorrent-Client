@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn test_get_peers_failure_on_not_read_bytes() {
         const CONFIG_PATH: &str = "config.txt";
-        let torrent_path = "ubuntu.torrent";
+        let torrent_path = "./example_torrents/ubuntu.torrent";
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
         let config = Config::from_path(CONFIG_PATH).expect("Failed to load config");
         let metainfo = Metainfo::from_torrent(torrent_path).expect("Failed to load metainfo");
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_get_peers_success_on_valid_response_containing_one_peer() {
         const CONFIG_PATH: &str = "config.txt";
-        let torrent_path = "ubuntu.torrent";
+        let torrent_path = "./example_torrents/ubuntu.torrent";
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
         let config = Config::from_path(CONFIG_PATH).unwrap();
         let metainfo = Metainfo::from_torrent(torrent_path).unwrap();

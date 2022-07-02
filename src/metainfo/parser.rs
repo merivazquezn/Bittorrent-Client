@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn works_on_ubuntu_torrent() {
-        let test_bytes: Vec<u8> = std::fs::read("ubuntu.torrent").unwrap();
+        let test_bytes: Vec<u8> = std::fs::read("./example_torrents/ubuntu.torrent").unwrap();
         let metainfo_result = parse(&test_bytes);
         assert!(matches!(metainfo_result, Ok(_)));
     }

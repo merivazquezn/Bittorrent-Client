@@ -71,16 +71,12 @@ impl Server {
         let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
 
         let address = format!("{}:{}", address, port);
-        println!("About to start running server on address: {}", address);
         let listener: TcpListener = TcpListener::bind(&address)?;
-        println!("Binded!");
         listener.set_nonblocking(true).map_err(|_| {
             ServerError::ServerCreationError("Couldn't set non blocking mode on server".to_string())
         })?;
-        println!("Server non blocking set");
         let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
         for stream in listener.incoming() {
-            println!("Server listening...");
             match stream {
                 Ok(stream) => {
                     info!("Incoming connection");
