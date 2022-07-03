@@ -7,6 +7,7 @@ use sha1::{Digest, Sha1};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::time::Duration;
 
 fn generate_peer_id() -> [u8; 20] {
     rand::thread_rng().gen::<[u8; 20]>()
@@ -158,54 +159,22 @@ fn init_connection(stream: &mut TcpStream, meta: &Metainfo, peer_id: &Vec<u8>) {
     println!("Client: handshake and initial messages successful");
 }
 
+fn ask_for_piece(piece_index: u32, stream: &mut TcpStream, meta: Metainfo) -> Vec<u8> {
+    let request = PeerMessage::request(piece_index, 0, meta.info.piece_length as u32);
+    println!("Client: About to send {:?} to server", request);
+    send_message(stream, &request).unwrap();
+    println!("Client sent message {:?} to server", request);
+    let response: PeerMessage = wait_for_message(stream).unwrap();
+    response.payload[8..].to_vec()
+}
+
 fn ask_for_pieces(stream: &mut TcpStream, meta: &Metainfo) -> Vec<Vec<u8>> {
     let mut pieces: Vec<Vec<u8>> = Vec::new();
 
     println!("Client about to start asking server for pieces");
 
-    // Once handshake is done, we can start requesting pieces
-    // We start asking for piece 0, which has the size of the asked block
-    let first_request = PeerMessage::request(0, 0, meta.info.piece_length as u32);
-    println!("Client: About to send {:?} to server", first_request);
-    send_message(stream, &first_request).unwrap();
-
-    println!("Client sent message {:?} to server", first_request);
-
-    let first_response: PeerMessage = wait_for_message(stream).unwrap();
-    if first_response.id == PeerMessageId::Piece {
-        println!("Received piece 0 from server");
-        pieces.push(first_response.payload[8..].to_vec());
-    } else {
-        println!("Peer message: {:?}", first_response);
-        println!("Got invalid message asking for piece 0");
-    }
-
-    // asks for piece 1
-    send_message(
-        stream,
-        &PeerMessage::request(1, 0, meta.info.piece_length as u32),
-    )
-    .unwrap();
-    let first_response: PeerMessage = wait_for_message(stream).unwrap();
-    if first_response.id == PeerMessageId::Piece {
-        println!("Received piece 1 from server");
-        pieces.push(first_response.payload[8..].to_vec());
-    } else {
-        println!("Got invalid message asking for piece 1");
-    }
-
-    // ask for piece 2
-    send_message(
-        stream,
-        &PeerMessage::request(2, 0, meta.info.piece_length as u32),
-    )
-    .unwrap();
-    let third_response: PeerMessage = wait_for_message(stream).unwrap();
-    if third_response.id == PeerMessageId::Piece {
-        println!("Received piece 2 from server");
-        pieces.push(third_response.payload[8..].to_vec());
-    } else {
-        println!("Got invalid message asking for piece 2");
+    for i in 0..3 {
+        pieces.push(ask_for_piece(i, stream, meta.clone()));
     }
 
     pieces
@@ -225,13 +194,16 @@ fn run_test_client_server() {
     let meta_clone = meta.clone();
     let peer_id_clone = peer_id.clone();
 
-    let server: Server = Server::run(peer_id, meta, port);
-
-    println!("Server started successfully");
-
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    println!("About to connect to server from client");
-    let mut stream: TcpStream = TcpStream::connect("127.0.0.1:6881").unwrap();
+    println!("Trying to connect to server at: 127.0.0.1:6681");
+    let server: Server = Server::run(peer_id, meta, port, Duration::from_secs(2));
+    let mut stream: TcpStream;
+    loop {
+        if let Ok(s) = TcpStream::connect("127.0.0.1:6881") {
+            stream = s;
+            break;
+        }
+    }
+    println!("Client connected to server");
 
     init_connection(&mut stream, &meta_clone, &peer_id_clone);
     let pieces_data: Vec<Vec<u8>> = ask_for_pieces(&mut stream, &meta_clone);
@@ -245,10 +217,9 @@ fn run_test_client_server() {
         }
     }
 
-    if let Err(error) = server.stop() {
-        println!("Server stopping failed: {:?}", error);
-    } else {
-        println!("Program ended successfully");
+    match server.stop() {
+        Ok(()) => println!("Program ended successfully"),
+        Err(e) => println!("Server stopping error: {}", e),
     }
 }
 

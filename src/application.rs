@@ -1,6 +1,8 @@
 use crate::application_errors::ApplicationError;
 use crate::client::{ClientInfo, TorrentClient};
+use crate::constants::TIME_BETWEEN_ACCEPTS;
 use crate::server::Server;
+use crate::server::PIECES_DIR;
 use crate::tracker::get_response_from_tracker;
 use crate::ui::{init_ui, UIMessage};
 use gtk::{self, glib};
@@ -17,6 +19,8 @@ pub fn run_with_torrent(
         client_info.peer_id.to_vec(),
         client_info.metainfo.clone(),
         client_info.config.listen_port,
+        TIME_BETWEEN_ACCEPTS,
+        PIECES_DIR,
     );
     let (tracker_response, tracker_service) =
         get_response_from_tracker(&mut client_info, ui_message_sender.clone())?;

@@ -56,7 +56,7 @@ impl fmt::Display for IPeerMessageServiceError {
             IPeerMessageServiceError::SendingMessageError(reason) => write!(f, "{}", reason),
             IPeerMessageServiceError::InvalidResponse(reason) => write!(f, "{}", reason),
             IPeerMessageServiceError::ReceivingMessageError(reason) => {
-                write!(f, "{}", reason)
+                write!(f, "Receiving message error: {}", reason)
             }
             IPeerMessageServiceError::UnhandledMessage => write!(
                 f,

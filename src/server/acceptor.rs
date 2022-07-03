@@ -43,20 +43,36 @@ impl Server {
     ///  use bittorrent_rustico::server::Server;
     ///  use bittorrent_rustico::metainfo::Metainfo;   
     ///  use rand::Rng;
+    ///  use std::time::Duration;
     ///
     ///  let metainfo = Metainfo::from_torrent("debian.torrent").unwrap();
     ///  let client_peer_id = rand::thread_rng().gen::<[u8; 20]>().to_vec();
     ///
-    ///  let server: Server = Server::run(client_peer_id, metainfo, 6687);
+    ///  let server: Server = Server::run(client_peer_id, metainfo, 6687, Duration::from_secs(10), "./downloads/pieces");
     ///  
     ///  server.stop().unwrap();
     ///  ```
     ///
-    pub fn run(client_peer_id: Vec<u8>, metainfo: Metainfo, port: u16) -> Server {
+    pub fn run(
+        client_peer_id: Vec<u8>,
+        metainfo: Metainfo,
+        port: u16,
+        time_to_sleep: Duration,
+        pieces_dir: &str,
+    ) -> Server {
         let (tx, rx) = mpsc::channel();
-
-        let handle =
-            std::thread::spawn(move || Self::listen(LOCALHOST, port, client_peer_id, metainfo, rx));
+        let pieces_dir_clone = String::from(pieces_dir);
+        let handle = std::thread::spawn(move || {
+            Self::listen(
+                LOCALHOST,
+                port,
+                client_peer_id,
+                metainfo,
+                rx,
+                time_to_sleep,
+                &pieces_dir_clone,
+            )
+        });
 
         Server { sender: tx, handle }
     }
@@ -67,6 +83,8 @@ impl Server {
         client_peer_id: Vec<u8>,
         metainfo: Metainfo,
         receiver: Receiver<ServerMessage>,
+        time_to_sleep: Duration,
+        pieces_dir: &str,
     ) -> Result<(), ServerError> {
         let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
 
@@ -77,28 +95,27 @@ impl Server {
         })?;
         let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
         for stream in listener.incoming() {
+            if receiver.try_recv().is_ok() {
+                info!("Server received stop message");
+                break;
+            }
+
             match stream {
                 Ok(stream) => {
-                    info!("Incoming connection");
+                    info!("Server: Incoming connection");
                     let _ = Server::handle_incoming_connection(
                         stream,
                         metainfo.clone(),
                         client_peer_id.clone(),
                         logger.clone(),
                         &pool,
+                        pieces_dir,
                     );
-                    continue;
                 }
                 Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     // This doesen't mean an error ocurred, there just wasn't a connection at the moment
-                    if receiver.try_recv().is_ok() {
-                        info!("Server received stop message");
-                        break;
-                    } else {
-                        info!("Connection does not exist, sleeping...");
-                        thread::sleep(Duration::from_secs(5));
-                        continue;
-                    }
+                    info!("Server: Not any incoming connection at the moment, going to sleep...");
+                    thread::sleep(time_to_sleep);
                 }
                 Err(err) => return Err(ServerError::TcpStreamError(err)),
             };
@@ -115,15 +132,17 @@ impl Server {
         client_id: Vec<u8>,
         logger: ServerLogger,
         pool: &ThreadPool,
+        pieces_dir: &str,
     ) -> Result<(), ServerError> {
         stream.set_nonblocking(false)?;
         stream.set_read_timeout(Some(Duration::from_secs(120)))?;
         stream.set_write_timeout(Some(Duration::from_secs(10)))?;
         let connection_logger = logger;
-        pool.execute(|| {
+        let dir_clone = String::from(pieces_dir);
+        pool.execute(move || {
             let message_service = PeerMessageService::from_peer_connection(stream);
             let _ = ServerConnection::new(client_id, metainfo, Box::new(message_service))
-                .run(connection_logger, PIECES_DIR);
+                .run(connection_logger, &dir_clone);
         });
 
         Ok(())

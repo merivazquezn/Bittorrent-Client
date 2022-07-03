@@ -70,8 +70,7 @@ impl ServerConnection {
                     let _ = logger.received_message(cloned_message);
                     message
                 }
-                Err(e) => {
-                    error!("Server: wait for message failed: {}", e);
+                Err(_) => {
                     debug!("Server connection was closed by client or timeout ocurred");
                     break;
                 }
@@ -90,8 +89,8 @@ impl ServerConnection {
                 PeerMessageId::Have => continue,
                 PeerMessageId::Piece => continue,
                 PeerMessageId::Port => continue,
-                PeerMessageId::Choke => break,
                 PeerMessageId::Cancel => break,
+                PeerMessageId::Choke => break,
                 PeerMessageId::NotInterested => break,
             };
         }
@@ -126,7 +125,7 @@ impl ServerConnection {
 
         let piece_path = format!("{}/{}", pieces_dir, request.index);
         let piece_data: Vec<u8> = read_piece(&piece_path)?;
-        let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length);
+        let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length)?;
         let block_number: usize = get_block_index(request.begin, request.length);
 
         let response_message = PeerMessage::piece(request.index, request.begin, block);
@@ -194,6 +193,7 @@ mod tests {
         let piece_path = format!("{}/{}", pieces_dir, piece_index);
         let mut file = File::create(piece_path)?;
         file.write_all(piece)?;
+        file.flush().unwrap();
         Ok(())
     }
 

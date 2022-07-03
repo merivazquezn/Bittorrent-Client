@@ -1,6 +1,7 @@
 use super::constants::PIECES_DIR;
 use super::RequestMessage;
 use super::ServerError;
+use log::*;
 use std::io::Read;
 use std::path::Path;
 
@@ -47,8 +48,21 @@ pub fn read_piece(piece_path: &str) -> Result<Vec<u8>, ServerError> {
     Ok(content)
 }
 
-pub fn get_block_from_piece(piece_data: Vec<u8>, begin: usize, length: usize) -> Vec<u8> {
-    piece_data[begin..length].to_vec()
+pub fn get_block_from_piece(
+    piece_data: Vec<u8>,
+    begin: usize,
+    length: usize,
+) -> Result<Vec<u8>, ServerError> {
+    if piece_data.len() < begin + length {
+        error!(
+            "Piece data is too short to get the block.\n Piece data: {:?}\nbegin: {}\nlength: {}",
+            piece_data, begin, length
+        );
+        return Err(ServerError::PieceRequestError(
+            "Piece data is too short to contain the requested block".to_string(),
+        ));
+    }
+    Ok(piece_data[begin..(begin + length)].to_vec())
 }
 
 pub fn get_block_index(begin: usize, block_size: usize) -> usize {
