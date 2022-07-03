@@ -90,7 +90,8 @@ impl PeerConnectionManagerWorker {
         &mut self,
         tracker_service: &mut Box<dyn ITrackerService>,
         peer_connection_manager_sender: PeerConnectionManagerSender,
-    ) {
+    ) -> usize {
+        let mut new_connections = 0;
         if let Ok(tracker_response) = tracker_service.get_response() {
             for peer in tracker_response.peers {
                 if !self.peer_connections.contains_key(&peer.peer_id) {
@@ -113,6 +114,7 @@ impl PeerConnectionManagerWorker {
                                 },
                             );
                             self.ui_message_sender.send_new_connection();
+                            new_connections += 1;
                         }
                         Err(error) => {
                             error!("Error opening peer connection: {:?}", error);
@@ -123,6 +125,7 @@ impl PeerConnectionManagerWorker {
         } else {
             error!("El tracker nos saco cagando");
         }
+        new_connections
     }
 
     pub fn start_peer_connections(
@@ -166,9 +169,6 @@ impl PeerConnectionManagerWorker {
                                 is_open: true,
                             },
                         );
-                        if lock.len() == FIRST_MIN_CONNECTIONS {
-                            piece_manager_sender.first_connections_started();
-                        }
                     }
                 }
             }));
@@ -186,7 +186,9 @@ impl PeerConnectionManagerWorker {
             "Connected successfully to {:?} peers",
             self.peer_connections.len()
         ));
-        self.piece_manager_sender.finished_stablishing_connections();
+
+        self.piece_manager_sender
+            .finished_stablishing_connections(self.peer_connections.len());
     }
 
     fn download_piece(&self, peer_id: Vec<u8>, piece_index: u32) {
@@ -264,17 +266,25 @@ impl PeerConnectionManagerWorker {
                         self.piece_manager_sender.failed_connection(peer_id);
                     }
                 }
+
                 PeerConnectionManagerMessage::FailedConnection(peer_id) => {
                     self.set_peer_connection_to_closed(peer_id.clone());
                     if self.able_to_reach_tracker_again(interval) {
-                        self.update_peer_connections(
+                        info!("sending reaked tracker request");
+                        self.piece_manager_sender.reasked_tracker();
+                        self.piece_manager_sender.failed_connection(peer_id.clone());
+                        info!("sent reaked tracker request");
+                        let new_connections = self.update_peer_connections(
                             &mut tracker_service,
                             peer_connection_manager_sender.clone(),
                         );
-                        self.piece_manager_sender.reasked_tracker();
+                        warn!("New connections: {:?}", new_connections);
+                        self.piece_manager_sender
+                            .finished_stablishing_connections(new_connections);
                         self.tracker_request_count += 1;
+                    } else {
+                        self.piece_manager_sender.failed_connection(peer_id.clone());
                     }
-                    self.piece_manager_sender.failed_connection(peer_id.clone());
                     self.ui_message_sender.send_closed_connection(peer_id);
                 }
             }

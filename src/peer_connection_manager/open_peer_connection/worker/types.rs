@@ -7,6 +7,8 @@ use crate::piece_saver::sender::PieceSaverSender;
 use log::*;
 use std::sync::mpsc::{Receiver, RecvError};
 
+const MIN_FAILED_CONNECTIONS: u32 = 1;
+
 pub struct OpenPeerConnectionWorker {
     pub receiver: Receiver<OpenPeerConnectionMessage>,
     pub connection: PeerConnection,
@@ -63,16 +65,14 @@ impl OpenPeerConnectionWorker {
                     if self.download_piece(piece_index).is_err() {
                         self.piece_manager_sender
                             .failed_download(piece_index, self.connection.get_peer_id());
-                        self.failed_download_in_a_row += 1;
-                        if self.failed_download_in_a_row == 1 {
-                            self.piece_manager_sender
-                                .failed_connection(self.connection.get_peer_id());
-
-                            // self.peer_connection_manager_sender
-                            //     .failed_connection(self.connection.get_peer_id());
+                        self.failed_download_in_a_row += MIN_FAILED_CONNECTIONS;
+                        if self.failed_download_in_a_row == MIN_FAILED_CONNECTIONS {
                             self.is_open = false;
-                            // self.ui_message_sender.send_closes_conection();
-                            error!("SE SACO A UN PEER DESDE OPNE PEER SE MANDO MSJ A PIECE MAN");
+                            trace!(
+                                "Closing peer connection: {:?} after {:?} failed download in a row",
+                                self.connection.get_peer_ip(),
+                                MIN_FAILED_CONNECTIONS
+                            );
                             self.peer_connection_manager_sender
                                 .failed_connection(self.connection.get_peer_id());
 

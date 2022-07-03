@@ -249,17 +249,19 @@ impl TrackerService {
 }
 
 pub struct MockTrackerService {
-    pub times_called: u32,
+    pub responses: Vec<Vec<Peer>>,
+    pub response_index: usize,
 }
 
 impl ITrackerService for MockTrackerService {
     fn get_response(&mut self) -> Result<TrackerResponse, TrackerError> {
-        if self.times_called == 0 {
-            self.times_called += 1;
-            Ok(TrackerResponse {
-                peers: vec![],
+        if self.response_index < self.responses.len() {
+            let response = Ok(TrackerResponse {
+                peers: self.responses[self.response_index].clone(),
                 interval: None,
-            })
+            });
+            self.response_index += 1;
+            response
         } else {
             Err(TrackerError::InvalidResponse("request failed".to_string()))
         }

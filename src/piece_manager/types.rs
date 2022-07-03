@@ -19,9 +19,8 @@ pub enum PieceManagerMessage {
     FailedDownload(PieceId, PeerId),
     FailedConnection(PeerId),
     Have(PeerId, PieceId),
-    FirstConnectionsStarted(),
-    FinishedStablishingConnections(),
     ReaskedTracker(),
+    FinishedEstablishingConnections(usize),
 }
 
 pub fn new_piece_manager(
@@ -54,6 +53,9 @@ pub fn new_piece_manager(
             // hashamp full from 0 to number_of_pieces - 1
             ready_to_download_pieces: remaining_pieces,
             peer_pieces_to_download_count: HashMap::new(),
+            recieved_bitfields: 0,
+            established_connections: 0,
+            is_asking_tracker: false,
         },
     )
 }

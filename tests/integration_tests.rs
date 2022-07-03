@@ -10,29 +10,41 @@ use std::fs::File;
 use std::io::Read;
 use std::time::Duration;
 mod mock_service_creation;
+use bittorrent_rustico::download_manager::delete_pieces_files;
 use mock_service_creation::*;
 
-fn get_mock_peer_list() -> Vec<Peer> {
-    let peer_1 = Peer {
+fn get_mock_tracker_responses() -> Vec<Vec<Peer>> {
+    let peer_0 = Peer {
         ip: String::from("0.0.0.0"),
         port: 0,
         peer_id: vec![0],
-        peer_message_service_provider: mock_peer_message_service_1,
+        peer_message_service_provider: mock_peer_message_service_0,
     };
-    let peer_2 = Peer {
+    let peer_1 = Peer {
         ip: String::from("1.1.1.1"),
         port: 0,
         peer_id: vec![1],
-        peer_message_service_provider: mock_peer_message_service_2,
+        peer_message_service_provider: mock_peer_message_service_1,
     };
-    let peer_3 = Peer {
+    let peer_2 = Peer {
         ip: String::from("2.2.2.2"),
         port: 0,
         peer_id: vec![2],
-        peer_message_service_provider: mock_peer_message_service_3,
+        peer_message_service_provider: mock_peer_message_service_2,
+    };
+    let faulty_peer = Peer {
+        ip: String::from("9.9.9.9"),
+        port: 0,
+        peer_id: vec![99],
+        peer_message_service_provider: mock_faulty_peer_message_service,
     };
 
-    vec![peer_1, peer_2, peer_3]
+    vec![
+        // vec![peer_0, peer_1, peer_2], /*
+        vec![peer_1.clone(), faulty_peer.clone()],
+        vec![faulty_peer.clone(), peer_2, peer_0],
+        //   vec![faulty_peer.clone(), peer_2],//*/
+    ]
 }
 
 fn get_pieces_hash_from_bytes(file: &Vec<u8>) -> Vec<Vec<u8>> {
@@ -49,16 +61,20 @@ fn get_pieces_hash_from_bytes(file: &Vec<u8>) -> Vec<Vec<u8>> {
 fn integration_test() {
     pretty_env_logger::init();
 
+    //create downloads dir
+    let downloads_dir_path = "./tests/downloads/pieces";
+    std::fs::create_dir_all(downloads_dir_path).unwrap();
+
     let mut file = Vec::new();
 
-    for _i in 0..BLOCK_SIZE {
-        file.push(1);
+    for _ in 0..BLOCK_SIZE {
+        file.push(PIECE_0_BYTES);
     }
-    for _i in 0..BLOCK_SIZE {
-        file.push(2);
+    for _ in 0..BLOCK_SIZE {
+        file.push(PIECE_1_BYTES);
     }
-    for _i in 0..BLOCK_SIZE {
-        file.push(3);
+    for _ in 0..BLOCK_SIZE {
+        file.push(PIECE_2_BYTES);
     }
 
     let info = Info {
@@ -74,8 +90,11 @@ fn integration_test() {
         info,
     };
 
-    let peers = get_mock_peer_list();
-
+    let tracker_responses = get_mock_tracker_responses();
+    let starting_tracker_response = TrackerResponse {
+        interval: None::<Duration>,
+        peers: tracker_responses[0].to_vec(),
+    };
     let client_info = ClientInfo {
         config: Config::from_path("tests/test_config.txt").unwrap(),
         peer_id: generate_peer_id(),
@@ -83,14 +102,18 @@ fn integration_test() {
     };
     let client: TorrentClient = TorrentClient::new(&client_info, UIMessageSender::no_ui()).unwrap();
 
-    let tracker_service = MockTrackerService { times_called: 0 };
-    let tracker_response = TrackerResponse {
-        interval: None::<Duration>,
-        peers: peers,
+    let tracker_service = MockTrackerService {
+        responses: tracker_responses[1..].to_vec(),
+        // responses: vec![],
+        response_index: 0,
     };
 
     client
-        .run(client_info, Box::new(tracker_service), tracker_response)
+        .run(
+            client_info,
+            Box::new(tracker_service),
+            starting_tracker_response,
+        )
         .unwrap();
     let mut entire_file: File = File::open("./tests/downloads/entire_download").unwrap();
     let mut buf: Vec<u8> = Vec::new();

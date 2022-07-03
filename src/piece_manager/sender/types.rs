@@ -47,19 +47,15 @@ impl PieceManagerSender {
             .send(PieceManagerMessage::Have(peer_id, piece_index));
     }
 
-    pub fn first_connections_started(&self) {
-        let _ = self
-            .sender
-            .send(PieceManagerMessage::FirstConnectionsStarted());
-    }
-
-    pub fn finished_stablishing_connections(&self) {
-        let _ = self
-            .sender
-            .send(PieceManagerMessage::FinishedStablishingConnections());
-    }
-
     pub fn reasked_tracker(&self) {
         let _ = self.sender.send(PieceManagerMessage::ReaskedTracker());
+    }
+
+    pub fn finished_stablishing_connections(&self, connection_established: usize) {
+        let _ = self
+            .sender
+            .send(PieceManagerMessage::FinishedEstablishingConnections(
+                connection_established,
+            ));
     }
 }

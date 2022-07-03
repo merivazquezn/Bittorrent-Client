@@ -88,7 +88,7 @@ pub fn join_all_pieces(
     Ok(())
 }
 
-fn delete_pieces_files(pieces_dir: &str) -> Result<(), DownloadManagerError> {
+pub fn delete_pieces_files(pieces_dir: &str) -> Result<(), DownloadManagerError> {
     let path: &Path = Path::new(pieces_dir);
     std::fs::remove_dir_all(path)?;
     Ok(())
