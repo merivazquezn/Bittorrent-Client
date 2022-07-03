@@ -11,6 +11,7 @@ pub struct TorrentInformation {
     totalsize: RefCell<u64>,
     totalpiececount: RefCell<u32>,
     peercount: RefCell<u32>,
+    downloadfraction: RefCell<f32>,
     downloadpercentage: RefCell<f32>,
     downloadedpieces: RefCell<u32>,
     activeconnections: RefCell<u32>,
@@ -79,9 +80,18 @@ impl ObjectImpl for TorrentInformation {
                     glib::ParamFlags::READWRITE,
                 ),
                 glib::ParamSpecFloat::new(
+                    "downloadfraction",
+                    "downloadfraction",
+                    "downloadfraction",
+                    0.0,
+                    100.0,
+                    0.0, // Allowed range and default value
+                    glib::ParamFlags::READWRITE,
+                ),
+                glib::ParamSpecFloat::new(
                     "downloadpercentage",
-                    "DownloadPercentage",
-                    "DownloadPercentage",
+                    "downloadpercentage",
+                    "downloadpercentage",
                     0.0,
                     100.0,
                     0.0, // Allowed range and default value
@@ -163,6 +173,12 @@ impl ObjectImpl for TorrentInformation {
                     .expect("type conformity checked by `Object::set_property`");
                 self.peercount.replace(peercount);
             }
+            "downloadfraction" => {
+                let downloadfraction = value
+                    .get()
+                    .expect("type conformity checked by `Object::set_property`");
+                self.downloadfraction.replace(downloadfraction);
+            }
             "downloadpercentage" => {
                 let downloadpercentage = value
                     .get()
@@ -204,7 +220,13 @@ impl ObjectImpl for TorrentInformation {
             "totalsize" => self.totalsize.borrow().to_value(),
             "totalpiececount" => self.totalpiececount.borrow().to_value(),
             "peercount" => self.peercount.borrow().to_value(),
-            "downloadpercentage" => self.downloadpercentage.borrow().to_value(),
+            "downloadfraction" => self.downloadfraction.borrow().to_value(),
+            // same as above but format it to only have 2 digits after the decimal point
+            "downloadpercentage" => {
+                let value = self.downloadpercentage.borrow();
+                let value = format!("{:.2}", value);
+                value.to_value()
+            }
             "downloadedpieces" => self.downloadedpieces.borrow().to_value(),
             "activeconnections" => self.activeconnections.borrow().to_value(),
             "timeleft" => self.timeleft.borrow().to_value(),

@@ -86,9 +86,14 @@ impl TorrentClient {
 
         let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
 
+        let download_path = format!(
+            "{}/{}",
+            client_info.config.download_path, client_info.metainfo.info.name
+        );
+
         let initial_pieces: Vec<u32> = get_existing_pieces(
             client_info.metainfo.get_piece_count(),
-            format!("{}/pieces", client_info.config.download_path).as_str(),
+            format!("{}/pieces", download_path).as_str(),
         );
         let piece_manager_handle = std::thread::spawn(move || {
             let _ = self
@@ -123,10 +128,15 @@ impl TorrentClient {
 
         info!("About to join pieces into target file");
 
+        let download_path = format!(
+            "{}/{}",
+            client_info.config.download_path, client_info.metainfo.info.name
+        );
+
         download_manager::make_target_file(
             client_info.metainfo.get_piece_count(),
             &client_info.metainfo.info.name,
-            &client_info.config.download_path,
+            &download_path,
             client_info.config.persist_pieces,
         )?;
 
@@ -161,10 +171,14 @@ impl TorrentClient {
         client_info: &ClientInfo,
         ui_message_sender: UIMessageSender,
     ) -> (PieceSaverSender, PieceSaverWorker) {
+        let donwload_path = format!(
+            "{}/{}",
+            client_info.config.download_path, client_info.metainfo.info.name
+        );
         new_piece_saver(
             piece_manager_sender,
             client_info.metainfo.info.pieces.clone(),
-            client_info.config.download_path.clone(),
+            donwload_path,
             ui_message_sender,
         )
     }

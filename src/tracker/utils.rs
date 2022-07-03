@@ -27,6 +27,7 @@ pub fn get_response_from_tracker(
         Box::new(http_service),
     );
     let tracker_response = tracker_service.get_response()?;
+    println!("Tracker response: {:?}", tracker_response);
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     LOGGER.info(format!(
         "Received {} peers from tracker",
@@ -78,7 +79,7 @@ pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     for (key, value) in parameters {
         querystring.push_str(&format!("{}={}&", key, value));
     }
-    querystring.pop();
+    querystring.push_str(&format!("{}={}", "compact", "1"));
     querystring
 }
 

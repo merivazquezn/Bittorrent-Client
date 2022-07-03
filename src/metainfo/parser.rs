@@ -15,7 +15,7 @@ const LOGGER: CustomLogger = CustomLogger::init("Config");
 /// use std::fs::read;
 /// use bittorrent_rustico::metainfo::*;
 ///
-/// let metainfo_bytes = read("sample.torrent").unwrap();
+/// let metainfo_bytes = read("example_torrents/sample.torrent").unwrap();
 /// let parsed:Result<Metainfo,MetainfoParserError> = parse(&metainfo_bytes);
 ///
 /// ```
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn sample_metainfo() {
-        let test_bytes: Vec<u8> = std::fs::read("sample.torrent").unwrap();
+        let test_bytes: Vec<u8> = std::fs::read("example_torrents/sample.torrent").unwrap();
         let metainfo = parse(&test_bytes).unwrap();
 
         let mut pieces: Vec<Vec<u8>> = Vec::new();
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn works_on_ubuntu_torrent() {
-        let test_bytes: Vec<u8> = std::fs::read("./example_torrents/ubuntu.torrent").unwrap();
+        let test_bytes: Vec<u8> = std::fs::read("example_torrents/ubuntu.torrent").unwrap();
         let metainfo_result = parse(&test_bytes);
         assert!(matches!(metainfo_result, Ok(_)));
     }

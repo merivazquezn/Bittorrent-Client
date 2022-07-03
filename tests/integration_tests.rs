@@ -10,7 +10,6 @@ use std::fs::File;
 use std::io::Read;
 use std::time::Duration;
 mod mock_service_creation;
-use bittorrent_rustico::download_manager::delete_pieces_files;
 use mock_service_creation::*;
 
 fn get_mock_tracker_responses() -> Vec<Vec<Peer>> {
@@ -80,7 +79,7 @@ fn integration_test() {
     let info = Info {
         piece_length: BLOCK_SIZE,
         pieces: get_pieces_hash_from_bytes(&file),
-        name: String::from("entire_download"),
+        name: String::from("linux_distribution_test.iso"),
         length: file.len() as u64,
         files: None,
     };
@@ -115,7 +114,9 @@ fn integration_test() {
             starting_tracker_response,
         )
         .unwrap();
-    let mut entire_file: File = File::open("./tests/downloads/entire_download").unwrap();
+    let mut entire_file: File =
+        File::open("./tests/downloads/linux_distribution_test.iso/linux_distribution_test.iso")
+            .unwrap();
     let mut buf: Vec<u8> = Vec::new();
     let _ = entire_file.read_to_end(&mut buf).unwrap();
     assert_eq!(file, buf);

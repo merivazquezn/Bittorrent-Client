@@ -37,6 +37,23 @@ pub struct File {
     pub length: u64,
 }
 
+impl File {
+    pub fn is_directory(&self) -> bool {
+        self.path.contains('/')
+    }
+
+    // the name is the string after the last / if there is one
+    pub fn name(&self) -> String {
+        if self.is_directory() {
+            let mut name = self.path.clone();
+            name.truncate(name.rfind('/').unwrap());
+            name
+        } else {
+            self.path.clone()
+        }
+    }
+}
+
 impl Metainfo {
     pub fn from_torrent(torrent_path: &str) -> Result<Metainfo, MetainfoParserError> {
         LOGGER.info(format!("reading torrent file from path: {}", torrent_path));

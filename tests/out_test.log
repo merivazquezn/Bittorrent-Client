@@ -1,8 +1,0 @@
-   Compiling bittorrent_rustico v0.1.0 (/Users/lucianotrujillo/Development/taller1/taller_tp)
-    Finished test [unoptimized + debuginfo] target(s) in 4.11s
-     Running tests/integration_tests.rs (/Users/lucianotrujillo/Development/taller1/taller_tp/target/debug/deps/integration_tests-6ad9bc45b9f0f087)
-
-running 1 test
-thread '<unnamed>' panicked at 'range end index 32768 out of range for slice of length 16384', tests/mock_service_creation.rs:28thread '<unnamed>' panicked at 'range end index 32768 out of range for slice of length 16384', tests/mock_service_creation.rs:28:13
-:13
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
