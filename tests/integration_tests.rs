@@ -43,10 +43,8 @@ fn get_mock_tracker_responses() -> Vec<Vec<Peer>> {
     };
 
     vec![
-        // vec![peer_0, peer_1, peer_2], /*
         vec![peer_1.clone(), faulty_peer.clone()],
         vec![faulty_peer.clone(), peer_2, peer_0],
-        //   vec![faulty_peer.clone(), peer_2],//*/
     ]
 }
 
@@ -60,11 +58,19 @@ fn get_pieces_hash_from_bytes(file: &Vec<u8>) -> Vec<Vec<u8>> {
     pieces
 }
 
+// check if a directory exists
+fn dir_exists(path: &str) -> bool {
+    std::fs::metadata(path).is_ok()
+}
+
 #[test]
 fn client_integration_test() {
     pretty_env_logger::init();
 
-    //create downloads dir
+    if dir_exists("./tests/downloads/pieces") {
+        std::fs::remove_dir_all("./tests/downloads/pieces").unwrap();
+    }
+
     let downloads_dir_path = "./tests/downloads/pieces";
     std::fs::create_dir_all(downloads_dir_path).unwrap();
 
@@ -117,9 +123,10 @@ fn client_integration_test() {
             starting_tracker_response,
         )
         .unwrap();
-    let mut entire_file: File =
-        File::open("./tests/downloads/linux_distribution_test.iso/linux_distribution_test.iso")
-            .unwrap();
+    let mut entire_file: File = File::open(
+        "./tests/downloads/linux_distribution_test.iso/target/linux_distribution_test.iso",
+    )
+    .unwrap();
     let mut buf: Vec<u8> = Vec::new();
     let _ = entire_file.read_to_end(&mut buf).unwrap();
     assert_eq!(file, buf);
@@ -316,6 +323,7 @@ fn server_integration_test_ask_for_blocks_single_piece() {
     let peer_id: Vec<u8> = rand::thread_rng().gen::<[u8; 20]>().to_vec();
     let port: u16 = 6882;
 
+    std::fs::create_dir_all("./tests/test_server/pieces").unwrap();
     let mut file = File::create("./tests/test_server/pieces/0").unwrap();
     let mut piece: Vec<u8> = Vec::new();
 

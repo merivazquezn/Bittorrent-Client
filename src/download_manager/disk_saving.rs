@@ -54,12 +54,14 @@ pub fn save_piece_in_disk(
     downloads_dir_path: &str,
 ) -> Result<(), DownloadManagerError> {
     if piece.data.is_empty() {
+        error!("Piece data is empty");
         return Err(DownloadManagerError::EmptyPieceError);
     }
     create_directory(downloads_dir_path)?;
 
     let mut file = File::create(format!("{}/{}", downloads_dir_path, piece.piece_number))?;
     file.write_all(&piece.data[..])?;
+
     Ok(())
 }
 
@@ -68,11 +70,15 @@ pub fn join_all_pieces(
     target_file_name: &str,
     downloads_dir_path: &str,
 ) -> Result<(), DownloadManagerError> {
-    File::create(format!("{}/{}", downloads_dir_path, target_file_name))?;
-    let mut target_file: File = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open(format!("{}/{}", downloads_dir_path, target_file_name))?;
+    std::fs::create_dir_all(format!("{}/target", downloads_dir_path))?;
+    File::create(format!(
+        "{}/target/{}",
+        downloads_dir_path, target_file_name
+    ))?;
+    let mut target_file: File = OpenOptions::new().write(true).append(true).open(format!(
+        "{}/target/{}",
+        downloads_dir_path, target_file_name
+    ))?;
 
     LOGGER.info(format!("Joining pieces to {}", target_file_name));
     for piece_no in 0..piece_count {
@@ -219,6 +225,7 @@ mod tests {
             buf_0.push(i as u8);
         }
         file_0.write_all(buf_0.as_slice()).unwrap();
+        file_0.flush().unwrap();
 
         let mut file_1 = File::create(format!(
             "./src/download_manager/test_downloads/join/test_1/pieces/1",
@@ -242,13 +249,13 @@ mod tests {
 
         join_all_pieces(
             piece_count,
-            "target",
+            "target_file",
             "./src/download_manager/test_downloads/join/test_1",
         )
         .unwrap();
 
         let mut target_file = File::open(format!(
-            "./src/download_manager/test_downloads/join/test_1/target"
+            "./src/download_manager/test_downloads/join/test_1/target/target_file",
         ))
         .unwrap();
 
@@ -288,7 +295,7 @@ mod tests {
 
         let result = join_all_pieces(
             piece_count,
-            "target",
+            "target_file",
             "./src/download_manager/test_downloads/join/test_2",
         );
 
@@ -324,7 +331,7 @@ mod tests {
 
         let result = join_all_pieces(
             piece_count,
-            "target",
+            "target_file",
             "./src/download_manager/test_downloads/join/test_3",
         );
 

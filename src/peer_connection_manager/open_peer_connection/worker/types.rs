@@ -85,11 +85,14 @@ impl OpenPeerConnectionWorker {
                     .send_closed_connection(self.connection.get_peer_id());
                 self.piece_manager_sender
                     .failed_connection(self.connection.get_peer_id());
+                self.peer_connection_manager_sender
+                    .failed_connection(self.connection.get_peer_id());
                 (
                     "Error trying to receive message from OpenPeerConnectionWorker".to_string(),
                     self.connection.get_peer_id().to_vec(),
                 )
             })?;
+
             trace!(
                 "peer connection worker with ip: {:?} received message: {:?}",
                 self.connection.get_peer_ip(),
@@ -114,6 +117,8 @@ impl OpenPeerConnectionWorker {
                             self.connection
                                 .ui_message_sender
                                 .send_closed_connection(self.connection.get_peer_id());
+                            self.peer_connection_manager_sender
+                                .failed_connection(self.connection.get_peer_id());
                             return Err((
                                 format!("Failed peer connection {}", self.connection.get_peer_ip(),),
                                 self.connection.get_peer_id().to_vec(),
