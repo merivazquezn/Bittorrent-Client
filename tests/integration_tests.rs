@@ -67,11 +67,11 @@ fn dir_exists(path: &str) -> bool {
 fn client_integration_test() {
     pretty_env_logger::init();
 
-    if dir_exists("./tests/downloads/pieces") {
-        std::fs::remove_dir_all("./tests/downloads/pieces").unwrap();
+    if dir_exists("./tests/downloads/test_server/pieces") {
+        std::fs::remove_dir_all("./tests/downloads/test_server/pieces").unwrap();
     }
 
-    let downloads_dir_path = "./tests/downloads/pieces";
+    let downloads_dir_path = "./tests/downloads/test_server/pieces";
     std::fs::create_dir_all(downloads_dir_path).unwrap();
 
     let mut file = Vec::new();
@@ -130,6 +130,7 @@ fn client_integration_test() {
     let mut buf: Vec<u8> = Vec::new();
     let _ = entire_file.read_to_end(&mut buf).unwrap();
     assert_eq!(file, buf);
+    //comentario
 }
 
 fn get_metainfo(pieces: Vec<Vec<u8>>, info_hash: Vec<u8>) -> Metainfo {
@@ -155,8 +156,8 @@ fn init_pieces() -> (Vec<Vec<u8>>, Vec<u8>) {
     let mut pieces: Vec<Vec<u8>> = Vec::new();
     let mut joined_pieces: Vec<u8> = Vec::new();
 
-    std::fs::create_dir_all("./downloads/pieces").unwrap();
-    let mut file_0 = File::create("./downloads/pieces/0").unwrap();
+    std::fs::create_dir_all("./downloads/test_server/pieces").unwrap();
+    let mut file_0 = File::create("./downloads/test_server/pieces/0").unwrap();
     let mut buf_0: Vec<u8> = Vec::new();
     for i in 0..8 {
         buf_0.push(i as u8);
@@ -166,7 +167,7 @@ fn init_pieces() -> (Vec<Vec<u8>>, Vec<u8>) {
 
     file_0.write_all(buf_0.as_slice()).unwrap();
 
-    let mut file_1 = File::create("./downloads/pieces/1").unwrap();
+    let mut file_1 = File::create("./downloads/test_server/pieces/1").unwrap();
     let mut buf_1: Vec<u8> = Vec::new();
     for i in 0..8 {
         buf_1.push((8 - i) as u8);
@@ -175,7 +176,7 @@ fn init_pieces() -> (Vec<Vec<u8>>, Vec<u8>) {
     pieces.push(buf_1.clone());
     file_1.write_all(buf_1.as_slice()).unwrap();
 
-    let mut file_2 = File::create("./downloads/pieces/2").unwrap();
+    let mut file_2 = File::create("./downloads/test_server/pieces/2").unwrap();
     let mut buf_2: Vec<u8> = Vec::new();
     for _ in 0..8 {
         buf_2.push(3 as u8);
@@ -281,7 +282,7 @@ fn server_integration_test_ask_for_small_pieces() {
         meta,
         port,
         std::time::Duration::from_secs(2),
-        "./downloads/pieces",
+        "./downloads/test_server/pieces",
     );
     let mut socket: TcpStream;
     loop {

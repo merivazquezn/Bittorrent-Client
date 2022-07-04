@@ -10,7 +10,7 @@ Bittorrent Client in Rust
 
 example:
 ```
-RUST_LOG=info UI=true cargo run debian.torrent
+RUST_LOG=info UI=true cargo run ./example_torrents/debian.torrent
 ```
 
 If you want to run application without UI, avoid setting the UI environment variable:

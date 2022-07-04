@@ -112,8 +112,6 @@ impl OpenPeerConnectionWorker {
                                 self.connection.get_peer_ip(),
                                 MIN_FAILED_CONNECTIONS
                             );
-                            self.piece_manager_sender
-                                .failed_connection(self.connection.get_peer_id());
                             self.connection
                                 .ui_message_sender
                                 .send_closed_connection(self.connection.get_peer_id());
@@ -135,11 +133,6 @@ impl OpenPeerConnectionWorker {
             "peer connection worker with ip: {:?} closed",
             self.connection.get_peer_ip()
         );
-        self.piece_manager_sender
-            .failed_connection(self.connection.get_peer_id());
-        self.connection
-            .ui_message_sender
-            .send_closed_connection(self.connection.get_peer_id());
         Ok(())
     }
 }
