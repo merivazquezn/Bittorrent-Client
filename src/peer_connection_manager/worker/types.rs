@@ -63,10 +63,9 @@ impl PeerConnectionManagerWorker {
             )?;
 
         let handle = std::thread::spawn(move || {
-            open_peer_connection_worker.listen().unwrap();
-            // set connection closed
-
-            // ui_message_sender.send_closed_connection();
+            if let Err((err, _)) = open_peer_connection_worker.listen() {
+                LOGGER.error(err);
+            }
         });
 
         open_peer_connection_sender.send_bitfield();
@@ -134,7 +133,7 @@ impl PeerConnectionManagerWorker {
         peer_connection_manager_sender: PeerConnectionManagerSender,
     ) {
         LOGGER.info(format!(
-            "Attempting connections with {:?} peers",
+            "Attempting connections with {:?} peers...",
             peers.len()
         ));
         let mut connection_attempts = vec![];
@@ -148,7 +147,6 @@ impl PeerConnectionManagerWorker {
             let open_peer_connections = open_peer_connections.clone();
             let peer_connection_manager_sender_clone = peer_connection_manager_sender.clone();
             connection_attempts.push(std::thread::spawn(move || {
-                LOGGER.info(format!("Attempting connection with peer {}", peer.ip));
                 if let Ok((open_peer_connection_sender, handle)) = Self::open_connection_from_peer(
                     peer.clone(),
                     piece_manager_sender.clone(),
@@ -158,9 +156,7 @@ impl PeerConnectionManagerWorker {
                     &client_peer_id,
                     ui_message_sender,
                 ) {
-                    LOGGER.info(format!("Successfully connected to peer at {:?}", peer.ip));
                     if let Ok(mut lock) = open_peer_connections.lock() {
-                        info!("Adding peer connection {} to map", peer.ip);
                         lock.insert(
                             peer.peer_id.clone(),
                             PeerConnection {
@@ -207,11 +203,6 @@ impl PeerConnectionManagerWorker {
         match interval {
             Some(interval) => {
                 let now = Instant::now();
-                warn!(
-                    "{:?} > {:?}",
-                    now.duration_since(self.last_time_requested),
-                    interval
-                );
                 if now.duration_since(self.last_time_requested) > interval {
                     self.last_time_requested = now;
                     true
@@ -278,10 +269,8 @@ impl PeerConnectionManagerWorker {
                     } else {
                         self.piece_manager_sender.failed_connection(peer_id.clone());
                     }
-                    self.ui_message_sender.send_closed_connection(peer_id);
                 }
             }
-            info!("Total of connected peers: {}", self.peer_connections.len());
         }
         Ok(())
     }

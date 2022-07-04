@@ -6,24 +6,24 @@ use super::utils::*;
 use super::Peer;
 use crate::constants::*;
 use crate::metainfo::Metainfo;
-use crate::ui::{PeerStatistics, UIMessageSender};
+use crate::ui::UIMessageSender;
 use log::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 pub struct PeerConnection {
-    _am_choking: bool,
-    _am_interested: bool,
-    peer_choking: bool,
-    _peer_interested: bool,
-    message_service: Box<dyn IClientPeerMessageService + Send>,
+    pub _am_choking: bool,
+    pub _am_interested: bool,
+    pub peer_choking: bool,
+    pub _peer_interested: bool,
+    pub message_service: Box<dyn IClientPeerMessageService + Send>,
     pub metainfo: Metainfo,
-    client_peer_id: Vec<u8>,
-    bitfield: Bitfield,
-    peer_id: Vec<u8>,
-    peer: Peer,
-    last_download_rate_update: std::time::Instant,
-    last_downloaded_pieces: Arc<AtomicUsize>,
+    pub client_peer_id: Vec<u8>,
+    pub bitfield: Bitfield,
+    pub peer_id: Vec<u8>,
+    pub peer: Peer,
+    pub last_download_rate_update: std::time::Instant,
+    pub last_downloaded_pieces: Arc<AtomicUsize>,
     pub ui_message_sender: UIMessageSender,
 }
 
@@ -209,27 +209,7 @@ impl PeerConnection {
                 )
             })?;
         self.wait_until_ready()?;
-        self.ui_message_sender.send_new_connection();
-        let peer_statistics = PeerStatistics {
-            torrentname: self.metainfo.info.name.clone(),
-            peerid: self.peer_id.clone(),
-            ip: self.peer.ip.clone(),
-            port: self.peer.port,
-            uploadrate: 0,
-            downloadrate: 0,
-            state: PeerConnectionState {
-                client: PeerState {
-                    chocked: self.peer_choking,
-                    interested: self._am_interested,
-                },
-                peer: PeerState {
-                    chocked: self._am_choking,
-                    interested: self._peer_interested,
-                },
-            },
-        };
 
-        self.ui_message_sender.send_peer_statistics(peer_statistics);
         Ok(())
     }
 }

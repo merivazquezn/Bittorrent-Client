@@ -1,3 +1,4 @@
+use crate::logger::CustomLogger;
 use crate::peer::Bitfield;
 use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::types::PieceManagerMessage;
@@ -7,6 +8,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
+
+const LOGGER: CustomLogger = CustomLogger::init("Piece Manager");
 
 type PeerId = Vec<u8>;
 const FIRST_MIN_CONNECTIONS: usize = 20;
@@ -131,7 +134,6 @@ impl PieceManagerWorker {
         *count += 1;
 
         peer_connection_manager_sender.download_piece(peer_id.clone(), piece);
-        info!("Asking piece {} to peer {:?}", piece, peer_id);
     }
 
     fn choose_best_peer_to_download_piece(&self, piece: u32) -> PeerId {
@@ -158,7 +160,7 @@ impl PieceManagerWorker {
                 self.execute_asking_piece(piece, peer_id, peer_connection_manager_sender);
             }
             None => {
-                trace!("No piece to download");
+                LOGGER.info_str("All pieces requested");
             }
         }
     }
@@ -338,10 +340,10 @@ impl PieceManagerWorker {
                     );
                 }
                 PieceManagerMessage::FailedDownload(piece_index, peer_id) => {
-                    trace!(
-                        "Piece manager received failed download of piece: {}",
+                    LOGGER.info(format!(
+                        "Piece manager received failed download of piece: {}. Retrying...",
                         piece_index
-                    );
+                    ));
                     self.piece_failed_download(
                         piece_index,
                         peer_id,

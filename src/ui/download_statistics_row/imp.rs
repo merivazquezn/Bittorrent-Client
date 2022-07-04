@@ -32,6 +32,7 @@ impl ObjectSubclass for DownloadStatistics {
 // corresponding values of the properties.
 impl ObjectImpl for DownloadStatistics {
     fn properties() -> &'static [glib::ParamSpec] {
+        // we need to define them as lazy because rust does not support static initialization of dynamic structs
         use once_cell::sync::Lazy;
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| {
             vec![

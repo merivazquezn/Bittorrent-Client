@@ -1,5 +1,6 @@
 use super::errors::DownloadManagerError;
 use super::types::Piece;
+use crate::logger::CustomLogger;
 use crate::server::client_has_piece;
 use log::*;
 use std::fs::File;
@@ -8,6 +9,7 @@ use std::io::copy;
 use std::io::Write;
 use std::path::Path;
 
+const LOGGER: CustomLogger = CustomLogger::init("Piece Saver");
 /// Creates a directory if it doesn't exist.
 /// Receives the path of the directory
 /// If it already exists, does nothing.
@@ -72,6 +74,7 @@ pub fn join_all_pieces(
         .append(true)
         .open(format!("{}/{}", downloads_dir_path, target_file_name))?;
 
+    LOGGER.info(format!("Joining pieces to {}", target_file_name));
     for piece_no in 0..piece_count {
         info!(
             "joining pieces of {}/pieces/{}",

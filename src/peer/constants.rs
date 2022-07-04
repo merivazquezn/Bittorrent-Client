@@ -1,5 +1,5 @@
-pub const MESSAGE_TIMEOUT: u64 = 1;
-pub const MAX_RETRIES: u8 = 2;
+pub const MESSAGE_TIMEOUT: u64 = 5;
+pub const MAX_RETRIES: u8 = 10;
 pub const PSTRLEN: u8 = 19;
 pub const HANDSHAKE_LENGTH: usize = 68;
 pub const MESSAGE_ID_SIZE: usize = 1;

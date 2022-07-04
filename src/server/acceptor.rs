@@ -114,7 +114,8 @@ impl Server {
                 }
                 Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     // This doesen't mean an error ocurred, there just wasn't a connection at the moment
-                    info!("Server: Not any incoming connection at the moment, going to sleep...");
+                    debug!("Server: Not any incoming connection at the moment, going to sleep...");
+
                     thread::sleep(time_to_sleep);
                 }
                 Err(err) => return Err(ServerError::TcpStreamError(err)),

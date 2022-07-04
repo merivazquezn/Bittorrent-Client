@@ -1,14 +1,15 @@
 use super::super::types::OpenPeerConnectionMessage;
 use crate::constants::*;
+use crate::logger::CustomLogger;
 use crate::peer::*;
 use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
 use log::*;
-use std::sync::mpsc::{Receiver, RecvError};
-
+use std::sync::mpsc::Receiver;
 const MIN_FAILED_CONNECTIONS: u32 = 1;
-
+const LOGGER: CustomLogger = CustomLogger::init("Open Peer Connection");
+use crate::ui::PeerStatistics;
 pub struct OpenPeerConnectionWorker {
     pub receiver: Receiver<OpenPeerConnectionMessage>,
     pub connection: PeerConnection,
@@ -41,6 +42,10 @@ impl OpenPeerConnectionWorker {
                 )
             })?;
 
+        LOGGER.info(format!(
+            "Piece {} received, sending it to piece saver",
+            piece_index
+        ));
         self.piece_saver_sender.validate_and_save_piece(
             piece_index,
             self.connection.get_peer_id(),
@@ -50,9 +55,41 @@ impl OpenPeerConnectionWorker {
         Ok(())
     }
 
-    pub fn listen(&mut self) -> Result<(), RecvError> {
+    pub fn listen(&mut self) -> Result<(), (String, Vec<u8>)> {
+        self.connection.ui_message_sender.send_new_connection();
+        let peer_statistics = PeerStatistics {
+            torrentname: self.connection.metainfo.info.name.clone(),
+            peerid: self.connection.peer_id.clone(),
+            ip: self.connection.peer.ip.clone(),
+            port: self.connection.peer.port,
+            uploadrate: 0,
+            downloadrate: 0,
+            state: PeerConnectionState {
+                client: PeerState {
+                    chocked: self.connection.peer_choking,
+                    interested: self.connection._am_interested,
+                },
+                peer: PeerState {
+                    chocked: self.connection._am_choking,
+                    interested: self.connection._peer_interested,
+                },
+            },
+        };
+        self.connection
+            .ui_message_sender
+            .send_peer_statistics(peer_statistics);
         loop {
-            let message = self.receiver.recv()?;
+            let message = self.receiver.recv().map_err(|_| {
+                self.connection
+                    .ui_message_sender
+                    .send_closed_connection(self.connection.get_peer_id());
+                self.piece_manager_sender
+                    .failed_connection(self.connection.get_peer_id());
+                (
+                    "Error trying to receive message from OpenPeerConnectionWorker".to_string(),
+                    self.connection.get_peer_id().to_vec(),
+                )
+            })?;
             trace!(
                 "peer connection worker with ip: {:?} received message: {:?}",
                 self.connection.get_peer_ip(),
@@ -68,14 +105,19 @@ impl OpenPeerConnectionWorker {
                         if self.failed_download_in_a_row == MIN_FAILED_CONNECTIONS {
                             self.is_open = false;
                             trace!(
-                                "Closing peer connection: {:?} after {:?} failed download in a row",
+                                "Closing peer connection: {:?} after {:?} failed downloads in a row",
                                 self.connection.get_peer_ip(),
                                 MIN_FAILED_CONNECTIONS
                             );
-                            self.peer_connection_manager_sender
+                            self.piece_manager_sender
                                 .failed_connection(self.connection.get_peer_id());
-
-                            break;
+                            self.connection
+                                .ui_message_sender
+                                .send_closed_connection(self.connection.get_peer_id());
+                            return Err((
+                                format!("Failed peer connection {}", self.connection.get_peer_ip(),),
+                                self.connection.get_peer_id().to_vec(),
+                            ));
                         }
                     } else {
                         self.failed_download_in_a_row = 0;
@@ -88,6 +130,11 @@ impl OpenPeerConnectionWorker {
             "peer connection worker with ip: {:?} closed",
             self.connection.get_peer_ip()
         );
+        self.piece_manager_sender
+            .failed_connection(self.connection.get_peer_id());
+        self.connection
+            .ui_message_sender
+            .send_closed_connection(self.connection.get_peer_id());
         Ok(())
     }
 }

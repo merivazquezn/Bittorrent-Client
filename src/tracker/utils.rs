@@ -10,6 +10,7 @@ use crate::ui::UIMessageSender;
 use std::collections::HashMap;
 
 const LOGGER: CustomLogger = CustomLogger::init("Tracker");
+const WANTED_CONNECTIONS: u32 = 100;
 
 pub fn get_response_from_tracker(
     client_info: &mut ClientInfo,
@@ -27,7 +28,6 @@ pub fn get_response_from_tracker(
         Box::new(http_service),
     );
     let tracker_response = tracker_service.get_response()?;
-    println!("Tracker response: {:?}", tracker_response);
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     LOGGER.info(format!(
         "Received {} peers from tracker",
@@ -79,7 +79,9 @@ pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     for (key, value) in parameters {
         querystring.push_str(&format!("{}={}&", key, value));
     }
-    querystring.push_str(&format!("{}={}", "compact", "1"));
+    querystring.push_str(&format!("{}={}&", "compact", "1"));
+    querystring.push_str(&format!("{}={}", "numwant", WANTED_CONNECTIONS));
+
     querystring
 }
 
