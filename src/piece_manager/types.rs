@@ -1,7 +1,6 @@
 use super::sender::types::PieceManagerSender;
 use super::worker::types::PieceManagerWorker;
 use crate::peer::Bitfield;
-use crate::peer_connection_manager::PeerConnectionManagerSender;
 use crate::ui::UIMessageSender;
 
 use std::collections::HashMap;
@@ -14,7 +13,6 @@ type PieceId = u32;
 #[derive(Debug)]
 pub enum PieceManagerMessage {
     PeerPieces(PeerId, Bitfield),
-    Init(PeerConnectionManagerSender),
     SuccessfulDownload(PieceId, PeerId),
     FailedDownload(PieceId, PeerId),
     FailedConnection(PeerId),
@@ -50,7 +48,6 @@ pub fn new_piece_manager(
             is_downloading: false,
             piece_asked_to: HashMap::new(),
             pieces_without_peer: HashSet::new(),
-            // hashamp full from 0 to number_of_pieces - 1
             ready_to_download_pieces: remaining_pieces,
             peer_pieces_to_download_count: HashMap::new(),
             recieved_bitfields: 0,

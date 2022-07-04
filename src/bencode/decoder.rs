@@ -9,7 +9,6 @@ const STRING_START_TOKEN: char = ':';
 const NEGATIVE_SIGN: char = '-';
 use crate::boxed_result::BoxedResult;
 
-#[allow(dead_code)]
 /// Decodes a bencoded byte slice into a [`BencodeDecodedValue`]
 ///
 /// Returns the Result of the decoding, which can hold:

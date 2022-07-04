@@ -123,7 +123,7 @@ impl PeerConnectionManagerWorker {
                 }
             }
         } else {
-            error!("El tracker nos saco cagando");
+            error!("Tracker rejected client's request");
         }
         new_connections
     }
@@ -253,16 +253,9 @@ impl PeerConnectionManagerWorker {
                     break;
                 }
                 PeerConnectionManagerMessage::DownloadPiece(peer_id, piece_index) => {
-                    // self.download_piece(peer_id, piece_index)
-                    // intentabamos la descarga
-                    // fallabamos, a la primera la cerrabamos
-                    // claro, nosotros mandabamos el download piece, pero ya no habia loop que escuchara
-                    // pero como la entidad seguia existiendo, se escribia igual
                     if self.peer_connections[&peer_id].is_open {
                         self.download_piece(peer_id, piece_index);
                     } else {
-                        // toy pensando y tal vez mandar esto no es lo mas eficiente, tal vez con solo avisar esta bien
-                        // porque esta funcion actualiza las listas de los peers sin el peer, y en esta instancia ya se habria actualiado (falla dsp de intentarlo)
                         self.piece_manager_sender.failed_connection(peer_id);
                     }
                 }

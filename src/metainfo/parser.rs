@@ -97,43 +97,6 @@ fn build_metainfo(
     };
     validate(&metainfo)?;
     Ok(metainfo)
-
-    // if info_hashmap.contains_key(&files_key.to_vec()) {
-    //     // let files_list_bencode = get_from_bencoded_values_hashmap(&info_hashmap, files_key)?;
-    //     // let files_list = files_list_bencode.get_as_list()?;
-
-    //     let info = Info {
-    //         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
-    //             .get_as_integer()? as u32,
-    //         pieces: get_vec_of_hashes(&pieces_as_vec_u8),
-    //         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
-    //         length: total_length,
-    //         files: None,
-    //     };
-    //     let metainfo = Metainfo {
-    //         info,
-    //         info_hash: get_hash(hashmap, info_key),
-    //         announce: bencode_decoded_bytes_to_string(hashmap, announce_key)?,
-    //     };
-    //     validate(&metainfo)?;
-    //     Ok(metainfo)
-    // } else {
-    //     let info = Info {
-    //         piece_length: *get_from_bencoded_values_hashmap(info_hashmap, piece_length_key)?
-    //             .get_as_integer()? as u32,
-    //         pieces: get_vec_of_hashes(&pieces_as_vec_u8),
-    //         name: bencode_decoded_bytes_to_string(info_hashmap, name_key)?,
-    //         length: total_length,
-    //         files: None,
-    //     };
-    //     let metainfo = Metainfo {
-    //         info,
-    //         info_hash: get_hash(hashmap, info_key),
-    //         announce: bencode_decoded_bytes_to_string(hashmap, announce_key)?,
-    //     };
-    //     validate(&metainfo)?;
-    //     Ok(metainfo)
-    // }
 }
 
 // function that converts a Bencoded decoded List and turns it into a Bencode Decoded String

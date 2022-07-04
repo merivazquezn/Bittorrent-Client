@@ -12,7 +12,6 @@ const PERSIST_PIECES: &str = "persist_pieces";
 use crate::logger::CustomLogger;
 const LOGGER: CustomLogger = CustomLogger::init("Config");
 
-#[allow(dead_code)]
 #[derive(Debug)]
 /// Configuration of the bittorrent client
 pub struct Config {

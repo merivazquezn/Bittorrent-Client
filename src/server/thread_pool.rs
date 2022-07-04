@@ -17,7 +17,6 @@ enum ThreadPoolMessage {
     Stop,
 }
 
-#[allow(dead_code)]
 struct Worker {
     id: usize,
     pub handle: JoinHandle<()>,
@@ -25,7 +24,9 @@ struct Worker {
 
 impl ThreadPool {
     /// Creates a new thread pool with the given number of workers.
-    /// There will be 'size' workers running at the same time, where each worker repeats retreives jobs from a queue and executes them
+    /// There will be 'size' workers running at the same time, where each worker
+    /// repeats retreiving jobs from the queue and executes them.
+    ///
     /// The job queue is protected by a mutex, so only one worker can access it at a time.
     ///
     /// # Arguments

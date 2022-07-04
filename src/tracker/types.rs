@@ -1,7 +1,6 @@
 use crate::peer::Peer;
 use std::time::Duration;
 
-#[allow(dead_code)]
 pub enum Event {
     Started,
     Completed,

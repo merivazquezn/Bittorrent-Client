@@ -23,9 +23,4 @@ impl PieceSaverSender {
             piece_bytes,
         ));
     }
-
-    // pub fn stop(&self) {
-    //     // Msg not yet implemented by logger
-    //     // logger.stop_logging();
-    // }
 }

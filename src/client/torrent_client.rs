@@ -18,8 +18,6 @@ pub struct ClientHandles {
 }
 
 struct ClientSenders {
-    pub piece_manager: PieceManagerSender,
-    pub _piece_saver: PieceSaverSender,
     pub peer_connection_manager: PeerConnectionManagerSender,
 }
 
@@ -58,8 +56,6 @@ impl TorrentClient {
 
         Ok(TorrentClient {
             senders: ClientSenders {
-                piece_manager: piece_manager_sender,
-                _piece_saver: piece_saver_sender,
                 peer_connection_manager: peer_connection_manager_sender,
             },
             workers: ClientWorkers {
@@ -76,10 +72,6 @@ impl TorrentClient {
         tracker_service: Box<dyn ITrackerService + Send>,
         tracker_response: TrackerResponse,
     ) -> Result<(), ApplicationError> {
-        self.senders
-            .piece_manager
-            .start(self.senders.peer_connection_manager.clone());
-
         let piece_saver_handle = std::thread::spawn(move || {
             self.workers.piece_saver.listen().unwrap();
         });

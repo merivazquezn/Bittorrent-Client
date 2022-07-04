@@ -49,13 +49,4 @@ fn run_client(ui_message_sender: Option<glib::Sender<UIMessage>>) {
     }
 
     info!("Finished running");
-
-    // match args.next() {
-    //     Some(torrent_path) => {
-    //         if let Err(e) = run_with_torrent(&torrent_path, ui_message_sender) {
-    //             error!("{}", e);
-    //         }
-    //     }
-    //     None => error!("Please provide torrent path"),
-    // }
 }

@@ -97,7 +97,7 @@ impl PieceManagerWorker {
 
     fn get_optimal_piece_to_download(&self) -> Option<u32> {
         let mut piece_with_less_peers_available_index = None;
-        let mut max_peers = 50; //self.peer_pieces_to_download_count.len();
+        let mut max_peers = 50;
         for (piece_index, peer_ids) in &self.allowed_peers_to_download_piece {
             if self.ready_to_download_pieces.contains(piece_index)
                 && !peer_ids.is_empty()
@@ -302,9 +302,6 @@ impl PieceManagerWorker {
             let message = self.reciever.recv()?;
             trace!("Piece manager received message: {:?}", message);
             match message {
-                PieceManagerMessage::Init(_) => {
-                    continue;
-                }
                 PieceManagerMessage::PeerPieces(peer_id, bitfield) => {
                     trace!("Piece manager received bitfield from peer: {:?}", peer_id);
                     self.update_peers_per_piece(&bitfield, peer_id.clone());

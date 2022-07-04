@@ -21,7 +21,7 @@ pub fn create_directory(path: &str) -> Result<(), DownloadManagerError> {
     Ok(())
 }
 
-/// Saves in disk a non-empty piece in disk in the specified path with the number of piece as file name
+/// Saves in disk a non-empty piece in the specified path with the number of piece as file name
 /// If the piece is empty, it returns an error
 ///
 /// Returns a Result
@@ -121,18 +121,10 @@ pub fn get_existing_pieces(piece_count: u32, pieces_dir: &str) -> Vec<u32> {
 }
 
 mod tests {
-
     #[allow(unused_imports)]
     use super::*;
     #[allow(unused_imports)]
     use std::io::Read;
-
-    #[allow(dead_code)]
-    fn join_vec(a: Vec<u8>, mut b: Vec<u8>) -> Vec<u8> {
-        let mut c = a;
-        c.append(&mut b);
-        c
-    }
 
     #[test]
     fn saves_little_piece_in_disk_content_is_correct() {
@@ -207,6 +199,12 @@ mod tests {
 
     #[test]
     fn joins_all_3_pieces_all_exist_returns_ok() {
+        fn join_vec(a: Vec<u8>, mut b: Vec<u8>) -> Vec<u8> {
+            let mut c = a;
+            c.append(&mut b);
+            c
+        }
+
         let piece_count = 3;
 
         let mut file_0 = File::create(format!(

@@ -33,7 +33,6 @@ impl PeerMessageId {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PeerMessage {
     pub id: PeerMessageId,

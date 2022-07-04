@@ -14,7 +14,6 @@ pub struct PeerConnectionState {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct Bitfield(Vec<u8>);
 
 impl Default for Bitfield {
@@ -121,7 +120,6 @@ impl PeerMessageId {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PeerMessage {
     pub id: PeerMessageId,

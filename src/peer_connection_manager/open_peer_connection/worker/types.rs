@@ -19,7 +19,6 @@ pub struct OpenPeerConnectionWorker {
     pub is_open: bool,
 }
 
-#[allow(dead_code)]
 impl OpenPeerConnectionWorker {
     fn send_bitfield(&self) {
         self.piece_manager_sender.peer_pieces(
