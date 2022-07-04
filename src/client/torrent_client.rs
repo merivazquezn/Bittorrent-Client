@@ -48,8 +48,8 @@ impl TorrentClient {
 
         let (peer_connection_manager_sender, peer_connection_manager_worker) =
             Self::init_peer_connection_manager(
-                piece_manager_sender.clone(),
-                piece_saver_sender.clone(),
+                piece_manager_sender,
+                piece_saver_sender,
                 client_info,
                 ui_message_sender,
             );
