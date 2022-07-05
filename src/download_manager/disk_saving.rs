@@ -82,10 +82,6 @@ pub fn join_all_pieces(
 
     LOGGER.info(format!("Joining pieces to {}", target_file_name));
     for piece_no in 0..piece_count {
-        info!(
-            "joining pieces of {}/pieces/{}",
-            downloads_dir_path, piece_no
-        );
         let mut piece_file: File = OpenOptions::new()
             .read(true)
             .open(format!("{}/pieces/{}", downloads_dir_path, piece_no))

@@ -20,4 +20,8 @@ impl CustomLogger {
     pub fn error(&self, message: String) {
         error!(target: self.target, "{}", message);
     }
+
+    pub fn debug(&self, message: String) {
+        debug!(target: self.target, "{}", message);
+    }
 }

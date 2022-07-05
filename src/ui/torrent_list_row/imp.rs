@@ -84,7 +84,7 @@ impl ObjectImpl for TorrentInformation {
                     "downloadfraction",
                     "downloadfraction",
                     0.0,
-                    100.0,
+                    1.0,
                     0.0, // Allowed range and default value
                     glib::ParamFlags::READWRITE,
                 ),

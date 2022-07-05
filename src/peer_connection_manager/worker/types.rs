@@ -24,9 +24,11 @@ pub const MIN_CONNECTIONS: usize = 10;
 
 #[derive(Debug)]
 pub struct PeerConnection {
+    peer: Peer,
     sender: OpenPeerConnectionSender,
     handle: JoinHandle<()>,
     is_open: bool,
+    piece_request_count: u32,
 }
 
 pub struct PeerConnectionManagerWorker {
@@ -110,6 +112,8 @@ impl PeerConnectionManagerWorker {
                                     sender: open_peer_connection_sender,
                                     handle,
                                     is_open: true,
+                                    peer: peer.clone(),
+                                    piece_request_count: 0,
                                 },
                             );
                             self.ui_message_sender.send_new_connection();
@@ -163,6 +167,8 @@ impl PeerConnectionManagerWorker {
                                 sender: open_peer_connection_sender,
                                 handle,
                                 is_open: true,
+                                peer: peer.clone(),
+                                piece_request_count: 0,
                             },
                         );
                     }
@@ -215,7 +221,7 @@ impl PeerConnectionManagerWorker {
     }
 
     fn able_to_reach_tracker_again(&mut self, interval: Option<Duration>) -> bool {
-        warn!(
+        trace!(
             "{:?} < {:?}, {:?} < {:?}",
             self.tracker_request_count,
             MAX_TRACKER_REQUESTS,
@@ -245,10 +251,36 @@ impl PeerConnectionManagerWorker {
                 }
                 PeerConnectionManagerMessage::DownloadPiece(peer_id, piece_index) => {
                     if self.peer_connections[&peer_id].is_open {
-                        self.download_piece(peer_id, piece_index);
+                        LOGGER.debug(format!(
+                            "Sending download request {} to peer {:?} with piece requests: {}",
+                            piece_index,
+                            self.peer_connections[&peer_id].peer.peer_id,
+                            self.peer_connections[&peer_id].piece_request_count
+                        ));
+                        self.download_piece(peer_id.clone(), piece_index);
+                        self.peer_connections
+                            .get_mut(&peer_id)
+                            .unwrap()
+                            .piece_request_count += 1;
                     } else {
-                        self.piece_manager_sender.failed_connection(peer_id);
+                        LOGGER.error(format!(
+                            "Tried to download piece from closed peer connection {:?}, so send it back to retry",
+                            peer_id
+                        ));
+                        self.piece_manager_sender
+                            .failed_download(piece_index, peer_id);
                     }
+                    // print peers that have not yet downloaded a piece
+                    let mut peers = vec![];
+                    for (_, peer_connection) in self.peer_connections.iter() {
+                        if peer_connection.piece_request_count == 0 {
+                            peers.push(peer_connection.peer.clone());
+                        }
+                    }
+                    LOGGER.debug(format!(
+                        "Peers that have not yet downloaded a piece: {}",
+                        peers.len()
+                    ));
                 }
 
                 PeerConnectionManagerMessage::FailedConnection(peer_id) => {
@@ -256,19 +288,17 @@ impl PeerConnectionManagerWorker {
                     if self.able_to_reach_tracker_again(interval) {
                         info!("sending reaked tracker request");
                         self.piece_manager_sender.reasked_tracker();
-                        self.piece_manager_sender.failed_connection(peer_id.clone());
                         info!("sent reaked tracker request");
                         let new_connections = self.update_peer_connections(
                             &mut tracker_service,
                             peer_connection_manager_sender.clone(),
                         );
-                        warn!("New connections: {:?}", new_connections);
+                        trace!("New connections: {:?}", new_connections);
                         self.piece_manager_sender
                             .finished_stablishing_connections(new_connections);
                         self.tracker_request_count += 1;
-                    } else {
-                        self.piece_manager_sender.failed_connection(peer_id.clone());
                     }
+                    self.piece_manager_sender.failed_connection(peer_id);
                 }
             }
         }

@@ -96,6 +96,7 @@ fn send_message(
             "Couldn't send message to other peer".to_string(),
         )
     })?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
     Ok(())
 }
 
@@ -161,9 +162,8 @@ fn init_connection(stream: &mut TcpStream, meta: &Metainfo, peer_id: &Vec<u8>) {
 
 fn ask_for_piece(piece_index: u32, stream: &mut TcpStream, meta: Metainfo) -> Vec<u8> {
     let request = PeerMessage::request(piece_index, 0, meta.info.piece_length as u32);
-    println!("Client: About to send {:?} to server", request);
     send_message(stream, &request).unwrap();
-    println!("Client sent message {:?} to server", request);
+    println!("Client asked for piece {} to server", request.payload[3]);
     let response: PeerMessage = wait_for_message(stream).unwrap();
     response.payload[8..].to_vec()
 }
@@ -195,7 +195,13 @@ fn run_test_client_server() {
     let peer_id_clone = peer_id.clone();
 
     println!("Trying to connect to server at: 127.0.0.1:6681");
-    let server: Server = Server::run(peer_id, meta, port, Duration::from_secs(2));
+    let server: Server = Server::run(
+        peer_id,
+        meta,
+        port,
+        Duration::from_secs(2),
+        "../downloads/pieces",
+    );
     let mut stream: TcpStream;
     loop {
         if let Ok(s) = TcpStream::connect("127.0.0.1:6881") {

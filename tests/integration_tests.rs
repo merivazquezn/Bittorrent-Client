@@ -63,17 +63,19 @@ fn dir_exists(path: &str) -> bool {
     std::fs::metadata(path).is_ok()
 }
 
-#[test]
-fn client_integration_test() {
+fn setup() {
     pretty_env_logger::init();
-
     if dir_exists("./tests/downloads/test_server/pieces") {
         std::fs::remove_dir_all("./tests/downloads/test_server/pieces").unwrap();
     }
 
     let downloads_dir_path = "./tests/downloads/test_server/pieces";
     std::fs::create_dir_all(downloads_dir_path).unwrap();
+}
 
+#[test]
+fn client_integration_test() {
+    setup();
     let mut file = Vec::new();
 
     for _ in 0..BLOCK_SIZE {

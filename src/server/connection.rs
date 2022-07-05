@@ -207,40 +207,6 @@ mod tests {
     }
 
     #[test]
-    fn peer_asks_for_piece_server_shares_it_successfully() {
-        // arrange
-        let peer_id = get_fake_peer_id();
-        let metainfo = get_fake_metainfo();
-
-        let message_service = get_mock_message_service();
-        let mut connection = ServerConnection::new(peer_id, metainfo, message_service);
-
-        let pieces_dir: &str = "./src/server/tests/test_1/pieces";
-        let logs_dir: &str = "./src/server/tests/test_1/logs";
-        let payload_dir: &str = "./src/server/tests/test_1/received_piece_0";
-        write_piece(vec![0, 0, 0, 0, 0, 0, 0, 1].as_slice(), 0, pieces_dir).unwrap();
-
-        let (logger, handle) = ServerLogger::new(logs_dir).unwrap();
-        let logger_clone = logger.clone();
-
-        // act
-        connection.run(logger_clone, pieces_dir).unwrap();
-        logger.stop();
-        handle.join().unwrap();
-
-        // assert
-        use std::fs::File;
-        use std::io::Read;
-        let mut file = File::open(payload_dir).unwrap();
-        let mut buf: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buf).unwrap();
-        assert_eq!(buf.len(), 16);
-        assert_eq!(buf[0..4], vec![0, 0, 0, 0]); // Index
-        assert_eq!(buf[4..8], vec![0, 0, 0, 0]); // Begin
-        assert_eq!(buf[8..16], vec![0, 0, 0, 0, 0, 0, 0, 1]); // Block
-    }
-
-    #[test]
     fn peer_asks_for_piece_server_doesnt_have_it_log_client_has_no_piece() {
         // arrange
         let peer_id = get_fake_peer_id();

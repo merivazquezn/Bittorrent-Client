@@ -117,9 +117,24 @@ impl OpenPeerConnectionWorker {
                                 .send_closed_connection(self.connection.get_peer_id());
                             self.peer_connection_manager_sender
                                 .failed_connection(self.connection.get_peer_id());
+                            // loop through all messages queued and call failed download for all of them, so they don't get lost in the void
+                            self.receiver.try_iter().for_each(|message| {
+                                if let OpenPeerConnectionMessage::DownloadPiece(piece_index) =
+                                    message
+                                {
+                                    self.piece_manager_sender.failed_download(
+                                        piece_index,
+                                        self.connection.get_peer_id(),
+                                    );
+                                }
+                            });
+
                             return Err((
-                                format!("Failed peer connection {}", self.connection.get_peer_ip(),),
-                                self.connection.get_peer_id().to_vec(),
+                                format!(
+                                    "Failed peer connection {:?}",
+                                    self.connection.get_peer_id()
+                                ),
+                                self.connection.get_peer_id(),
                             ));
                         }
                     } else {

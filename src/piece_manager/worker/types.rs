@@ -10,9 +10,8 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
 
 const LOGGER: CustomLogger = CustomLogger::init("Piece Manager");
-
+const MINIMUM_PIECES_TO_DOWNLOAD: usize = 10;
 type PeerId = Vec<u8>;
-const FIRST_MIN_CONNECTIONS: usize = 20;
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
     pub allowed_peers_to_download_piece: HashMap<u32, Vec<PeerId>>,
@@ -56,11 +55,9 @@ impl PieceManagerWorker {
         self.piece_asked_to.remove(&piece_index);
 
         // this unwrap would never happen peer would only be removed once the connection fails
-        let count = self
-            .peer_pieces_to_download_count
-            .get_mut(&peer_id)
-            .unwrap();
-        *count -= 1;
+        if let Some(count) = self.peer_pieces_to_download_count.get_mut(&peer_id) {
+            *count -= 1;
+        }
         if self.allowed_peers_to_download_piece[&piece_index].is_empty() {
             self.pieces_without_peer.insert(piece_index);
         }
@@ -175,30 +172,11 @@ impl PieceManagerWorker {
                 }
             });
         self.peer_pieces_to_download_count.remove(&peer_id);
-    }
-
-    fn re_ask_for_piece_sent_to_disconnected_peer(
-        &mut self,
-        peer_id: PeerId,
-        peer_connection_manager_sender: &PeerConnectionManagerSender,
-    ) {
-        let piece_asked_to_cloned = self.piece_asked_to.clone();
-        for (piece, peer) in piece_asked_to_cloned {
-            if peer == peer_id {
+        for (piece, peer_aked_to_id) in self.piece_asked_to.clone() {
+            if *peer_aked_to_id == peer_id {
                 self.piece_asked_to.remove(&piece);
-                self.ready_to_download_pieces.insert(piece);
-                self.ask_for_piece(peer_connection_manager_sender);
             }
         }
-    }
-
-    fn connection_failed(
-        &mut self,
-        peer_id: PeerId,
-        peer_connection_manager_sender: PeerConnectionManagerSender,
-    ) {
-        self.remove_peer_data(peer_id.clone());
-        self.re_ask_for_piece_sent_to_disconnected_peer(peer_id, &peer_connection_manager_sender);
     }
 
     fn add_allowed_peer_to_piece(&mut self, peer_id: PeerId, piece_number: u32) {
@@ -236,13 +214,12 @@ impl PieceManagerWorker {
         let downloadable_first_pieces = aux
             .iter()
             .take_while(|(_, peer_ids)| !peer_ids.is_empty())
-            .take(FIRST_MIN_CONNECTIONS);
+            .take(self.peer_pieces_to_download_count.len() * MINIMUM_PIECES_TO_DOWNLOAD);
         downloadable_first_pieces.for_each(|(_, _)| {
             self.ask_for_piece(peer_connection_manager_sender);
         });
     }
 
-    /// Starts downloading, begins with the first FIRST_MIN_CONNECTIONS pieces.
     fn start_downloading(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
         if self.recieved_bitfields == self.established_connections {
             if self.is_downloading {
@@ -252,13 +229,13 @@ impl PieceManagerWorker {
             self.recieved_bitfields = 0;
             self.established_connections = 0;
             self.ask_for_first_pieces(peer_connection_manager_sender);
-            info!("Started downloading from piece manager");
+            trace!("Started downloading from piece manager");
         }
     }
 
     fn no_peers_to_give_pieces(&self) -> bool {
         if self.pieces_without_peer.len() == self.allowed_peers_to_download_piece.len() {
-            warn!("No peers to send remaining pieces");
+            LOGGER.info_str("No peers to send remaining pieces");
             return true;
         }
         false
@@ -340,9 +317,10 @@ impl PieceManagerWorker {
                     );
                 }
                 PieceManagerMessage::FailedDownload(piece_index, peer_id) => {
-                    LOGGER.info(format!(
-                        "Piece manager received failed download of piece: {}. Retrying...",
-                        piece_index
+                    LOGGER.error(format!(
+                        "Piece manager received failed download of piece: {} from peer {:?} Retrying...",
+                        piece_index,
+                        peer_id
                     ));
                     self.piece_failed_download(
                         piece_index,
@@ -351,11 +329,11 @@ impl PieceManagerWorker {
                     );
                 }
                 PieceManagerMessage::FailedConnection(peer_id) => {
-                    info!(
+                    LOGGER.error(format!(
                         "Piece manager received failed connection with: {:?}",
                         peer_id
-                    );
-                    self.connection_failed(peer_id.clone(), peer_connection_manager_sender.clone());
+                    ));
+                    self.remove_peer_data(peer_id);
                 }
                 PieceManagerMessage::ReaskedTracker() => {
                     info!("Piece manager received reasked tracker msg");
