@@ -10,7 +10,6 @@ use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
 
 const LOGGER: CustomLogger = CustomLogger::init("Piece Manager");
-const MINIMUM_PIECES_TO_DOWNLOAD: usize = 10;
 type PeerId = Vec<u8>;
 pub struct PieceManagerWorker {
     pub reciever: Receiver<PieceManagerMessage>,
@@ -47,7 +46,7 @@ impl PieceManagerWorker {
         peer_connection_manager_sender: &PeerConnectionManagerSender,
     ) {
         self.update_after_succesfull_download(piece_index, peerd_id);
-        self.ask_for_piece(peer_connection_manager_sender);
+        self.ask_for_pieces(peer_connection_manager_sender);
     }
 
     fn update_after_failed_download(&mut self, piece_index: u32, peer_id: PeerId) {
@@ -70,7 +69,7 @@ impl PieceManagerWorker {
         peer_connection_manager_sender: &PeerConnectionManagerSender,
     ) {
         self.update_after_failed_download(piece_index, peer_id);
-        self.ask_for_piece(peer_connection_manager_sender);
+        self.ask_for_pieces(peer_connection_manager_sender);
     }
 
     fn last_piece_downloaded(&self) -> bool {
@@ -148,16 +147,17 @@ impl PieceManagerWorker {
         peer_id_of_less_pieces_to_download
     }
 
-    fn ask_for_piece(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
-        let piece = self.get_optimal_piece_to_download();
-
-        match piece {
-            Some(piece) => {
+    fn ask_for_pieces(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
+        while self
+            .peer_pieces_to_download_count
+            .values()
+            .any(|count| *count == 0)
+            && !self.allowed_peers_to_download_piece.is_empty()
+            && self.get_optimal_piece_to_download().is_some()
+        {
+            if let Some(piece) = self.get_optimal_piece_to_download() {
                 let peer_id = self.choose_best_peer_to_download_piece(piece);
                 self.execute_asking_piece(piece, peer_id, peer_connection_manager_sender);
-            }
-            None => {
-                LOGGER.info_str("All pieces requested");
             }
         }
     }
@@ -200,24 +200,9 @@ impl PieceManagerWorker {
 
             if self.is_downloading && self.pieces_without_peer.contains(&piece_number) {
                 trace!("Asking for piece {} after have msg", piece_number);
-                self.ask_for_piece(peer_connection_manager_sender)
+                self.ask_for_pieces(peer_connection_manager_sender)
             }
         }
-    }
-
-    fn ask_for_first_pieces(
-        &mut self,
-        peer_connection_manager_sender: &PeerConnectionManagerSender,
-    ) {
-        let aux = self.allowed_peers_to_download_piece.clone();
-
-        let downloadable_first_pieces = aux
-            .iter()
-            .take_while(|(_, peer_ids)| !peer_ids.is_empty())
-            .take(self.peer_pieces_to_download_count.len() * MINIMUM_PIECES_TO_DOWNLOAD);
-        downloadable_first_pieces.for_each(|(_, _)| {
-            self.ask_for_piece(peer_connection_manager_sender);
-        });
     }
 
     fn start_downloading(&mut self, peer_connection_manager_sender: &PeerConnectionManagerSender) {
@@ -228,7 +213,7 @@ impl PieceManagerWorker {
             self.is_downloading = true;
             self.recieved_bitfields = 0;
             self.established_connections = 0;
-            self.ask_for_first_pieces(peer_connection_manager_sender);
+            self.ask_for_pieces(peer_connection_manager_sender);
             trace!("Started downloading from piece manager");
         }
     }
@@ -252,7 +237,7 @@ impl PieceManagerWorker {
                     .allowed_peers_to_download_piece
                     .contains_key(piece_number)
             {
-                self.ask_for_piece(peer_connection_manager_sender);
+                self.ask_for_pieces(peer_connection_manager_sender);
             }
         });
         self.established_connections = 0;

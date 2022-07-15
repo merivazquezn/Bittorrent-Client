@@ -31,6 +31,7 @@ impl TorrentInformation {
             ("totalpiececount", &totalpiececount),
             ("filestructure", &filestructure),
             ("timeleft", &"-"),
+            ("timetaken", &"-"),
         ])
         .expect("Failed to create row data")
     }

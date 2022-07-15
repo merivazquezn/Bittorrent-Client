@@ -17,6 +17,7 @@ pub struct TorrentInformation {
     activeconnections: RefCell<u32>,
     filestructure: RefCell<Option<String>>,
     timeleft: RefCell<Option<String>>,
+    timetaken: RefCell<Option<String>>,
 }
 
 // Basic declaration of our type for the GObject type system
@@ -123,6 +124,13 @@ impl ObjectImpl for TorrentInformation {
                     glib::ParamFlags::READWRITE,
                 ),
                 glib::ParamSpecString::new(
+                    "timetaken",
+                    "TimeTaken",
+                    "TimeTaken",
+                    None, // Default value
+                    glib::ParamFlags::READWRITE,
+                ),
+                glib::ParamSpecString::new(
                     "filestructure",
                     "FileStructure",
                     "FileStructure",
@@ -203,6 +211,12 @@ impl ObjectImpl for TorrentInformation {
                     .expect("type conformity checked by `Object::set_property`");
                 self.timeleft.replace(timeleft);
             }
+            "timetaken" => {
+                let timetaken = value
+                    .get()
+                    .expect("type conformity checked by `Object::set_property`");
+                self.timetaken.replace(timetaken);
+            }
             "filestructure" => {
                 let filestructure = value
                     .get()
@@ -230,6 +244,7 @@ impl ObjectImpl for TorrentInformation {
             "downloadedpieces" => self.downloadedpieces.borrow().to_value(),
             "activeconnections" => self.activeconnections.borrow().to_value(),
             "timeleft" => self.timeleft.borrow().to_value(),
+            "timetaken" => self.timetaken.borrow().to_value(),
             "filestructure" => self.filestructure.borrow().to_value(),
             _ => unimplemented!(),
         }

@@ -151,6 +151,8 @@ impl GeneralInformationTab {
             Self::add_torrent_data(&content_area, &item, "Active Connections: ", "activeconnections");
             Self::add_torrent_data(&content_area, &item, "File Structure: ", "filestructure");
             Self::add_torrent_percentage(&content_area, &item, "Download progress: ", "downloadfraction");
+            Self::add_torrent_data(&content_area, &item, "Time taken: ", "timetaken");
+
 
             dialog.show_all();
         }));
@@ -342,6 +344,10 @@ impl GeneralInformationTab {
                 let seconds_left = pieces_left as f32 / download_speed;
                 item.set_property("timeleft", self.seconds_to_hh_mm_ss(seconds_left as u32));
             }
+
+            // set time taken to download
+            let time_taken = self.start_time.elapsed().as_secs();
+            item.set_property("timetaken", self.seconds_to_hh_mm_ss(time_taken as u32));
         });
         Ok(())
     }
