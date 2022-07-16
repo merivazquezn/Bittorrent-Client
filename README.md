@@ -2,6 +2,12 @@
 
 Bittorrent Client in Rust
 
+## Group Members
+- Luciano Trujillo
+- Tomás Szwarcberg
+- María Vázquez Navarro
+- Matías Fusco
+
 ## Prerequisites
 
 2. install gtk3 dev library for your system

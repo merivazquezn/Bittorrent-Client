@@ -11,6 +11,7 @@ pub use connection::RequestMessage;
 pub use connection::ServerConnection;
 pub use constants::*;
 pub use errors::ServerError;
+pub use errors::ThreadPoolError;
 use logger::*;
 pub use thread_pool::ThreadPool;
 pub use utils::client_has_piece;
