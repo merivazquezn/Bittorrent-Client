@@ -2,7 +2,10 @@ use super::constants::HTTP_PORT;
 use super::constants::LOCALHOST;
 use super::constants::POOL_WORKERS;
 use super::errors::TrackerError;
+use bittorrent_rustico::logger::CustomLogger;
 use bittorrent_rustico::server::ThreadPool;
+use std::fs;
+use std::io::prelude::*;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::sync::mpsc;
@@ -10,6 +13,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
+const LOGGER: CustomLogger = CustomLogger::init("tracker");
 enum TrackerMessage {
     Stop,
 }
@@ -17,7 +21,7 @@ enum TrackerMessage {
 /// Struct that handles the server's acceptor thread.
 pub struct TrackerServer {
     sender: Sender<TrackerMessage>,
-    handle: thread::JoinHandle<Result<(), TrackerError>>,
+    pub handle: thread::JoinHandle<Result<(), TrackerError>>,
 }
 
 impl TrackerServer {
@@ -42,77 +46,99 @@ impl TrackerServer {
     ///  server.stop().unwrap();
     ///  ```
     ///
-    pub fn new(time_to_sleep: Duration) -> TrackerServer {
+    pub fn new(testTx: Sender<TcpStream>) -> TrackerServer {
         let (tx, rx) = mpsc::channel();
         let listen_port: u16 = HTTP_PORT;
         let ip: &str = LOCALHOST;
-        let handle = thread::spawn(move || Self::listen(ip, listen_port, rx, time_to_sleep));
+        let handle = thread::spawn(move || Self::listen(ip, listen_port, testTx));
         TrackerServer { sender: tx, handle }
     }
 
-    fn listen(
-        ip: &str,
-        listen_port: u16,
-        receiver: Receiver<TrackerMessage>,
-        time_to_sleep: Duration,
-    ) -> Result<(), TrackerError> {
+    fn listen(ip: &str, listen_port: u16, testTx: Sender<TcpStream>) -> Result<(), TrackerError> {
         let address: String = format!("{}:{}", ip, listen_port);
         let listener: TcpListener = TcpListener::bind(&address)?;
 
-        listener.set_nonblocking(true).map_err(|_| {
-            TrackerError::CreationError("Failed trying to set non-blocking mode".to_string())
-        })?;
-
+        LOGGER.info(format!("Listening on {}", address));
         let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
 
         for incoming_stream in listener.incoming() {
-            if receiver.try_recv().is_ok() {
-                println!("Tracker received stop message");
-                break;
-            }
-
             match incoming_stream {
                 Ok(stream) => {
-                    println!("Tracker: Incoming connection");
+                    let stream_clone = stream.try_clone()?;
+                    LOGGER.info(format!("Tracker: Incoming connection"));
                     TrackerServer::handle_incoming_connection(stream, &pool);
                 }
-                Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
-                    // This doesen't mean an error ocurred, there just wasn't an incoming connection at the moment
-                    println!(
-                        "There aren't any incoming connection at the moment, going to sleep..."
-                    );
-
-                    thread::sleep(time_to_sleep);
+                Err(err) => {
+                    LOGGER.error(format!("Tracker: Error: {}", err));
+                    return Err(TrackerError::TcpError(err));
                 }
-                Err(err) => return Err(TrackerError::TcpError(err)),
             };
         }
 
         Ok(())
     }
 
-    fn handle_incoming_connection(_stream: TcpStream, pool: &ThreadPool) {
+    fn handle_incoming_connection(mut stream: TcpStream, pool: &ThreadPool) {
         pool.execute(move || {
-            println!("Handling incoming connection...");
-        });
-    }
+            let mut buffer = [0; 2048];
+            stream.read(&mut buffer).unwrap();
 
-    /// Stops the Tracker.
-    /// If the Tracker is in the middle of creating a connection, it may take a little while for it to finish.
-    /// # Returns
-    ///
-    /// ## On succes
-    /// `Ok(())`
-    ///
-    /// ## On error
-    /// `Err(TrackerError)`, containing inside the cause of the error
-    ///
-    /// ## Example
-    /// Check the example at the `run` method of the TrackerServer documentation.
-    ///
-    pub fn stop(self) -> Result<(), TrackerError> {
-        let _ = self.sender.send(TrackerMessage::Stop);
-        self.handle.join().map_err(|_| TrackerError::JoinError)??;
-        Ok(())
+            // buffer is the HTTP request, read the path and extract the extension of the file requested
+            let get = b"GET";
+            let (status_line, filename) = if buffer.starts_with(get) {
+                // path is the part of the request after the GET and before the HTTP/1.1
+                let request = std::str::from_utf8(&buffer).unwrap();
+                let path = request.trim_start_matches("GET /");
+                let mut path = path.split(" ").next().unwrap();
+
+                if path == "stats" || path.is_empty() {
+                    path = "index.html";
+                }
+
+                LOGGER.info(format!("path: {}", path));
+                ("HTTP/1.1 200 OK", path)
+            } else {
+                ("HTTP/1.1 404 NOT FOUND", "404.html")
+            };
+
+            LOGGER.info(format!("{}", filename));
+            let contents = fs::read(format!("{}{}", "frontend/build/", filename)).unwrap();
+
+            // based on the extension, write the correct content type to the header
+            let content_type = if filename.ends_with(".html") {
+                "text/html"
+            } else if filename.ends_with(".css") {
+                "text/css"
+            } else if filename.ends_with(".js") {
+                "application/javascript"
+            } else if filename.ends_with(".png") {
+                "image/png"
+            } else if filename.ends_with(".jpg") {
+                "image/jpeg"
+            } else if filename.ends_with(".gif") {
+                "image/gif"
+            } else if filename.ends_with(".svg") {
+                "image/svg+xml"
+            } else if filename.ends_with(".ico") {
+                "image/x-icon"
+            } else {
+                "text/plain"
+            };
+            let response = format!(
+                "{}\r\nContent-Length: {}\r\nContent-Type: {}\r\n\r\n",
+                status_line,
+                contents.len(),
+                content_type
+            );
+            let response = response.as_bytes();
+            let response = response
+                .iter()
+                .chain(contents.iter())
+                .cloned()
+                .collect::<Vec<_>>();
+
+            stream.write(&response).unwrap();
+            stream.flush().unwrap();
+        })
     }
 }

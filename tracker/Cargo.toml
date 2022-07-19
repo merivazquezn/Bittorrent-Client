@@ -9,3 +9,5 @@ edition = "2021"
 bittorrent_rustico = { path = ".." }
 sha1 = "0.10.1"
 rand = "0.8.4"
+pretty_env_logger = "0.4.0"
+log = "0.4.0"

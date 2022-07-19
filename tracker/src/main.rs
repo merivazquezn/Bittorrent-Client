@@ -1,7 +1,16 @@
-use std::time::Duration;
+use pretty_env_logger;
+use std::sync::mpsc::channel;
+use std::thread;
 use tracker::server::TrackerServer;
 
 fn main() {
-    let tracker_server = TrackerServer::new(Duration::from_secs(3));
-    tracker_server.stop().unwrap();
+    pretty_env_logger::init();
+    let (tx, rx) = channel();
+    let handle = thread::spawn(move || {
+        let res = rx.recv().unwrap();
+    });
+
+    let tracker_server = TrackerServer::new(tx);
+
+    tracker_server.handle.join().unwrap().unwrap();
 }
