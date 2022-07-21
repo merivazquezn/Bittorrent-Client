@@ -161,8 +161,8 @@ impl Worker {
                         break;
                     }
                 }
-                Err(_) => {
-                    error!("Error trying lock mutex, another thread holding the lock panicked");
+                Err(err) => {
+                     error!("Error trying lock mutex: {:?}", err);
                 }
             }
         });
