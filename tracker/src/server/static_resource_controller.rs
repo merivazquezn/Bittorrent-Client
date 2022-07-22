@@ -1,16 +1,17 @@
+use super::constants::STATS_ENDPOINT;
 use crate::http::HttpError;
 use crate::http::HttpGetRequest;
 use crate::http::IHttpService;
 use std::fs;
 
-pub struct StatsRequestHandler;
+pub struct StaticResourceController;
 
-impl StatsRequestHandler {
+impl StaticResourceController {
     pub fn handle(
         mut http_service: Box<dyn IHttpService>,
         request: HttpGetRequest,
     ) -> Result<(), HttpError> {
-        let filename = if request.path.contains("stats") || request.path.is_empty() {
+        let filename = if request.path.contains(STATS_ENDPOINT) || request.path.is_empty() {
             "index.html".to_string()
         } else {
             request.path

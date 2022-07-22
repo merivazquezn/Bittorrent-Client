@@ -6,9 +6,11 @@ use super::utils::is_get_request;
 use super::utils::parse_query_params_from_path;
 use super::utils::request_as_str;
 use super::HttpError;
+use bittorrent_rustico::logger::CustomLogger;
 use std::io::{Read, Write};
 use std::{collections::HashMap, net::TcpStream};
 
+const LOGGER: CustomLogger = CustomLogger::init("HTTP Service");
 #[derive(Debug)]
 pub struct HttpGetRequest {
     pub params: HashMap<String, String>,
@@ -42,10 +44,10 @@ impl HttpService {
 impl IHttpService for HttpService {
     fn parse_request(&mut self) -> Result<HttpGetRequest, HttpError> {
         let mut read_buffer: [u8; 2048] = [0; 2048];
-        println!("Parsing request...");
+        LOGGER.info_str("Parsing request...");
         let _ = self.stream.read(&mut read_buffer)?;
         let buffer: Vec<u8> = read_buffer.to_vec();
-        println!("Finished reading request");
+        LOGGER.info_str("Finished reading request");
         if !is_get_request(&buffer) {
             return Err(HttpError::InvalidRequest(
                 request_as_str(&buffer).to_string(),

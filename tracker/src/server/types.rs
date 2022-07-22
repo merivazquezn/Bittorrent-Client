@@ -1,7 +1,6 @@
 #[derive(Debug)]
 pub enum TrackerEndpoint {
     Announce,
-    Stats,
+    StaticResource,
     Metrics,
-    Other,
 }

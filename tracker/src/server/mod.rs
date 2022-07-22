@@ -1,7 +1,7 @@
 mod acceptor;
 mod constants;
 mod errors;
-mod stats;
+mod static_resource_controller;
 mod types;
 mod utils;
 

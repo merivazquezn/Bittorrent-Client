@@ -18,6 +18,9 @@
 .env.test.local
 .env.production.local
 
+# ignore node_modules of frontend directory
+/frontend/node_modules
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
