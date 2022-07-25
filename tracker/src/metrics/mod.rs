@@ -1,5 +1,6 @@
 pub mod sender;
 pub mod params;
+pub mod grouping_methods;
 mod types;
 mod worker;
 pub use sender::MetricsSender;
