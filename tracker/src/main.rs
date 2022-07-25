@@ -13,7 +13,10 @@ fn bind_server() -> std::net::TcpListener {
 
 fn main() {
     pretty_env_logger::init();
-    LOGGER.info_str("Starting Tracker...");
+    LOGGER.info(format!(
+        "Tracker escuchando en {}:{}",
+        LOCALHOST, LISTEN_PORT
+    ));
     let http_service_factory = HttpServiceFactory::new(bind_server());
     let handle = thread::spawn(|| {
         let _ = TrackerServer::listen(Box::new(http_service_factory));

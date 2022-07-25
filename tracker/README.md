@@ -12,6 +12,14 @@ This crate uses has some dependencies of the Bittorrent client created in the ro
 4. Run `yarn`command to install or update dependencies. It might take a while if it's the first time you install the dependencies.
 5. Use `yarn run build` to compile the react project, the backend will automatically use the last version (which is in the /frontend/build directory)
 
+Optional: if you will work on frontend code, after running `yarn run build` at least once:
+
+1. run `yarn run start`, this will start frontend server on port 3000.
+2. change the script tag to
+ ```<script defer="defer" src="http://localhost:3000/static/js/bundle.js"></script>``` 
+
+ That way, changes in the frontend will be automatically reflected on the server without having to build envery time
+
 ## How to run the tracker
 
-Use the `cargo run` command on the root tracker folder, where the Cargo.toml file is.
+Use the `RUST_LOG=info cargo run` command on the root tracker folder, where the Cargo.toml file is.
