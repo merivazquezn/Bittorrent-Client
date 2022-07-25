@@ -4,4 +4,6 @@ pub const ACTIVE_PEERS_STAT: &str = "active_peers";
 pub const COMPLETED_DOWNLOADS_STAT: &str = "complete_download_peers";
 pub const TORRENTS_STAT: &str = "torrents";
 pub const KEY_DELIMITER: &str = ".";
-pub const JSON_KEY: &str = "data";
+pub const DATA_JSON_KEY: &str = "data";
+pub const TIMESTAMP_JSON_KEY: &str = "moment";
+pub const VALUE_JSON_KEY: &str = "value";

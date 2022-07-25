@@ -77,8 +77,16 @@ impl MetricsWorker {
     }
 
     fn get_json_from_slice(grouped_slice: Vec<(i32, String)>) -> String {
+        let mut formatted = Vec::new();
+        for (value, timestamp) in grouped_slice{
+            let mut map = Map::new();
+            map.insert(TIMESTAMP_JSON_KEY.to_string(), json!(timestamp));
+            map.insert(VALUE_JSON_KEY.to_string(), json!(value));
+            formatted.push(Value::Object(map));
+        }
+        
         let mut map = Map::new();
-        map.insert(JSON_KEY.to_string(), json!(grouped_slice));
+        map.insert(DATA_JSON_KEY.to_string(), json!(formatted));
         let json_object = Value::Object(map);
         json_object.to_string()
     }
