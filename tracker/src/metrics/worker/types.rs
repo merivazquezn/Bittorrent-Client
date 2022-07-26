@@ -37,9 +37,15 @@ impl MetricsWorker {
     }
 
     fn choose_grouping_method(metric_key: String) -> Box<dyn ChunkAggregator>{
-        let split_iter = metric_key.split(KEY_DELIMITER);
-        let split: Vec<&str> = split_iter.collect();
-        let stat = split[1];
+        let stat;
+        if metric_key.contains(KEY_DELIMITER){
+            let split_iter = metric_key.split(KEY_DELIMITER);
+            let split: Vec<&str> = split_iter.collect();
+            stat = split[1];
+        }
+        else{
+            stat = &metric_key;
+        }
         let default = AggregatingMethod::Max;
         match stat {
             ACTIVE_PEERS_STAT => {Box::new(AggregatingMethod::Average)},
