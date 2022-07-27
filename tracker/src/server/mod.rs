@@ -1,8 +1,9 @@
 mod acceptor;
+mod announce;
 mod constants;
+mod controllers;
+mod endpoints;
 mod errors;
-mod static_resource_controller;
-mod types;
 mod utils;
 
 pub use acceptor::TrackerServer;

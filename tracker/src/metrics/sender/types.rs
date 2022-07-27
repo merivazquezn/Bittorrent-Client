@@ -1,6 +1,6 @@
 use super::super::types::MetricsMessage;
-use crate::metrics::params::*;
 use crate::http::IHttpService;
+use crate::metrics::params::*;
 use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;

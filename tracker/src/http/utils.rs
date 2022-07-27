@@ -16,6 +16,7 @@ pub fn parse_query_params_from_path(path: &str) -> Result<HashMap<String, String
     let query_params = path.split(QUERY_PARAMS_START).nth(1);
     match query_params {
         Some(query_params) => {
+            let query_params: String = decode_url(query_params);
             let mut params: HashMap<String, String> = HashMap::new();
             for param in query_params.split(QUERY_PARAMS_SEPARATOR) {
                 let key_value: Vec<&str> = param.split(KEY_VALUE_SEPARATOR).collect();
@@ -75,4 +76,21 @@ pub fn format_http_response(content: Vec<u8>, content_type: String) -> String {
         HTTP_HEADER_SEPARATOR,
         HTTP_HEADER_SEPARATOR
     )
+}
+
+pub fn decode_url(url: &str) -> String {
+    let mut res = String::new();
+    for c in url.chars() {
+        if c == '%' {
+            let mut hex = String::new();
+            hex.push(c);
+            hex.push(url.chars().nth(1).unwrap());
+            hex.push(url.chars().nth(2).unwrap());
+            let hex_num = u8::from_str_radix(&hex, 16).unwrap();
+            res.push(hex_num as char);
+        } else {
+            res.push(c);
+        }
+    }
+    res
 }

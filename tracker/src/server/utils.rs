@@ -1,5 +1,5 @@
 use super::constants::*;
-use super::types::TrackerEndpoint;
+use super::endpoints::TrackerEndpoint;
 
 pub fn parse_path(path: &str) -> TrackerEndpoint {
     if path == ANNOUNCE_ENDPOINT {

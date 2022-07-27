@@ -1,4 +1,4 @@
-use super::constants::STATS_ENDPOINT;
+use super::super::constants::STATS_ENDPOINT;
 use crate::http::HttpError;
 use crate::http::HttpGetRequest;
 use crate::http::IHttpService;
@@ -7,7 +7,7 @@ use std::fs;
 pub struct StaticResourceController;
 
 impl StaticResourceController {
-    pub fn handle(
+    pub fn serve_static_resources(
         mut http_service: Box<dyn IHttpService>,
         request: HttpGetRequest,
     ) -> Result<(), HttpError> {
