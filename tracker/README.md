@@ -6,7 +6,7 @@ This crate uses has some dependencies of the Bittorrent client created in the ro
 
 ## First, you have to initialize the frontend
 
-1. This project uses node 16.16.0. If you don't have it installed, instructions for each OS are found in [https://nodejs.org/es/download/]. You can check your node version running then `node -v` command.
+1. This project uses node 18.0.0. If you don't have it installed, instructions for each OS are found in [https://nodejs.org/es/download/]. You can check your node version running then `node -v` command.
 2. `cd` into the `frontend` directoy, where the `package.json` file is
 3. In order to install frontend dependencies, `yarn` is required. You can install it globally via npm running running `npm install --global yarn`
 4. Run `yarn`command to install or update dependencies. It might take a while if it's the first time you install the dependencies.

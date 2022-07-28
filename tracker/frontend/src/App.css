@@ -2,14 +2,20 @@
   text-align: center;
 }
 
+.ant-select-selector {
+  background-color: #444766 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
 .App-logo {
-  height: 40vmin;
+  height: 20vmin;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+    animation: App-logo-spin infinite 300s linear;
   }
 }
 
@@ -32,7 +38,8 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
-    transform: rotate(360deg);
+    transform: rotate(0deg);
   }
 }
