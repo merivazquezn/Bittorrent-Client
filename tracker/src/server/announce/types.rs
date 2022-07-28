@@ -23,6 +23,7 @@ pub struct AnnounceRequest {
     pub left: u32,
 }
 
+#[derive(Clone)]
 pub struct Peer {
     pub ip: String,
     pub port: u16,
