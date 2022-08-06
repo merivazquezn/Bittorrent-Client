@@ -4,6 +4,8 @@ use super::types::Peer;
 use super::types::PeerEntry;
 use super::types::TrackerResponse;
 use super::utils::is_active_peer;
+use super::utils::is_peer_stopping;
+use super::utils::peer_is_seeder;
 use super::AnnounceMessage;
 use crate::http::IHttpService;
 use bittorrent_rustico::bencode::encode;
@@ -37,12 +39,16 @@ impl AnnounceManagerWorker {
                         port: announce_request.port,
                         peer_id: announce_request.peer_id.clone(),
                     };
+                    let is_seeder: bool = peer_is_seeder(&announce_request);
+                    let is_stopping: bool = is_peer_stopping(&announce_request);
 
                     self.handle_announce(
                         http_service,
                         info_hash,
                         peer,
                         announce_request.ip.clone(),
+                        is_seeder,
+                        is_stopping,
                     );
                 }
             }
@@ -55,12 +61,27 @@ impl AnnounceManagerWorker {
         info_hash: Vec<u8>,
         peer: Peer,
         ip: String,
+        is_seeder: bool,
+        is_stopping: bool,
     ) {
         if self.torrent_already_exists(&info_hash) {
             let torrent_peers: &mut ActivePeers = self.get_peers_from_torrent(&info_hash);
-            Self::get_peers_and_send_response(torrent_peers, ip, peer.peer_id, http_service);
+            Self::get_peers_and_send_response(
+                torrent_peers,
+                ip,
+                peer.peer_id,
+                http_service,
+                is_seeder,
+                is_stopping,
+            );
         } else {
-            self.add_new_torrent_and_send_response(info_hash, ip, peer.peer_id, http_service);
+            self.add_new_torrent_and_send_response(
+                info_hash,
+                ip,
+                peer.peer_id,
+                http_service,
+                is_seeder,
+            );
         }
     }
 
@@ -69,6 +90,8 @@ impl AnnounceManagerWorker {
         ip: String,
         peer_id: Vec<u8>,
         http_service: Box<dyn IHttpService>,
+        is_seeder: bool,
+        is_stopping: bool,
     ) {
         let sender_peer: Peer = Peer {
             ip,
@@ -76,16 +99,30 @@ impl AnnounceManagerWorker {
             peer_id,
         };
 
+        let mut seeder_count: u32 = 0;
+        let mut leecher_count: u32 = 0;
         let mut active_peers: Vec<Peer> = Vec::new();
         let mut is_existing_peer = false;
+
         for (i, torrent_peer_entry) in torrent_peers.peers.iter_mut().enumerate() {
             if sender_peer.ip == torrent_peer_entry.peer.ip {
                 torrent_peer_entry.last_announce = Local::now();
+                torrent_peer_entry.is_seeder = is_seeder;
                 is_existing_peer = true;
+                if is_stopping {
+                    active_peers.remove(i);
+                }
+
                 continue;
             }
 
             if is_active_peer(torrent_peer_entry.last_announce) {
+                if torrent_peer_entry.is_seeder {
+                    seeder_count += 1;
+                } else {
+                    leecher_count += 1;
+                }
+
                 if active_peers.len() >= MAX_RESPONSE_PEERS {
                     continue;
                 }
@@ -95,18 +132,19 @@ impl AnnounceManagerWorker {
             }
         }
 
-        if !is_existing_peer {
+        if !is_existing_peer || !is_stopping {
             torrent_peers.peers.push(PeerEntry {
                 peer: sender_peer,
                 last_announce: Local::now(),
+                is_seeder,
             })
         }
 
         let response: TrackerResponse = TrackerResponse {
             interval_in_seconds: INTERVAL_IN_SECONDS,
             tracker_id: String::from(TRACKER_ID),
-            complete: 0,
-            incomplete: 0,
+            complete: seeder_count,
+            incomplete: leecher_count,
             peers: active_peers,
         };
 
@@ -119,6 +157,7 @@ impl AnnounceManagerWorker {
         ip: String,
         peer_id: Vec<u8>,
         http_service: Box<dyn IHttpService>,
+        is_seeder: bool,
     ) {
         let peer: Peer = Peer {
             ip,
@@ -130,6 +169,7 @@ impl AnnounceManagerWorker {
             peers: vec![PeerEntry {
                 peer,
                 last_announce: Local::now(),
+                is_seeder,
             }],
         };
 
