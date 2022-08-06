@@ -1,11 +1,15 @@
+use super::constants::INTERVAL_IN_SECONDS;
 use super::{AnnounceRequest, TrackerEvent};
 use crate::server::errors::AnnounceError;
+use chrono::prelude::*;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
 const DEFAULT_NUMWANT: u32 = 50;
 
 pub fn parse_request_from_params(
     params: HashMap<String, String>,
+    address: SocketAddr,
 ) -> Result<AnnounceRequest, AnnounceError> {
     let missing_params: Vec<String> = get_missing_mandatory_params(&params);
     if !missing_params.is_empty() {
@@ -18,9 +22,6 @@ pub fn parse_request_from_params(
     let uploaded: u32 = parse_entry_to_u32(&params, "uploaded")?;
     let downloaded: u32 = parse_entry_to_u32(&params, "downloaded")?;
     let left: u32 = parse_entry_to_u32(&params, "left")?;
-
-    // ip is an optional parameter, but for the moment it will be mandatory
-    let ip: String = params.get("ip").unwrap().to_string();
 
     let mut event: TrackerEvent = TrackerEvent::KeepAlive;
     if params.contains_key("event") {
@@ -48,9 +49,9 @@ pub fn parse_request_from_params(
         uploaded,
         downloaded,
         left,
-        ip,
         event,
         numwant,
+        ip: address.ip().to_string(),
     })
 }
 
@@ -71,7 +72,6 @@ fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String>
         "uploaded",
         "downloaded",
         "left",
-        "ip",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -84,4 +84,9 @@ fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String>
     }
 
     missing_params
+}
+
+pub fn is_active_peer(last_announce: DateTime<Local>) -> bool {
+    let time_between_announces: chrono::Duration = Local::now() - last_announce;
+    time_between_announces < chrono::Duration::seconds((2 * INTERVAL_IN_SECONDS).into())
 }

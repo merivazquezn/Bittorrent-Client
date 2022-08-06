@@ -8,6 +8,7 @@ use super::utils::request_as_str;
 use super::HttpError;
 use bittorrent_rustico::logger::CustomLogger;
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 use std::{collections::HashMap, net::TcpStream};
 
 const LOGGER: CustomLogger = CustomLogger::init("HTTP Service");
@@ -24,14 +25,17 @@ pub trait IHttpService: Send {
         -> Result<(), HttpError>;
 
     fn send_not_found(&mut self) -> Result<(), HttpError>;
+
+    fn get_client_address(&self) -> SocketAddr;
 }
 pub struct HttpService {
     stream: TcpStream,
+    address: SocketAddr,
 }
 
 impl HttpService {
-    pub fn from_stream(stream: TcpStream) -> HttpService {
-        HttpService { stream }
+    pub fn from_stream_and_address(stream: TcpStream, address: SocketAddr) -> HttpService {
+        HttpService { stream, address }
     }
 
     fn send_response(&mut self, response: Vec<u8>) -> Result<(), HttpError> {
@@ -63,6 +67,10 @@ impl IHttpService for HttpService {
             params,
             path: endpoint,
         })
+    }
+
+    fn get_client_address(&self) -> SocketAddr {
+        self.address
     }
 
     fn send_not_found(&mut self) -> Result<(), HttpError> {

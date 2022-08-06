@@ -19,7 +19,7 @@ impl HttpServiceFactory {
 impl IHttpServiceFactory for HttpServiceFactory {
     fn get_new_connection(&self) -> Result<Box<dyn IHttpService>, HttpError> {
         match self.tcp_listener.accept() {
-            Ok((stream, _)) => Ok(Box::new(HttpService::from_stream(stream))),
+            Ok((stream, addr)) => Ok(Box::new(HttpService::from_stream_and_address(stream, addr))),
             Err(_) => Err(HttpError::HttpError(
                 "Could not accept connection".to_string(),
             )),

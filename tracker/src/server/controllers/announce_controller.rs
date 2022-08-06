@@ -15,7 +15,8 @@ impl AnnounceController {
         announce_manager: AnnounceManager,
     ) -> Result<(), AnnounceError> {
         let params: HashMap<String, String> = request.params;
-        let announce_request: AnnounceRequest = parse_request_from_params(params)?;
+        let announce_request: AnnounceRequest =
+            parse_request_from_params(params, http_service.get_client_address())?;
         announce_manager.announce(announce_request, http_service);
         Ok(())
     }
