@@ -21,7 +21,7 @@ RUST_LOG=info UI=true cargo run ./example_torrents/debian.torrent
 
 If you want to run application without UI, avoid setting the UI environment variable:
 ```
-RUST_LOG=info cargo run ./example_torrents/debian.torrent```
+RUST_LOG=info cargo run ./example_torrents/debian.torrent
 
 run integration tests:
 ```
