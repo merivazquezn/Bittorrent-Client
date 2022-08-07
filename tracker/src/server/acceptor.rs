@@ -6,6 +6,7 @@ use super::controllers::StaticResourceController;
 use super::endpoints::TrackerEndpoint;
 use super::errors::TrackerError;
 use super::utils::parse_path;
+use crate::aggregator::AggregatorSender;
 use crate::http::HttpGetRequest;
 use crate::http::IHttpService;
 use crate::http::IHttpServiceFactory;
@@ -17,9 +18,12 @@ const LOGGER: CustomLogger = CustomLogger::init("Acceptor");
 pub struct TrackerServer;
 
 impl TrackerServer {
-    pub fn listen(http_service_factory: Box<dyn IHttpServiceFactory>) -> Result<(), TrackerError> {
+    pub fn listen(
+        http_service_factory: Box<dyn IHttpServiceFactory>,
+        aggregator: AggregatorSender,
+    ) -> Result<(), TrackerError> {
         let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
-        let (announce_manager_sender, announce_manager_worker) = new_announce_manager();
+        let (announce_manager_sender, announce_manager_worker) = new_announce_manager(aggregator);
         std::thread::spawn(move || {
             let _ = announce_manager_worker.listen();
         });

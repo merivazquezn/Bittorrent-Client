@@ -29,10 +29,6 @@ impl Aggregator {
 
         let timer = Timer::new();
         let timer_handle = std::thread::spawn(move || {
-            // if let Err(err) = timer.worker.start(aggregator_sender) {
-            // println!("Error in timer: {:?}", err);
-            // }
-            // habria que ver si se puede sacar el unwrap
             timer.worker.start(aggregator_sender).unwrap();
         });
 

@@ -6,7 +6,7 @@ use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
-// import constants 
+// import constants
 use crate::aggregator::constants::UPDATE_INTERVAL;
 
 pub struct AggregatorWorker {
@@ -15,7 +15,6 @@ pub struct AggregatorWorker {
     pub last_metrics_update: Instant,
     pub timer_sender: TimerSender,
 }
-
 
 impl AggregatorWorker {
     fn increment(&mut self, key: String) {

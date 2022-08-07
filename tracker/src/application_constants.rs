@@ -7,3 +7,4 @@ pub const KEY_DELIMITER: &str = ".";
 pub const DATA_JSON_KEY: &str = "data";
 pub const TIMESTAMP_JSON_KEY: &str = "moment";
 pub const VALUE_JSON_KEY: &str = "value";
+pub const STORE_DAYS: u32 = 5;

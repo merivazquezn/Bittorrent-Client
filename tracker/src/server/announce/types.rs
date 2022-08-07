@@ -1,8 +1,10 @@
 use crate::http::IHttpService;
 use chrono::prelude::*;
 
+#[allow(dead_code)]
 pub enum AnnounceMessage {
     Announce(AnnounceRequest, Box<dyn IHttpService>),
+    Stop,
 }
 
 /// Event that identifies what is the peer's state

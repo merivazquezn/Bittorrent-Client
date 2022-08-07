@@ -1,5 +1,4 @@
 use super::super::types::MetricsMessage;
-use crate::http::IHttpService;
 use crate::application_constants::*;
 use crate::http::IHttpService;
 use crate::metrics::grouping_methods::*;
@@ -13,7 +12,7 @@ use std::sync::mpsc::{Receiver, RecvError};
 
 pub struct MetricsWorker {
     pub receiver: Receiver<MetricsMessage>,
-    pub record: HashMap<String, Vec<(i32, String)>>,
+    pub record: HashMap<String, Vec<(i32, DateTime<Local>)>>,
     pub store_minutes: usize,
 }
 
@@ -27,34 +26,49 @@ fn timestamp_to_string(timestamp: DateTime<Local>) -> String {
 
 impl MetricsWorker {
     fn send_metric(
-        &self,
-        _https_service: Box<dyn IHttpService>,
-        _key: String,
-        _time_frame: TimeFrame,
-        _groupby: GroupBy,
+        &mut self,
+        mut https_service: Box<dyn IHttpService>,
+        metric_key: String,
+        timeframe: TimeFrame,
+        groupby: GroupBy,
     ) {
-        //send JSON through IHttpsService
+        if !self.record.contains_key(&metric_key) {
+            let _ = https_service
+                .send_ok_response("".as_bytes().to_vec(), "application/json".to_string());
+            return;
+        }
+
+        let record_vector = self.record.get_mut(&metric_key).unwrap();
+        let lower_bound = Self::get_lower_bound(record_vector, timeframe);
+        let record_slice = &record_vector[lower_bound..];
+        let grouped_slice = Self::group_slice(record_slice, groupby, metric_key);
+        let grouped_slice_as_string: Vec<(i32, String)> = grouped_slice
+            .iter()
+            .map(|tuple| (tuple.0, timestamp_to_string(tuple.1)))
+            .collect();
+
+        let json: String = Self::get_json_from_slice(grouped_slice_as_string);
+        let _ = https_service
+            .send_ok_response(json.as_bytes().to_vec(), "application/json".to_string());
     }
 
     fn update(&mut self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
-        let timestamp_string = timestamp_to_string(timestamp);
         for (key, value) in aggregation.iter() {
             if !self.record.contains_key(key) {
-                self.record
-                    .insert(key.clone(), vec![(value.clone(), timestamp_string.clone())]);
+                self.record.insert(key.clone(), vec![(*value, timestamp)]);
                 continue;
             }
 
             let record_vector = self.record.get_mut(key).unwrap();
 
-            record_vector.push((value.clone(), timestamp_string.clone()));
+            record_vector.push((*value, timestamp));
 
             if record_vector.len() > self.store_minutes {
                 record_vector.remove(0);
             }
         }
     }
-    
+
     pub fn listen(&mut self) -> Result<(), RecvError> {
         loop {
             let message = self.receiver.recv()?;
@@ -93,15 +107,18 @@ impl MetricsWorker {
             &metric_key
         };
 
-        let default = AggregatingMethod::Max;
-        match stat {
-            ACTIVE_PEERS_STAT => Box::new(AggregatingMethod::Average),
-            COMPLETED_DOWNLOADS_STAT => Box::new(AggregatingMethod::Max),
-            TORRENTS_STAT => Box::new(AggregatingMethod::Max),
-            _ => Box::new(default),
-        }
+        let default: AggregatingMethod = AggregatingMethod::Max;
+        let method: AggregatingMethod = match stat {
+            ACTIVE_PEERS_STAT => AggregatingMethod::Average,
+            COMPLETED_DOWNLOADS_STAT => AggregatingMethod::Max,
+            TORRENTS_STAT => AggregatingMethod::Max,
+            _ => default,
+        };
+
+        Box::new(method)
     }
 
+    /*
     fn rounded_timestamp_string(timestamp: DateTime<Local>, round_to_duration: Duration) -> String {
         timestamp
             .duration_round(round_to_duration)
@@ -109,12 +126,13 @@ impl MetricsWorker {
             .format("%Y-%m-%d %H:%M:%S")
             .to_string()
     }
+    */
 
     fn group_slice(
         record_slice: &[(i32, DateTime<Local>)],
         groupby: GroupBy,
         metric_key: String,
-    ) -> Vec<(i32, String)> {
+    ) -> Vec<(i32, DateTime<Local>)> {
         let group_minutes;
         let round_to;
         match groupby {
@@ -131,8 +149,8 @@ impl MetricsWorker {
         let grouping_method = Self::choose_grouping_method(metric_key);
         for chunk in record_slice.chunks(group_minutes as usize) {
             let stat_value = grouping_method.aggregate(chunk);
-            let timestamp: String = Self::rounded_timestamp_string(chunk[0].1, round_to);
-            grouped.push((stat_value, timestamp));
+            // let timestamp: String = Self::rounded_timestamp_string(chunk[0].1, round_to);
+            grouped.push((stat_value, chunk[0].1.duration_round(round_to).unwrap()));
         }
         grouped
     }
@@ -150,45 +168,5 @@ impl MetricsWorker {
         map.insert(DATA_JSON_KEY.to_string(), json!(formatted));
         let json_object = Value::Object(map);
         json_object.to_string()
-    }
-
-    fn send_metric(
-        &mut self,
-        mut https_service: Box<dyn IHttpService>,
-        metric_key: String,
-        timeframe: TimeFrame,
-        groupby: GroupBy,
-    ) {
-        if !self.record.contains_key(&metric_key) {
-            let _ = https_service
-                .send_ok_response("".as_bytes().to_vec(), "application/json".to_string());
-            return;
-        }
-
-        let record_vector = self.record.get_mut(&metric_key).unwrap();
-        let lower_bound = Self::get_lower_bound(record_vector, timeframe);
-        let record_slice = &record_vector[lower_bound..];
-        let grouped_slice = Self::group_slice(record_slice, groupby, metric_key);
-
-        let json: String = Self::get_json_from_slice(grouped_slice);
-        let _ = https_service
-            .send_ok_response(json.as_bytes().to_vec(), "application/json".to_string());
-    }
-
-    fn update(&mut self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
-        for (key, value) in aggregation.iter() {
-            if !self.record.contains_key(key) {
-                self.record.insert(key.clone(), vec![(*value, timestamp)]);
-                continue;
-            }
-
-            let record_vector = self.record.get_mut(key).unwrap();
-
-            record_vector.push((*value, timestamp));
-
-            if record_vector.len() > self.store_minutes {
-                record_vector.remove(0);
-            }
-        }
     }
 }

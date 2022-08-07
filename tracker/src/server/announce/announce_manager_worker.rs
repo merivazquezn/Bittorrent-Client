@@ -6,7 +6,8 @@ use super::types::TrackerResponse;
 use super::utils::is_active_peer;
 use super::utils::is_peer_stopping;
 use super::utils::peer_is_seeder;
-use super::AnnounceMessage;
+use super::{AnnounceMessage, TrackerEvent};
+use crate::aggregator::AggregatorSender;
 use crate::http::IHttpService;
 use bittorrent_rustico::bencode::encode;
 use bittorrent_rustico::bencode::BencodeDecodedValue;
@@ -18,13 +19,15 @@ use std::sync::mpsc::RecvError;
 pub struct AnnounceManagerWorker {
     peers_by_torrent: HashMap<Vec<u8>, ActivePeers>,
     receiver: Receiver<AnnounceMessage>,
+    aggregator: AggregatorSender,
 }
 
 impl AnnounceManagerWorker {
-    pub fn new(receiver: Receiver<AnnounceMessage>) -> Self {
+    pub fn new(receiver: Receiver<AnnounceMessage>, aggregator_sender: AggregatorSender) -> Self {
         AnnounceManagerWorker {
             peers_by_torrent: HashMap::new(),
             receiver,
+            aggregator: aggregator_sender,
         }
     }
 
@@ -41,8 +44,14 @@ impl AnnounceManagerWorker {
                     };
                     let is_seeder: bool = peer_is_seeder(&announce_request);
                     let is_stopping: bool = is_peer_stopping(&announce_request);
+                    if announce_request.event == TrackerEvent::Completed {
+                        self.aggregator.increment(format!(
+                            "{}.complete_download_peers",
+                            String::from_utf8(info_hash.clone()).unwrap()
+                        ));
+                    }
 
-                    self.handle_announce(
+                    self = self.handle_announce(
                         http_service,
                         info_hash,
                         peer,
@@ -51,29 +60,31 @@ impl AnnounceManagerWorker {
                         is_stopping,
                     );
                 }
+                AnnounceMessage::Stop => break,
             }
         }
+
+        Ok(())
     }
 
     fn handle_announce(
-        &mut self,
+        self,
         http_service: Box<dyn IHttpService>,
         info_hash: Vec<u8>,
         peer: Peer,
         ip: String,
         is_seeder: bool,
         is_stopping: bool,
-    ) {
+    ) -> Self {
         if self.torrent_already_exists(&info_hash) {
-            let torrent_peers: &mut ActivePeers = self.get_peers_from_torrent(&info_hash);
-            Self::get_peers_and_send_response(
-                torrent_peers,
+            self.get_peers_and_send_response(
+                info_hash,
                 ip,
                 peer.peer_id,
                 http_service,
                 is_seeder,
                 is_stopping,
-            );
+            )
         } else {
             self.add_new_torrent_and_send_response(
                 info_hash,
@@ -81,18 +92,19 @@ impl AnnounceManagerWorker {
                 peer.peer_id,
                 http_service,
                 is_seeder,
-            );
+            )
         }
     }
 
     fn get_peers_and_send_response(
-        torrent_peers: &mut ActivePeers,
+        mut self,
+        info_hash: Vec<u8>,
         ip: String,
         peer_id: Vec<u8>,
         http_service: Box<dyn IHttpService>,
         is_seeder: bool,
         is_stopping: bool,
-    ) {
+    ) -> Self {
         let sender_peer: Peer = Peer {
             ip,
             port: http_service.get_client_address().port(),
@@ -104,7 +116,14 @@ impl AnnounceManagerWorker {
         let mut active_peers: Vec<Peer> = Vec::new();
         let mut is_existing_peer = false;
 
-        for (i, torrent_peer_entry) in torrent_peers.peers.iter_mut().enumerate() {
+        for (i, torrent_peer_entry) in self
+            .peers_by_torrent
+            .get_mut(&info_hash)
+            .unwrap()
+            .peers
+            .iter_mut()
+            .enumerate()
+        {
             if sender_peer.ip == torrent_peer_entry.peer.ip {
                 torrent_peer_entry.last_announce = Local::now();
                 torrent_peer_entry.is_seeder = is_seeder;
@@ -133,12 +152,19 @@ impl AnnounceManagerWorker {
         }
 
         if !is_existing_peer || !is_stopping {
-            torrent_peers.peers.push(PeerEntry {
-                peer: sender_peer,
-                last_announce: Local::now(),
-                is_seeder,
-            })
+            self.peers_by_torrent
+                .get_mut(&info_hash)
+                .unwrap()
+                .peers
+                .push(PeerEntry {
+                    peer: sender_peer,
+                    last_announce: Local::now(),
+                    is_seeder,
+                })
         }
+
+        let key: String = format!("{}.active_peers", String::from_utf8(info_hash).unwrap());
+        self.aggregator.set(key, active_peers.len() as i32);
 
         let response: TrackerResponse = TrackerResponse {
             interval_in_seconds: INTERVAL_IN_SECONDS,
@@ -149,16 +175,17 @@ impl AnnounceManagerWorker {
         };
 
         Self::send_response(http_service, response);
+        self
     }
 
     fn add_new_torrent_and_send_response(
-        &mut self,
+        mut self,
         info_hash: Vec<u8>,
         ip: String,
         peer_id: Vec<u8>,
         http_service: Box<dyn IHttpService>,
         is_seeder: bool,
-    ) {
+    ) -> Self {
         let peer: Peer = Peer {
             ip,
             port: http_service.get_client_address().port(),
@@ -173,7 +200,12 @@ impl AnnounceManagerWorker {
             }],
         };
 
-        self.peers_by_torrent.insert(info_hash, new_active_peers);
+        self.peers_by_torrent
+            .insert(info_hash.clone(), new_active_peers);
+
+        let key: String = format!("{}.active_peers", String::from_utf8(info_hash).unwrap());
+        self.aggregator.set(key, 1);
+
         let response: TrackerResponse = TrackerResponse {
             interval_in_seconds: INTERVAL_IN_SECONDS,
             tracker_id: String::from(TRACKER_ID),
@@ -182,14 +214,11 @@ impl AnnounceManagerWorker {
             peers: Vec::new(),
         };
         Self::send_response(http_service, response);
+        self
     }
 
     fn torrent_already_exists(&self, info_hash: &Vec<u8>) -> bool {
         self.peers_by_torrent.contains_key(info_hash)
-    }
-
-    fn get_peers_from_torrent(&mut self, info_hash: &Vec<u8>) -> &mut ActivePeers {
-        self.peers_by_torrent.get_mut(info_hash).unwrap()
     }
 
     fn send_response(mut http_service: Box<dyn IHttpService>, response: TrackerResponse) {
