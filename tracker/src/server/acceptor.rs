@@ -69,6 +69,7 @@ impl TrackerServer {
                 announce_manager,
             )?),
             _ => {
+                // This is the endpoint where the frontend will ask for statistics
                 unimplemented!();
             }
         }

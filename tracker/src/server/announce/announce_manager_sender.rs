@@ -1,6 +1,7 @@
 use super::AnnounceMessage;
 use super::AnnounceRequest;
-use crate::http::IHttpService;
+use crate::server::announce::TrackerResponse;
+use std::sync::mpsc::RecvError;
 use std::sync::mpsc::Sender;
 
 #[derive(Clone, Debug)]
@@ -13,9 +14,17 @@ impl AnnounceManager {
         AnnounceManager { sender }
     }
 
-    pub fn announce(&self, announce_request: AnnounceRequest, http_service: Box<dyn IHttpService>) {
+    pub fn announce_and_get_response(
+        &self,
+        announce_request: AnnounceRequest,
+    ) -> Result<TrackerResponse, RecvError> {
+        let (sender, receiver) = std::sync::mpsc::channel();
         let _ = self
             .sender
-            .send(AnnounceMessage::Announce(announce_request, http_service));
+            .send(AnnounceMessage::Announce(announce_request, sender));
+
+        let response: TrackerResponse = receiver.recv()?;
+
+        Ok(response)
     }
 }

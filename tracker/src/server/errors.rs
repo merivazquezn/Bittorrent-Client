@@ -1,6 +1,7 @@
 use bittorrent_rustico::server::ThreadPoolError;
 use std::fmt;
 use std::io;
+use std::sync::mpsc::RecvError;
 
 use crate::http::HttpError;
 
@@ -19,6 +20,8 @@ pub enum TrackerError {
 pub enum AnnounceError {
     MissingParam(String),
     BadRequest,
+    HttpError(HttpError),
+    ChannelError(RecvError),
 }
 
 impl From<HttpError> for TrackerError {
@@ -39,6 +42,18 @@ impl From<io::Error> for TrackerError {
     }
 }
 
+impl From<HttpError> for AnnounceError {
+    fn from(error: HttpError) -> Self {
+        AnnounceError::HttpError(error)
+    }
+}
+
+impl From<RecvError> for AnnounceError {
+    fn from(error: RecvError) -> Self {
+        AnnounceError::ChannelError(error)
+    }
+}
+
 impl From<AnnounceError> for TrackerError {
     fn from(error: AnnounceError) -> Self {
         TrackerError::AnnounceError(error)
@@ -53,6 +68,12 @@ impl fmt::Display for AnnounceError {
             }
             AnnounceError::BadRequest => {
                 write!(f, "Bad request")
+            }
+            AnnounceError::HttpError(error) => {
+                write!(f, "Http error: {}", error)
+            }
+            AnnounceError::ChannelError(error) => {
+                write!(f, "Channel error: {}", error)
             }
         }
     }

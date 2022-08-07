@@ -8,9 +8,6 @@ use super::utils::is_peer_stopping;
 use super::utils::peer_is_seeder;
 use super::{AnnounceMessage, TrackerEvent};
 use crate::aggregator::AggregatorSender;
-use crate::http::IHttpService;
-use bittorrent_rustico::bencode::encode;
-use bittorrent_rustico::bencode::BencodeDecodedValue;
 use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
@@ -35,7 +32,7 @@ impl AnnounceManagerWorker {
         loop {
             let message: AnnounceMessage = self.receiver.recv()?;
             match message {
-                AnnounceMessage::Announce(announce_request, http_service) => {
+                AnnounceMessage::Announce(announce_request, sender) => {
                     let info_hash: Vec<u8> = announce_request.info_hash.clone();
                     let peer: Peer = Peer {
                         ip: announce_request.ip.clone(),
@@ -45,20 +42,28 @@ impl AnnounceManagerWorker {
                     let is_seeder: bool = peer_is_seeder(&announce_request);
                     let is_stopping: bool = is_peer_stopping(&announce_request);
                     if announce_request.event == TrackerEvent::Completed {
-                        self.aggregator.increment(format!(
-                            "{}.complete_download_peers",
-                            String::from_utf8(info_hash.clone()).unwrap()
-                        ));
+                        let info_hash_str = match String::from_utf8(info_hash.clone()) {
+                            Ok(s) => s,
+                            Err(_) => {
+                                println!("Invalid info hash");
+                                continue;
+                            }
+                        };
+                        self.aggregator
+                            .increment(format!("{}.complete_download_peers", info_hash_str));
                     }
 
-                    self = self.handle_announce(
-                        http_service,
+                    let announce_res = self.handle_announce(
                         info_hash,
                         peer,
                         announce_request.ip.clone(),
+                        announce_request.port,
                         is_seeder,
                         is_stopping,
                     );
+                    self = announce_res.0;
+                    let response: TrackerResponse = announce_res.1;
+                    sender.send(response).unwrap();
                 }
                 AnnounceMessage::Stop => break,
             }
@@ -69,47 +74,30 @@ impl AnnounceManagerWorker {
 
     fn handle_announce(
         self,
-        http_service: Box<dyn IHttpService>,
         info_hash: Vec<u8>,
         peer: Peer,
         ip: String,
+        port: u16,
         is_seeder: bool,
         is_stopping: bool,
-    ) -> Self {
+    ) -> (Self, TrackerResponse) {
         if self.torrent_already_exists(&info_hash) {
-            self.get_peers_and_send_response(
-                info_hash,
-                ip,
-                peer.peer_id,
-                http_service,
-                is_seeder,
-                is_stopping,
-            )
+            self.get_peers(info_hash, ip, port, peer.peer_id, is_seeder, is_stopping)
         } else {
-            self.add_new_torrent_and_send_response(
-                info_hash,
-                ip,
-                peer.peer_id,
-                http_service,
-                is_seeder,
-            )
+            self.add_new_torrent(info_hash, ip, port, peer.peer_id, is_seeder)
         }
     }
 
-    fn get_peers_and_send_response(
+    fn get_peers(
         mut self,
         info_hash: Vec<u8>,
         ip: String,
+        port: u16,
         peer_id: Vec<u8>,
-        http_service: Box<dyn IHttpService>,
         is_seeder: bool,
         is_stopping: bool,
-    ) -> Self {
-        let sender_peer: Peer = Peer {
-            ip,
-            port: http_service.get_client_address().port(),
-            peer_id,
-        };
+    ) -> (Self, TrackerResponse) {
+        let sender_peer: Peer = Peer { ip, port, peer_id };
 
         let mut seeder_count: u32 = 0;
         let mut leecher_count: u32 = 0;
@@ -174,23 +162,18 @@ impl AnnounceManagerWorker {
             peers: active_peers,
         };
 
-        Self::send_response(http_service, response);
-        self
+        (self, response)
     }
 
-    fn add_new_torrent_and_send_response(
+    fn add_new_torrent(
         mut self,
         info_hash: Vec<u8>,
         ip: String,
+        port: u16,
         peer_id: Vec<u8>,
-        http_service: Box<dyn IHttpService>,
         is_seeder: bool,
-    ) -> Self {
-        let peer: Peer = Peer {
-            ip,
-            port: http_service.get_client_address().port(),
-            peer_id,
-        };
+    ) -> (Self, TrackerResponse) {
+        let peer: Peer = Peer { ip, port, peer_id };
 
         let new_active_peers: ActivePeers = ActivePeers {
             peers: vec![PeerEntry {
@@ -213,65 +196,11 @@ impl AnnounceManagerWorker {
             incomplete: 0,
             peers: Vec::new(),
         };
-        Self::send_response(http_service, response);
-        self
+
+        (self, response)
     }
 
     fn torrent_already_exists(&self, info_hash: &Vec<u8>) -> bool {
         self.peers_by_torrent.contains_key(info_hash)
-    }
-
-    fn send_response(mut http_service: Box<dyn IHttpService>, response: TrackerResponse) {
-        let response_bytes: Vec<u8> = Self::get_response_bytes(response);
-        match http_service.send_ok_response(response_bytes, "application/octet-stream".to_string())
-        {
-            Ok(()) => println!("Torrent added successfully"),
-            Err(err) => println!(
-                "Error sending ok response while adding new torrent: {:?}",
-                err
-            ),
-        };
-    }
-
-    /// Encodes with bencoding the tracker response, and returns the bytes to be sent
-    fn get_response_bytes(response: TrackerResponse) -> Vec<u8> {
-        let mut response_map: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
-
-        let interval_decoded: BencodeDecodedValue =
-            BencodeDecodedValue::Integer(response.interval_in_seconds as i64);
-        let tracker_id_decoded: BencodeDecodedValue =
-            BencodeDecodedValue::String(response.tracker_id.as_bytes().to_vec());
-        let complete_decoded: BencodeDecodedValue =
-            BencodeDecodedValue::Integer(response.complete as i64);
-        let incomplete_decoded: BencodeDecodedValue =
-            BencodeDecodedValue::Integer(response.incomplete as i64);
-
-        let mut benencoded_peers: Vec<BencodeDecodedValue> = Vec::new();
-        for peer in response.peers {
-            let mut peer_map: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
-            peer_map.insert(
-                "peer_id".as_bytes().to_vec(),
-                BencodeDecodedValue::String(peer.peer_id),
-            );
-            peer_map.insert(
-                "ip".as_bytes().to_vec(),
-                BencodeDecodedValue::String(peer.ip.as_bytes().to_vec()),
-            );
-            peer_map.insert(
-                "port".as_bytes().to_vec(),
-                BencodeDecodedValue::Integer(peer.port as i64),
-            );
-            benencoded_peers.push(BencodeDecodedValue::Dictionary(peer_map));
-        }
-        let peers_decoded: BencodeDecodedValue = BencodeDecodedValue::List(benencoded_peers);
-
-        response_map.insert("interval".as_bytes().to_vec(), interval_decoded);
-        response_map.insert("tracker_id".as_bytes().to_vec(), tracker_id_decoded);
-        response_map.insert("complete".as_bytes().to_vec(), complete_decoded);
-        response_map.insert("incomplete".as_bytes().to_vec(), incomplete_decoded);
-        response_map.insert("peers".as_bytes().to_vec(), peers_decoded);
-
-        let response_decoded: BencodeDecodedValue = BencodeDecodedValue::Dictionary(response_map);
-        encode(&response_decoded)
     }
 }

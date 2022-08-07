@@ -1,9 +1,9 @@
-use crate::http::IHttpService;
 use chrono::prelude::*;
+use std::sync::mpsc::Sender;
 
 #[allow(dead_code)]
 pub enum AnnounceMessage {
-    Announce(AnnounceRequest, Box<dyn IHttpService>),
+    Announce(AnnounceRequest, Sender<TrackerResponse>),
     Stop,
 }
 

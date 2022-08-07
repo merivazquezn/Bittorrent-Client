@@ -18,7 +18,6 @@ pub fn parse_request_from_params(
 
     let info_hash: Vec<u8> = params.get("info_hash").unwrap().clone().into_bytes();
     let peer_id: Vec<u8> = params.get("peer_id").unwrap().clone().into_bytes();
-    let port: u16 = parse_entry_to_u32(&params, "port")? as u16;
     let uploaded: u32 = parse_entry_to_u32(&params, "uploaded")?;
     let downloaded: u32 = parse_entry_to_u32(&params, "downloaded")?;
     let left: u32 = parse_entry_to_u32(&params, "left")?;
@@ -45,7 +44,7 @@ pub fn parse_request_from_params(
     Ok(AnnounceRequest {
         info_hash,
         peer_id,
-        port,
+        port: address.port(),
         uploaded,
         downloaded,
         left,
@@ -56,26 +55,20 @@ pub fn parse_request_from_params(
 }
 
 fn parse_entry_to_u32(params: &HashMap<String, String>, key: &str) -> Result<u32, AnnounceError> {
-    Ok(params
+    params
         .get(key)
         .unwrap()
         .parse()
-        .map_err(|_| AnnounceError::BadRequest))?
+        .map_err(|_| AnnounceError::BadRequest)
 }
 
 fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String> {
     let mut missing_params: Vec<String> = Vec::new();
-    let mandatory_params: Vec<String> = vec![
-        "info_hash",
-        "peer_id",
-        "port",
-        "uploaded",
-        "downloaded",
-        "left",
-    ]
-    .iter()
-    .map(|s| s.to_string())
-    .collect();
+    let mandatory_params: Vec<String> =
+        vec!["info_hash", "peer_id", "uploaded", "downloaded", "left"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
     for param in mandatory_params {
         if !params.contains_key(&param) {
