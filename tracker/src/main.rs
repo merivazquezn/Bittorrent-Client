@@ -36,11 +36,17 @@ fn main() {
     let handle_metrics = thread::spawn(move || {
         let _ = metrics_worker.listen();
     });
+    let metrics = metrics_sender.clone();
     let handle_aggregator = thread::spawn(move || {
-        let _ = aggregator_worker.listen(metrics_sender);
+        let _ = aggregator_worker.listen(metrics);
     });
+
     let handle_tracker = thread::spawn(move || {
-        let _ = TrackerServer::listen(Box::new(http_service_factory), aggregator.sender);
+        let _ = TrackerServer::listen(
+            Box::new(http_service_factory),
+            aggregator.sender,
+            metrics_sender,
+        );
     });
 
     handle_tracker

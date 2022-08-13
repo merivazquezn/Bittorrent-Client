@@ -5,7 +5,7 @@ use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MetricsSender {
     pub sender: Sender<MetricsMessage>,
 }

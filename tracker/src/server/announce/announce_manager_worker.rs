@@ -8,6 +8,7 @@ use super::utils::is_peer_stopping;
 use super::utils::peer_is_seeder;
 use super::{AnnounceMessage, TrackerEvent};
 use crate::aggregator::AggregatorSender;
+use crate::application_constants::{ACTIVE_PEERS_STAT, COMPLETED_DOWNLOADS_STAT, TORRENTS_STAT};
 use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
@@ -112,7 +113,7 @@ impl AnnounceManagerWorker {
             .iter_mut()
             .enumerate()
         {
-            if sender_peer.ip == torrent_peer_entry.peer.ip {
+            if sender_peer.peer_id == torrent_peer_entry.peer.peer_id {
                 torrent_peer_entry.last_announce = Local::now();
                 torrent_peer_entry.is_seeder = is_seeder;
                 is_existing_peer = true;
@@ -186,8 +187,19 @@ impl AnnounceManagerWorker {
         self.peers_by_torrent
             .insert(info_hash.clone(), new_active_peers);
 
-        let key: String = format!("{}.active_peers", String::from_utf8(info_hash).unwrap());
+        let key: String = format!(
+            "{}.{}",
+            String::from_utf8(info_hash.clone()).unwrap(),
+            ACTIVE_PEERS_STAT
+        );
         self.aggregator.set(key, 1);
+        let key: String = format!(
+            "{}.{}",
+            String::from_utf8(info_hash).unwrap(),
+            COMPLETED_DOWNLOADS_STAT
+        );
+        self.aggregator.set(key, 0);
+        self.aggregator.increment(TORRENTS_STAT.to_string());
 
         let response: TrackerResponse = TrackerResponse {
             interval_in_seconds: INTERVAL_IN_SECONDS,
@@ -200,7 +212,7 @@ impl AnnounceManagerWorker {
         (self, response)
     }
 
-    fn torrent_already_exists(&self, info_hash: &Vec<u8>) -> bool {
+    fn torrent_already_exists(&self, info_hash: &[u8]) -> bool {
         self.peers_by_torrent.contains_key(info_hash)
     }
 }

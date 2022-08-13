@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
 // import constants
-use crate::aggregator::constants::UPDATE_INTERVAL;
+use crate::aggregator::constants::UPDATE_INTERVAL_SECONDS;
 
 pub struct AggregatorWorker {
     pub receiver: Receiver<AggregatorMessage>,
@@ -34,7 +34,7 @@ impl AggregatorWorker {
     fn metrics_update_if_needed(&mut self, metrics_sender: &MetricsSender) {
         let now = Instant::now();
         let duration = now.duration_since(self.last_metrics_update);
-        if duration.as_secs() >= UPDATE_INTERVAL {
+        if duration.as_secs() >= UPDATE_INTERVAL_SECONDS {
             self.metrics_update(metrics_sender);
             self.last_metrics_update = now;
         }

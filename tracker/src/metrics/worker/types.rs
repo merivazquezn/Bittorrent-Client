@@ -33,8 +33,7 @@ impl MetricsWorker {
         groupby: GroupBy,
     ) {
         if !self.record.contains_key(&metric_key) {
-            let _ = https_service
-                .send_ok_response("".as_bytes().to_vec(), "application/json".to_string());
+            let _ = https_service.send_not_found();
             return;
         }
 
@@ -53,6 +52,7 @@ impl MetricsWorker {
     }
 
     fn update(&mut self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
+        println!("hashmap of aggregation: {:?}", aggregation);
         for (key, value) in aggregation.iter() {
             if !self.record.contains_key(key) {
                 self.record.insert(key.clone(), vec![(*value, timestamp)]);

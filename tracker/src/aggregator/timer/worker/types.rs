@@ -1,6 +1,7 @@
 use crate::aggregator::sender::AggregatorSender;
 use crate::aggregator::timer::errors::TimerError;
 use crate::aggregator::timer::types::TimerMessage;
+use crate::aggregator::UPDATE_INTERVAL_SECONDS;
 use log::*;
 use std::result::Result::Err;
 use std::sync::mpsc::Receiver;
@@ -13,7 +14,7 @@ pub struct TimerWorker {
 
 impl TimerWorker {
     pub fn start(&self, aggregator_sender: AggregatorSender) -> Result<(), TimerError> {
-        let d = Duration::from_millis(60000);
+        let d = Duration::from_secs(UPDATE_INTERVAL_SECONDS);
         loop {
             match self.receiver.recv_timeout(d) {
                 Ok(TimerMessage::Stop) => {
