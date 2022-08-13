@@ -14,6 +14,7 @@ pub enum TrackerError {
     InvalidEndpoint(String),
     HttpError(HttpError),
     AnnounceError(AnnounceError),
+    MetricsError(MetricsError),
 }
 
 #[derive(Debug)]
@@ -24,9 +25,33 @@ pub enum AnnounceError {
     ChannelError(RecvError),
 }
 
+#[derive(Debug)]
+pub enum MetricsError {
+    RecvError(RecvError),
+    HttpError(HttpError),
+}
+
+impl From<HttpError> for MetricsError {
+    fn from(error: HttpError) -> Self {
+        MetricsError::HttpError(error)
+    }
+}
+
+impl From<RecvError> for MetricsError {
+    fn from(error: RecvError) -> Self {
+        MetricsError::RecvError(error)
+    }
+}
+
 impl From<HttpError> for TrackerError {
     fn from(error: HttpError) -> Self {
         TrackerError::HttpError(error)
+    }
+}
+
+impl From<MetricsError> for TrackerError {
+    fn from(error: MetricsError) -> Self {
+        TrackerError::MetricsError(error)
     }
 }
 
@@ -91,6 +116,7 @@ impl fmt::Display for TrackerError {
             TrackerError::InvalidEndpoint(endpoint) => {
                 write!(f, "Received request on invalid endpoint: {}", endpoint)
             }
+            TrackerError::MetricsError(error) => write!(f, "Metrics error: {:?}", error),
         }
     }
 }

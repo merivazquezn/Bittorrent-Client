@@ -1,13 +1,13 @@
 use super::sender::*;
 use super::worker::*;
-use crate::http::IHttpService;
 use crate::metrics::params::*;
 use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::sync::mpsc::Sender;
 
 pub enum MetricsMessage {
-    SendMetric(Box<dyn IHttpService>, String, TimeFrame, GroupBy),
+    SendMetric(Sender<String>, String, TimeFrame, GroupBy),
     Update(HashMap<String, i32>, DateTime<Local>),
     Stop,
 }

@@ -1,9 +1,8 @@
 use super::super::types::MetricsMessage;
-use crate::http::IHttpService;
 use crate::metrics::params::*;
 use chrono::prelude::*;
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{RecvError, Sender};
 
 #[derive(Debug, Clone)]
 pub struct MetricsSender {
@@ -11,19 +10,19 @@ pub struct MetricsSender {
 }
 
 impl MetricsSender {
-    pub fn send_metric(
+    pub fn get_metrics_response(
         &self,
-        https_service: Box<dyn IHttpService>,
         metric_key: String,
         time_frame: TimeFrame,
         groupby: GroupBy,
-    ) {
+    ) -> Result<String, RecvError> {
+        let (sender, receiver) = std::sync::mpsc::channel();
         let _ = self.sender.send(MetricsMessage::SendMetric(
-            https_service,
-            metric_key,
-            time_frame,
-            groupby,
+            sender, metric_key, time_frame, groupby,
         ));
+
+        let response: String = receiver.recv()?;
+        Ok(response)
     }
 
     pub fn update(&self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {

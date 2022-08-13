@@ -1,6 +1,5 @@
 use super::super::types::MetricsMessage;
 use crate::application_constants::*;
-use crate::http::IHttpService;
 use crate::metrics::grouping_methods::*;
 use crate::metrics::params::*;
 use chrono::prelude::*;
@@ -8,6 +7,7 @@ use chrono::Duration;
 use chrono::DurationRound;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 use std::sync::mpsc::{Receiver, RecvError};
 
 pub struct MetricsWorker {
@@ -27,13 +27,14 @@ fn timestamp_to_string(timestamp: DateTime<Local>) -> String {
 impl MetricsWorker {
     fn send_metric(
         &mut self,
-        mut https_service: Box<dyn IHttpService>,
+        sender: Sender<String>,
         metric_key: String,
         timeframe: TimeFrame,
         groupby: GroupBy,
     ) {
         if !self.record.contains_key(&metric_key) {
-            let _ = https_service.send_not_found();
+            let error_json: String = "{ \"error\": \"Metric not found\" }".to_string();
+            let _ = sender.send(error_json);
             return;
         }
 
@@ -47,8 +48,7 @@ impl MetricsWorker {
             .collect();
 
         let json: String = Self::get_json_from_slice(grouped_slice_as_string);
-        let _ = https_service
-            .send_ok_response(json.as_bytes().to_vec(), "application/json".to_string());
+        let _ = sender.send(json);
     }
 
     fn update(&mut self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
@@ -73,8 +73,8 @@ impl MetricsWorker {
         loop {
             let message = self.receiver.recv()?;
             match message {
-                MetricsMessage::SendMetric(https_service, key, time_frame, groupby) => {
-                    self.send_metric(https_service, key, time_frame, groupby)
+                MetricsMessage::SendMetric(sender, key, time_frame, groupby) => {
+                    self.send_metric(sender, key, time_frame, groupby)
                 }
                 MetricsMessage::Update(aggregation, timestamp) => {
                     self.update(aggregation, timestamp)
