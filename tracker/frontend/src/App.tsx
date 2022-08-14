@@ -3,8 +3,16 @@ import logo from './logo.svg';
 import './App.css';
 import { Line } from '@ant-design/charts';
 import { Button, Select, InputNumber, Typography, Input } from "antd";
+import { message, Space } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { API } from "./API";
+
+message.config({
+  top: 50,
+  duration: 5,
+  maxCount: 3,
+  rtl: true,
+});
 
 const api = new API();
 
@@ -34,12 +42,14 @@ function App() {
   const [chartData, setChartData] = React.useState(data);
 
   const [config, setconfig] = React.useState<Config>({
+    timeFrameInterval: 'hours',
     timeFrameCount: 1,
+    groupBy: 'minutes',
     groupByCount: 1,
   });
 
   const chartConfig = {
-    data,
+    data: chartData,
     height: 400,
     width: document.documentElement.clientWidth * 0.8,
     xField: 'moment',
@@ -58,6 +68,8 @@ function App() {
     })
       .catch(err => {
         console.log(err);
+        message.error('There was an error getting data from the server. Make sure you input valid parameters');
+
       }
       );
   }
@@ -123,7 +135,7 @@ function App() {
             <Select.Option value="hours">Hours</Select.Option>
             <Select.Option value="minutes">Minutes</Select.Option>
           </Select>
-          <Button type="primary" size='large' shape="circle" icon={<ReloadOutlined />} />
+          <Button type="primary" size='large' shape="circle" icon={<ReloadOutlined />} onClick={handleReload} />
         </div>
         <div style={{ marginTop: 20 }}>
           <Line {...chartConfig} />

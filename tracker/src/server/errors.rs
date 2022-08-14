@@ -29,6 +29,7 @@ pub enum AnnounceError {
 pub enum MetricsError {
     RecvError(RecvError),
     HttpError(HttpError),
+    MissingKey(String),
 }
 
 impl From<HttpError> for MetricsError {
