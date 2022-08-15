@@ -21,11 +21,13 @@ pub struct TrackerServer;
 
 impl TrackerServer {
     pub fn listen(
-        http_service_factory: Box<dyn IHttpServiceFactory>,
+        mut http_service_factory: Box<dyn IHttpServiceFactory>,
         aggregator: AggregatorSender,
         metrics: MetricsSender,
+        threads: usize,
+        receiver: std::sync::mpsc::Receiver<()>,
     ) -> Result<(), TrackerError> {
-        let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
+        let pool: ThreadPool = ThreadPool::new(threads)?;
         let (announce_manager_sender, announce_manager_worker) = new_announce_manager(aggregator);
         std::thread::spawn(move || {
             let _ = announce_manager_worker.listen();
@@ -33,8 +35,20 @@ impl TrackerServer {
 
         loop {
             LOGGER.info_str("Server waiting for connection...");
+
+            if receiver.try_recv().is_ok() {
+                let _ = pool.stop();
+                return Ok(());
+            }
+
             let mut http_service: Box<dyn IHttpService> =
-                http_service_factory.get_new_connection()?;
+                match http_service_factory.get_new_connection() {
+                    Ok(http_service) => http_service,
+                    Err(error) => {
+                        LOGGER.error(format!("Error creating http service: {:?}", error));
+                        continue;
+                    }
+                };
 
             LOGGER.info_str("Incoming connection");
             let announce_manager: AnnounceManager = announce_manager_sender.clone();

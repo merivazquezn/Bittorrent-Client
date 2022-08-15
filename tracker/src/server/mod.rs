@@ -1,5 +1,5 @@
 mod acceptor;
-mod announce;
+pub mod announce;
 mod constants;
 mod controllers;
 mod endpoints;

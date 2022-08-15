@@ -3,7 +3,7 @@ mod announce_manager_worker;
 mod constants;
 mod creation;
 mod types;
-mod utils;
+pub mod utils;
 
 pub use announce_manager_sender::AnnounceManager;
 pub use announce_manager_worker::AnnounceManagerWorker;
