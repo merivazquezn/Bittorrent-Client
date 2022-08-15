@@ -2,7 +2,7 @@ use bittorrent_rustico::server::ThreadPoolError;
 use std::fmt;
 use std::io;
 use std::sync::mpsc::RecvError;
-
+use std::num::ParseIntError;
 use crate::http::HttpError;
 
 #[derive(Debug)]
@@ -30,6 +30,15 @@ pub enum MetricsError {
     RecvError(RecvError),
     HttpError(HttpError),
     MissingKey(String),
+    ParsingError(ParseIntError),
+    InvalidTimeFrameReceived(String),
+    InvalidGroupByReceived(String),
+}
+
+impl From<ParseIntError> for MetricsError {
+    fn from(error: ParseIntError) -> Self {
+        MetricsError::ParsingError(error)
+    }
 }
 
 impl From<HttpError> for MetricsError {

@@ -8,7 +8,7 @@ pub enum AnnounceMessage {
 }
 
 /// Event that identifies what is the peer's state
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum TrackerEvent {
     /// Peer wants to start the download
     Started,
