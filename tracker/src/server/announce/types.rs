@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 
 #[allow(dead_code)]
 pub enum AnnounceMessage {
-    Announce(AnnounceRequest, Sender<TrackerResponse>),
+    Announce(AnnounceRequest, Sender<TrackerResponse>, u32),
     Stop,
 }
 

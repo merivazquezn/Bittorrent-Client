@@ -1,6 +1,7 @@
 use bittorrent_rustico::download_manager;
 use std::collections::HashMap;
 use std::io::Write;
+use std::time::Duration;
 use tracker::http::{HttpError, HttpGetRequest, IHttpService, IHttpServiceFactory};
 
 use std::thread;
@@ -12,8 +13,9 @@ use tracker::server::TrackerServer;
 pub struct MockHttpService {
     pub path: String,
     pub params: HashMap<String, String>,
-    pub results_path: String,
     pub client_address: std::net::SocketAddr,
+    pub test_name: String,
+    pub request_number: usize,
 }
 
 impl IHttpService for MockHttpService {
@@ -29,19 +31,10 @@ impl IHttpService for MockHttpService {
         content: Vec<u8>,
         content_type: String,
     ) -> Result<(), tracker::http::HttpError> {
-        download_manager::create_directory(&format!(
-            "{}/tests/{}",
-            std::env::current_dir().unwrap().to_str().unwrap(),
-            self.results_path.clone()
-        ))
-        .unwrap();
+        download_manager::create_directory(&format!("./tests/{}", self.test_name)).unwrap();
 
-        let path = format!(
-            "{}/tests/{}/{}",
-            std::env::current_dir().unwrap().to_str().unwrap(),
-            self.results_path.clone(),
-            "content"
-        );
+        let path = format!("./tests/{}/{}", self.test_name, self.request_number);
+        println!("{}", path);
         let mut file = std::fs::File::create(path)?;
         file.write_all(&content)?;
         Ok(())
@@ -60,6 +53,7 @@ pub struct MockHttpServiceFactory {
     pub connections: Vec<MockHttpService>,
     pub current_connection: usize,
     pub factory_sender: std::sync::mpsc::Sender<()>,
+    pub delay_between_requests: std::time::Duration,
 }
 
 impl IHttpServiceFactory for MockHttpServiceFactory {
@@ -72,6 +66,7 @@ impl IHttpServiceFactory for MockHttpServiceFactory {
         }
         let connection = self.connections[self.current_connection].clone();
         self.current_connection += 1;
+        thread::sleep(self.delay_between_requests);
         Ok(Box::new(connection))
     }
 }
@@ -82,6 +77,7 @@ pub fn create_mock_connection(
     downloaded: usize,
     info_hash: &str,
     peer_id: &str,
+    test_name: &str,
     request_number: usize,
     client_address: &str,
 ) -> MockHttpService {
@@ -96,17 +92,27 @@ pub fn create_mock_connection(
     MockHttpService {
         path: "announce".to_string(),
         params,
-        results_path: format!("{}/{}", "announce", request_number),
+        test_name: test_name.to_string(),
+        request_number,
         client_address: client_address.parse().unwrap(),
     }
 }
 
-pub fn run_mock_server(peer_connections: Vec<MockHttpService>) {
+pub fn get_content_from_test(test_name: &str, request_number: usize) -> Vec<u8> {
+    std::fs::read(format!("./tests/{}/{}", test_name, request_number)).unwrap()
+}
+
+pub fn run_mock_server(
+    peer_connections: Vec<MockHttpService>,
+    tracker_interval_seconds: u32,
+    delay_between_requests: Option<Duration>,
+) {
     let (factory_sender, factory_receiver) = std::sync::mpsc::channel();
     let connections_factory: Box<dyn IHttpServiceFactory + Send> =
         Box::new(MockHttpServiceFactory {
             connections: peer_connections,
             current_connection: 0,
+            delay_between_requests: delay_between_requests.unwrap_or(Duration::from_secs(0)),
             factory_sender,
         });
 
@@ -138,6 +144,7 @@ pub fn run_mock_server(peer_connections: Vec<MockHttpService>) {
                 aggregator.sender,
                 metrics_sender,
                 1,
+                tracker_interval_seconds,
                 tracker_receiver,
             )
             .unwrap()

@@ -49,6 +49,7 @@ fn main() {
             aggregator.sender,
             metrics_sender,
             POOL_WORKERS,
+            120,
             tracker_receiver,
         );
     });

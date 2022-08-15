@@ -1,4 +1,3 @@
-use super::constants::INTERVAL_IN_SECONDS;
 use super::{AnnounceRequest, TrackerEvent};
 use crate::server::announce::TrackerResponse;
 use crate::server::errors::AnnounceError;
@@ -82,9 +81,9 @@ fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String>
     missing_params
 }
 
-pub fn is_active_peer(last_announce: DateTime<Local>) -> bool {
+pub fn is_active_peer(last_announce: DateTime<Local>, interval: u32) -> bool {
     let time_between_announces: chrono::Duration = Local::now() - last_announce;
-    time_between_announces < chrono::Duration::seconds((2 * INTERVAL_IN_SECONDS).into())
+    time_between_announces < chrono::Duration::seconds((2 * interval).into())
 }
 
 pub fn peer_is_seeder(request: &AnnounceRequest) -> bool {

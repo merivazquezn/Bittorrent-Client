@@ -1,4 +1,4 @@
-use super::constants::{INTERVAL_IN_SECONDS, MAX_RESPONSE_PEERS, TRACKER_ID};
+use super::constants::{MAX_RESPONSE_PEERS, TRACKER_ID};
 use super::types::ActivePeers;
 use super::types::Peer;
 use super::types::PeerEntry;
@@ -33,7 +33,7 @@ impl AnnounceManagerWorker {
         loop {
             let message: AnnounceMessage = self.receiver.recv()?;
             match message {
-                AnnounceMessage::Announce(announce_request, sender) => {
+                AnnounceMessage::Announce(announce_request, sender, interval) => {
                     let info_hash: Vec<u8> = announce_request.info_hash.clone();
                     let peer: Peer = Peer {
                         ip: announce_request.ip.clone(),
@@ -61,6 +61,7 @@ impl AnnounceManagerWorker {
                         announce_request.port,
                         is_seeder,
                         is_stopping,
+                        interval,
                     );
                     self = announce_res.0;
                     let response: TrackerResponse = announce_res.1;
@@ -81,11 +82,20 @@ impl AnnounceManagerWorker {
         port: u16,
         is_seeder: bool,
         is_stopping: bool,
+        interval: u32,
     ) -> (Self, TrackerResponse) {
         if self.torrent_already_exists(&info_hash) {
-            self.get_peers(info_hash, ip, port, peer.peer_id, is_seeder, is_stopping)
+            self.get_peers(
+                info_hash,
+                ip,
+                port,
+                peer.peer_id,
+                is_seeder,
+                is_stopping,
+                interval,
+            )
         } else {
-            self.add_new_torrent(info_hash, ip, port, peer.peer_id, is_seeder)
+            self.add_new_torrent(info_hash, ip, port, peer.peer_id, is_seeder, interval)
         }
     }
 
@@ -97,6 +107,7 @@ impl AnnounceManagerWorker {
         peer_id: Vec<u8>,
         is_seeder: bool,
         is_stopping: bool,
+        interval: u32,
     ) -> (Self, TrackerResponse) {
         let sender_peer: Peer = Peer { ip, port, peer_id };
 
@@ -104,6 +115,7 @@ impl AnnounceManagerWorker {
         let mut leecher_count: u32 = 0;
         let mut active_peers: Vec<Peer> = Vec::new();
         let mut is_existing_peer = false;
+        let mut should_be_removed_peer_indexis: Vec<usize> = Vec::new();
 
         for (i, torrent_peer_entry) in self
             .peers_by_torrent
@@ -118,13 +130,13 @@ impl AnnounceManagerWorker {
                 torrent_peer_entry.is_seeder = is_seeder;
                 is_existing_peer = true;
                 if is_stopping {
-                    active_peers.remove(i);
+                    should_be_removed_peer_indexis.push(i);
                 }
 
                 continue;
             }
 
-            if is_active_peer(torrent_peer_entry.last_announce) {
+            if is_active_peer(torrent_peer_entry.last_announce, interval) {
                 if torrent_peer_entry.is_seeder {
                     seeder_count += 1;
                 } else {
@@ -136,11 +148,19 @@ impl AnnounceManagerWorker {
                 }
                 active_peers.push(torrent_peer_entry.peer.clone());
             } else {
-                active_peers.remove(i);
+                should_be_removed_peer_indexis.push(i);
             }
         }
 
-        if !is_existing_peer || !is_stopping {
+        for i in should_be_removed_peer_indexis {
+            self.peers_by_torrent
+                .get_mut(&info_hash)
+                .unwrap()
+                .peers
+                .remove(i);
+        }
+
+        if !is_existing_peer && !is_stopping {
             self.peers_by_torrent
                 .get_mut(&info_hash)
                 .unwrap()
@@ -156,7 +176,7 @@ impl AnnounceManagerWorker {
         self.aggregator.set(key, active_peers.len() as i32);
 
         let response: TrackerResponse = TrackerResponse {
-            interval_in_seconds: INTERVAL_IN_SECONDS,
+            interval_in_seconds: interval,
             tracker_id: String::from(TRACKER_ID),
             complete: seeder_count,
             incomplete: leecher_count,
@@ -173,6 +193,7 @@ impl AnnounceManagerWorker {
         port: u16,
         peer_id: Vec<u8>,
         is_seeder: bool,
+        interval: u32,
     ) -> (Self, TrackerResponse) {
         let peer: Peer = Peer { ip, port, peer_id };
 
@@ -202,7 +223,7 @@ impl AnnounceManagerWorker {
         self.aggregator.increment(TORRENTS_STAT.to_string());
 
         let response: TrackerResponse = TrackerResponse {
-            interval_in_seconds: INTERVAL_IN_SECONDS,
+            interval_in_seconds: interval,
             tracker_id: String::from(TRACKER_ID),
             complete: 0,
             incomplete: 0,

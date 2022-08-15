@@ -25,6 +25,7 @@ impl TrackerServer {
         aggregator: AggregatorSender,
         metrics: MetricsSender,
         threads: usize,
+        tracker_interval_seconds: u32,
         receiver: std::sync::mpsc::Receiver<()>,
     ) -> Result<(), TrackerError> {
         let pool: ThreadPool = ThreadPool::new(threads)?;
@@ -62,6 +63,7 @@ impl TrackerServer {
                         request,
                         announce_manager,
                         metrics_clone,
+                        tracker_interval_seconds,
                     ) {
                         LOGGER.info(format!("Error handling incoming connection: {:?}", e));
                     }
@@ -78,6 +80,7 @@ impl TrackerServer {
         request: HttpGetRequest,
         announce_manager: AnnounceManager,
         metrics: MetricsSender,
+        tracker_interval_seconds: u32,
     ) -> Result<(), TrackerError> {
         let endpoint: TrackerEndpoint = parse_path(&request.path);
         LOGGER.info(format!("Received endpoint: {:?}", endpoint));
@@ -89,6 +92,7 @@ impl TrackerServer {
                 http_service,
                 request,
                 announce_manager,
+                tracker_interval_seconds,
             )?),
             TrackerEndpoint::Metrics => Ok(MetricsController::handler_metrics(
                 http_service,

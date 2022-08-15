@@ -16,12 +16,13 @@ impl AnnounceController {
         http_service: Box<dyn IHttpService>,
         request: HttpGetRequest,
         announce_manager: AnnounceManager,
+        tracker_interval_seconds: u32,
     ) -> Result<(), AnnounceError> {
         let params: HashMap<String, String> = request.params;
         let announce_request: AnnounceRequest =
             parse_request_from_params(params, http_service.get_client_address())?;
-        let response: TrackerResponse =
-            announce_manager.announce_and_get_response(announce_request)?;
+        let response: TrackerResponse = announce_manager
+            .announce_and_get_response(announce_request, tracker_interval_seconds)?;
 
         Self::send_response(http_service, response)?;
         Ok(())
