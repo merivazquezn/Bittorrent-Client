@@ -172,9 +172,10 @@ impl AnnounceManagerWorker {
                     is_seeder,
                 })
         }
+        let active_peers_count = self.peers_by_torrent.get(&info_hash).unwrap().peers.len();
 
         let key: String = format!("{}.active_peers", String::from_utf8(info_hash).unwrap());
-        self.aggregator.set(key, active_peers.len() as i32);
+        self.aggregator.set(key, active_peers_count as i32);
 
         let response: TrackerResponse = TrackerResponse {
             interval_in_seconds: interval,
