@@ -23,6 +23,7 @@ pub fn parse_request_from_params(
     let uploaded: u32 = parse_entry_to_u32(&params, "uploaded")?;
     let downloaded: u32 = parse_entry_to_u32(&params, "downloaded")?;
     let left: u32 = parse_entry_to_u32(&params, "left")?;
+    let listening_port: u32 = parse_entry_to_u32(&params, "port")?;
 
     let mut event: TrackerEvent = TrackerEvent::KeepAlive;
     if params.contains_key("event") {
@@ -46,7 +47,7 @@ pub fn parse_request_from_params(
     Ok(AnnounceRequest {
         info_hash,
         peer_id,
-        port: address.port(),
+        port: listening_port as u16,
         uploaded,
         downloaded,
         left,

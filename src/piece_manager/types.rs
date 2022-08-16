@@ -24,19 +24,24 @@ pub enum PieceManagerMessage {
 pub fn new_piece_manager(
     number_of_pieces: u32,
     ui_message_sender: UIMessageSender,
+    initial_pieces: Vec<u32>,
 ) -> (PieceManagerSender, PieceManagerWorker) {
     let (tx, rx) = mpsc::channel();
 
-    // Initialize the peers_per_piece HashMap with empty vectors
+    // Initialize the peers_per_piece HashMap with empty vectors, only the ones needed to be downloaded
     let mut peers_per_piece = HashMap::new();
     for i in 0..number_of_pieces {
-        peers_per_piece.insert(i, Vec::new());
+        if !initial_pieces.contains(&i) {
+            peers_per_piece.insert(i, Vec::new());
+        }
     }
 
     // Initialize remaining_pieces HashSet with all pieces
     let mut remaining_pieces: HashSet<PieceId> = HashSet::new();
     for i in 0..number_of_pieces {
-        remaining_pieces.insert(i);
+        if !initial_pieces.contains(&i) {
+            remaining_pieces.insert(i);
+        }
     }
 
     (

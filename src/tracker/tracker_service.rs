@@ -54,7 +54,7 @@ impl ITrackerService for TrackerService {
     /// let config = Config::from_path(CONFIG_PATH).unwrap();
     /// let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
     /// let mut http_service = HttpsService::from_url(&metainfo.announce).unwrap();
-    /// let mut tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, Box::new(http_service));
+    /// let mut tracker_service = TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, Box::new(http_service), vec![]);
     /// let peer_list = tracker_service.get_response().unwrap().peers;
     /// println!("{:?}", peer_list);
     /// ```
@@ -79,16 +79,35 @@ impl TrackerService {
         listen_port: u16,
         peer_id: &[u8; 20],
         http_service: Box<dyn IHttpService + Send>,
+        initial_pieces: Vec<u32>,
     ) -> Self {
         debug!("Parsing tracker request parameters");
+        println!("lets see downlodaded and left params values");
+        println!("{:?}, {:?}", initial_pieces, metainfo.info.piece_length);
+        println!(
+            "downloaded {:?}",
+            initial_pieces.len() as u32 * metainfo.info.piece_length as u32
+        );
+        println!("total length {:?}", metainfo.info.length as u32);
+
+        let downloaded = if initial_pieces.len() as u32 * metainfo.info.piece_length as u32
+            > metainfo.info.length as u32
+        {
+            metainfo.info.length as u32
+        } else {
+            initial_pieces.len() as u32 * metainfo.info.piece_length as u32
+        };
+
+        let left = metainfo.info.length as u32 - downloaded;
+
         TrackerService {
             request_parameters: RequestParameters {
                 info_hash: metainfo.info_hash.clone(),
                 peer_id: peer_id.to_vec(),
                 port: listen_port,
                 uploaded: 0,
-                downloaded: 0,
-                left: 0,
+                downloaded,
+                left,
                 event: Event::Started,
             },
             http_service,
@@ -179,6 +198,7 @@ impl TrackerService {
                     )))
                 }
             };
+            println!("{:?}", peer_dic.get(PORT));
             let port = match peer_dic.get(PORT) {
                 Some(port) => *port.get_as_integer()? as u16,
                 None => {
@@ -280,14 +300,19 @@ mod tests {
 
     #[test]
     fn test_get_peers_failure_on_not_read_bytes() {
-        const CONFIG_PATH: &str = "config.txt";
+        const CONFIG_PATH: &str = "src/config/test_files/correct_config.txt";
         let torrent_path = "./example_torrents/ubuntu.torrent";
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
         let config = Config::from_path(CONFIG_PATH).expect("Failed to load config");
         let metainfo = Metainfo::from_torrent(torrent_path).expect("Failed to load metainfo");
         let connection = Box::new(MockHttpsService { read_bytes: vec![] });
-        let mut tracker_service =
-            TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
+        let mut tracker_service = TrackerService::from_metainfo(
+            &metainfo,
+            config.listen_port,
+            &peer_id,
+            connection,
+            vec![],
+        );
         let response = tracker_service.get_response();
 
         assert!(matches!(response, Err(TrackerError::BencodeError(_))));
@@ -295,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_get_peers_success_on_valid_response_containing_one_peer() {
-        const CONFIG_PATH: &str = "config.txt";
+        const CONFIG_PATH: &str = "src/config/test_files/correct_config.txt";
         let torrent_path = "./example_torrents/ubuntu.torrent";
         let peer_id = rand::thread_rng().gen::<[u8; 20]>();
         let config = Config::from_path(CONFIG_PATH).unwrap();
@@ -318,8 +343,13 @@ mod tests {
         let connection = Box::new(MockHttpsService {
             read_bytes: bencode::encode(&bencoded_response),
         });
-        let mut tracker_service =
-            TrackerService::from_metainfo(&metainfo, config.listen_port, &peer_id, connection);
+        let mut tracker_service = TrackerService::from_metainfo(
+            &metainfo,
+            config.listen_port,
+            &peer_id,
+            connection,
+            vec![],
+        );
         assert_eq!(tracker_service.get_response().unwrap().peers.len(), 1);
         assert_eq!(
             tracker_service.get_response().unwrap().peers[0],

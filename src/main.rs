@@ -29,15 +29,17 @@ fn run_client_with_ui() {
 }
 
 fn run_client(ui_message_sender: Option<glib::Sender<UIMessage>>) {
-    let args = env::args().skip(1);
+    let mut args = env::args().skip(1);
+    let config_file = args.next().unwrap_or("".to_string());
     // iterate through all args and call run_with_torrent for each torrent file
     let mut torrent_handles: Vec<JoinHandle<()>> = vec![];
     for torrent_file in args {
         info!("Running with torrent file: {}", torrent_file);
         let ui_msg_sender_clone = ui_message_sender.clone();
         let torrent_file = torrent_file.to_string();
+        let cfg = config_file.clone();
         torrent_handles.push(thread::spawn(move || {
-            if let Err(err) = run_with_torrent(&torrent_file, ui_msg_sender_clone) {
+            if let Err(err) = run_with_torrent(&torrent_file, &cfg, ui_msg_sender_clone) {
                 error!("Error running with torrent file: {}", torrent_file);
                 error!("{}", err);
             }

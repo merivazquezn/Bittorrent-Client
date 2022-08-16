@@ -62,7 +62,6 @@ impl IHttpService for HttpService {
         let path: String = get_path_from_request(request)?;
         let params: HashMap<String, String> = parse_query_params_from_path(&path)?;
         let endpoint: String = endpoint_from_path(&path)?;
-
         Ok(HttpGetRequest {
             params,
             path: endpoint,

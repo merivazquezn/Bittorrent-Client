@@ -19,7 +19,7 @@ pub struct PeerMessageService {
 
 impl PeerMessageService {
     pub fn connect_to_peer(ip: String, port: u16) -> Result<Self, PeerConnectionError> {
-        trace!("Connecting to peer at IP: {}", ip);
+        trace!("Connecting to peer at IP: {}:{}", ip, port);
         let ipv4addr: SocketAddrV4 = format!("{}:{}", ip, port).parse().unwrap();
         let ipvaddr = SocketAddr::from(ipv4addr);
         let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(5))

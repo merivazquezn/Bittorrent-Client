@@ -162,7 +162,7 @@ impl Worker {
                     }
                 }
                 Err(err) => {
-                    error!("Error trying lock mutex: {:?}", err);
+                    // error!("Error trying lock mutex: {:?}", err);
                 }
             }
         });

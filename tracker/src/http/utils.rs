@@ -14,9 +14,9 @@ pub fn parse_query_params_from_path(path: &str) -> Result<HashMap<String, String
     }
 
     let query_params = path.split(QUERY_PARAMS_START).nth(1);
+    println!("query_params: {}", query_params.unwrap());
     match query_params {
         Some(query_params) => {
-            let query_params: String = decode_url(query_params);
             let mut params: HashMap<String, String> = HashMap::new();
             for param in query_params.split(QUERY_PARAMS_SEPARATOR) {
                 let key_value: Vec<&str> = param.split(KEY_VALUE_SEPARATOR).collect();
@@ -26,7 +26,15 @@ pub fn parse_query_params_from_path(path: &str) -> Result<HashMap<String, String
                         param
                     )));
                 }
-                params.insert(key_value[0].to_string(), key_value[1].to_string());
+                if key_value[0] == "peer_id" || key_value[0] == "info_hash" {
+                    // println!("el info hash en bytes {:?}", from_urlencoded(key_value[1]));
+                    params.insert(
+                        key_value[0].to_string(),
+                        to_hex(&from_urlencoded(key_value[1])),
+                    );
+                } else {
+                    params.insert(key_value[0].to_string(), key_value[1].to_string());
+                }
             }
             Ok(params)
         }
@@ -78,19 +86,29 @@ pub fn format_http_response(content: Vec<u8>, content_type: String) -> String {
     )
 }
 
-pub fn decode_url(url: &str) -> String {
-    let mut res = String::new();
-    for c in url.chars() {
-        if c == '%' {
-            let mut hex = String::new();
-            hex.push(c);
-            hex.push(url.chars().nth(1).unwrap());
-            hex.push(url.chars().nth(2).unwrap());
-            let hex_num = u8::from_str_radix(&hex, 16).unwrap();
-            res.push(hex_num as char);
+// Transforms a url-encoded String to a vector of bytes
+fn from_urlencoded(urlencoded: &str) -> Vec<u8> {
+    let mut bytes = vec![];
+    let mut index = 0;
+    while index < urlencoded.len() {
+        if urlencoded.get(index..index + 1) == Some("%") {
+            let hex = urlencoded.get(index + 1..index + 3).unwrap();
+            let hex_byte = u8::from_str_radix(hex, 16).unwrap();
+            bytes.push(hex_byte);
+            index += 3;
         } else {
-            res.push(c);
+            bytes.push(urlencoded.as_bytes()[index]);
+            index += 1;
         }
     }
-    res
+    bytes
+}
+
+// transform a vector of bytes into a string of hexadecimal characters
+fn to_hex(bytes: &[u8]) -> String {
+    let mut hex = String::new();
+    for byte in bytes {
+        hex.push_str(&format!("{:02x}", byte));
+    }
+    hex
 }

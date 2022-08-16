@@ -19,6 +19,7 @@ impl AnnounceManager {
         announce_request: AnnounceRequest,
         tracker_interval_seconds: u32,
     ) -> Result<TrackerResponse, RecvError> {
+        println!("request: {:?}", announce_request);
         let (sender, receiver) = std::sync::mpsc::channel();
         let _ = self.sender.send(AnnounceMessage::Announce(
             announce_request,
@@ -27,6 +28,7 @@ impl AnnounceManager {
         ));
 
         let response: TrackerResponse = receiver.recv()?;
+        println!("{:?}", response);
 
         Ok(response)
     }

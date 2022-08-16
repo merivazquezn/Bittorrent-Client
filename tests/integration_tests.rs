@@ -111,7 +111,8 @@ fn client_integration_test() {
         peer_id: generate_peer_id(),
         metainfo,
     };
-    let client: TorrentClient = TorrentClient::new(&client_info, UIMessageSender::no_ui()).unwrap();
+    let client: TorrentClient =
+        TorrentClient::new(&client_info, UIMessageSender::no_ui(), vec![]).unwrap();
 
     let tracker_service = MockTrackerService {
         responses: tracker_responses[1..].to_vec(),

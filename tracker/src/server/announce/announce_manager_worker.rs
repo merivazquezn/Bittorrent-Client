@@ -110,6 +110,7 @@ impl AnnounceManagerWorker {
         interval: u32,
     ) -> (Self, TrackerResponse) {
         let sender_peer: Peer = Peer { ip, port, peer_id };
+        println!("sender peer: {:?}", sender_peer);
 
         let mut seeder_count: u32 = 0;
         let mut leecher_count: u32 = 0;

@@ -260,7 +260,6 @@ impl PieceManagerWorker {
     pub fn listen(
         &mut self,
         peer_connection_manager_sender: PeerConnectionManagerSender,
-        _initial_pieces: Vec<u32>,
     ) -> Result<(), RecvError> {
         loop {
             let message = self.reciever.recv()?;

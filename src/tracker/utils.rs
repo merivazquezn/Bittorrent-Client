@@ -15,6 +15,7 @@ const WANTED_CONNECTIONS: u32 = 100;
 pub fn get_response_from_tracker(
     client_info: &mut ClientInfo,
     ui_message_sender: UIMessageSender,
+    initial_pieces: Vec<u32>,
 ) -> Result<(TrackerResponse, TrackerService), ApplicationError> {
     LOGGER.info(format!(
         "Fetching Peers from tracker at: {}",
@@ -26,7 +27,9 @@ pub fn get_response_from_tracker(
         client_info.config.listen_port,
         &client_info.peer_id,
         Box::new(http_service),
+        initial_pieces,
     );
+
     let tracker_response = tracker_service.get_response()?;
     ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
     LOGGER.info(format!(
@@ -81,7 +84,6 @@ pub fn parameters_to_querystring(parameters: &RequestParameters) -> String {
     }
     querystring.push_str(&format!("{}={}&", "compact", "1"));
     querystring.push_str(&format!("{}={}", "numwant", WANTED_CONNECTIONS));
-
     querystring
 }
 

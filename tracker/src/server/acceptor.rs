@@ -57,7 +57,6 @@ impl TrackerServer {
             let metrics_clone = metrics.clone();
             pool.execute(move || match http_service.parse_request() {
                 Ok(request) => {
-                    LOGGER.info(format!("Request: {:?}", request));
                     if let Err(e) = Self::handle_incoming_connection(
                         http_service,
                         request,

@@ -61,7 +61,7 @@ impl ServerConnection {
     /// A `Result` with the `Err` value being a `ServerError`, indicating the underlying cause of the failure
     ///
     pub fn run(&mut self, logger: ServerLogger, pieces_dir: &str) -> Result<(), ServerError> {
-        self.send_init_messages()?;
+        self.send_init_messages(pieces_dir)?;
 
         loop {
             let message: PeerMessage = match self.message_service.wait_for_message() {
@@ -98,13 +98,14 @@ impl ServerConnection {
         Ok(())
     }
 
-    fn send_init_messages(&mut self) -> Result<(), ServerError> {
+    fn send_init_messages(&mut self, download_path: &str) -> Result<(), ServerError> {
         self.message_service
             .handshake(&self.metainfo.info_hash, &self.client_peer_id)?;
 
         self.message_service.send_message(&PeerMessage::unchoke())?;
 
-        let piece_vector: Vec<bool> = get_pieces_vector(self.metainfo.info.pieces.len());
+        let piece_vector: Vec<bool> =
+            get_pieces_vector(self.metainfo.info.pieces.len(), download_path);
         let bitfield_message: PeerMessage = PeerMessage::bitfield(piece_vector);
 
         self.message_service.send_message(&bitfield_message)?;
@@ -127,7 +128,8 @@ impl ServerConnection {
         let piece_data: Vec<u8> = read_piece(&piece_path)?;
         let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length)?;
         let block_number: usize = get_block_index(request.begin, request.length);
-
+        // sleep for having a feeling of internet download
+        std::thread::sleep(std::time::Duration::from_secs(2));
         let response_message = PeerMessage::piece(request.index, request.begin, block);
         match self.message_service.send_message(&response_message) {
             Ok(()) => {

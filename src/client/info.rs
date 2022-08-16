@@ -11,8 +11,8 @@ pub struct ClientInfo {
 }
 
 impl ClientInfo {
-    pub fn new(torrent_path: &str) -> Result<ClientInfo, ApplicationError> {
-        let config = Config::from_path(CONFIG_PATH)?;
+    pub fn new(torrent_path: &str, config_path: &str) -> Result<ClientInfo, ApplicationError> {
+        let config = Config::from_path(config_path)?;
         let peer_id = generate_peer_id();
         let metainfo = Metainfo::from_torrent(torrent_path)?;
 

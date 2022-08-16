@@ -38,6 +38,7 @@ pub fn payload_from_request_message(request: RequestMessage) -> Vec<u8> {
 
 pub fn client_has_piece(piece_index: usize, pieces_dir: &str) -> bool {
     let piece_path = format!("{}/{}", pieces_dir, piece_index);
+    println!("checking if i've got piece as server {}", piece_path);
     Path::new(&piece_path).exists()
 }
 
@@ -53,14 +54,17 @@ pub fn get_block_from_piece(
     begin: usize,
     length: usize,
 ) -> Result<Vec<u8>, ServerError> {
-    if piece_data.len() < begin + length {
-        error!(
-            "Piece data is too short to get the block.\n Piece data: {:?}\nbegin: {}\nlength: {}",
-            piece_data, begin, length
-        );
-        return Err(ServerError::PieceRequestError(
-            "Piece data is too short to contain the requested block".to_string(),
-        ));
+    // if piece_data.len() < begin + length {
+    //     error!(
+    //         "Piece data is too short to get the block.\n Piece data: {:?}\nbegin: {}\nlength: {}",
+    //         piece_data, begin, length
+    //     );
+    //     return Err(ServerError::PieceRequestError(
+    //         "Piece data is too short to contain the requested block".to_string(),
+    //     ));
+    // }
+    if begin + length > piece_data.len() {
+        return Ok(piece_data[begin..].to_vec().to_vec());
     }
     Ok(piece_data[begin..(begin + length)].to_vec())
 }
@@ -69,11 +73,11 @@ pub fn get_block_index(begin: usize, block_size: usize) -> usize {
     begin / block_size
 }
 
-pub fn get_pieces_vector(piece_count: usize) -> Vec<bool> {
+pub fn get_pieces_vector(piece_count: usize, download_path: &str) -> Vec<bool> {
     let mut piece_vector: Vec<bool> = Vec::new();
     for i in 0..piece_count {
-        piece_vector.push(client_has_piece(i, PIECES_DIR));
+        piece_vector.push(client_has_piece(i, download_path));
     }
-
+    println!("pieces vector: {:?}", piece_vector);
     piece_vector
 }

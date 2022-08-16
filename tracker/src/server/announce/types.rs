@@ -8,7 +8,7 @@ pub enum AnnounceMessage {
 }
 
 /// Event that identifies what is the peer's state
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum TrackerEvent {
     /// Peer wants to start the download
     Started,
@@ -21,6 +21,7 @@ pub enum TrackerEvent {
 }
 
 /// Data collected from a announce request
+#[derive(Debug)]
 pub struct AnnounceRequest {
     /// 20-bytes long vector that identifies the torrent
     pub info_hash: Vec<u8>,
@@ -42,7 +43,7 @@ pub struct AnnounceRequest {
     pub left: u32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Represents the important data of a single peer to be sent to other peers
 pub struct Peer {
     /// Peer's ip address
@@ -70,6 +71,7 @@ pub struct ActivePeers {
 }
 
 /// Represents the mandatory values of the tracker response
+#[derive(Debug)]
 pub struct TrackerResponse {
     // Expected interval in seconds for keep_alive requests from other peers
     pub interval_in_seconds: u32,

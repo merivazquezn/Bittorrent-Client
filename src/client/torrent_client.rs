@@ -36,9 +36,10 @@ impl TorrentClient {
     pub fn new(
         client_info: &ClientInfo,
         ui_message_sender: UIMessageSender,
+        initial_pieces: Vec<u32>,
     ) -> Result<Self, ApplicationError> {
         let (piece_manager_sender, piece_manager_worker) =
-            Self::init_piece_manager(client_info, ui_message_sender.clone());
+            Self::init_piece_manager(client_info, ui_message_sender.clone(), initial_pieces);
 
         let (piece_saver_sender, piece_saver_worker) = Self::init_piece_saver(
             piece_manager_sender.clone(),
@@ -83,15 +84,11 @@ impl TorrentClient {
             client_info.config.download_path, client_info.metainfo.info.name
         );
 
-        let initial_pieces: Vec<u32> = get_existing_pieces(
-            client_info.metainfo.get_piece_count(),
-            format!("{}/pieces", download_path).as_str(),
-        );
         let piece_manager_handle = std::thread::spawn(move || {
             let _ = self
                 .workers
                 .piece_manager
-                .listen(peer_connection_manager_sender_clone, initial_pieces);
+                .listen(peer_connection_manager_sender_clone);
         });
 
         let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
@@ -151,10 +148,12 @@ impl TorrentClient {
     fn init_piece_manager(
         client_info: &ClientInfo,
         ui_message_sender: UIMessageSender,
+        initial_pieces: Vec<u32>,
     ) -> (PieceManagerSender, PieceManagerWorker) {
         new_piece_manager(
             client_info.metainfo.info.pieces.len() as u32,
             ui_message_sender,
+            initial_pieces,
         )
     }
 
