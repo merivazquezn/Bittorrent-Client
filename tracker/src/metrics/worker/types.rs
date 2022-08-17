@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{Receiver, RecvError};
 
+pub const METRIC_NOT_FOUND: &str = "{ \"error\": \"Metric not found\" }";
+
 pub struct MetricsWorker {
     pub receiver: Receiver<MetricsMessage>,
     pub record: HashMap<String, Vec<(i32, DateTime<Local>)>>,
@@ -33,7 +35,7 @@ impl MetricsWorker {
         groupby: GroupBy,
     ) {
         if !self.record.contains_key(&metric_key) {
-            let error_json: String = "{ \"error\": \"Metric not found\" }".to_string();
+            let error_json: String = METRIC_NOT_FOUND.to_string();
             let _ = sender.send(error_json);
             return;
         }
