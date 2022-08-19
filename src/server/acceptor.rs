@@ -5,6 +5,9 @@ use super::thread_pool::ThreadPool;
 use super::ServerLogger;
 use crate::metainfo::Metainfo;
 use crate::peer::PeerMessageService;
+use crate::tracker::Event;
+use crate::tracker::ITrackerServiceV2;
+use crate::tracker::TrackerServiceV2;
 use log::*;
 use std::net::TcpListener;
 use std::net::TcpStream;
@@ -13,6 +16,8 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+const TRACKER_INTERVAL_IN_SECONDS: u64 = 10;
 
 enum ServerMessage {
     Stop,
@@ -38,7 +43,7 @@ impl Server {
     ///
     /// ## Example
     ///
-    ///  ```no_run
+    ///  ```no_compile
     ///
     ///  use bittorrent_rustico::server::Server;
     ///  use bittorrent_rustico::metainfo::Metainfo;   
@@ -59,6 +64,7 @@ impl Server {
         port: u16,
         time_to_sleep: Duration,
         pieces_dir: &str,
+        tracker_service: TrackerServiceV2,
     ) -> Server {
         let (tx, rx) = mpsc::channel();
         let pieces_dir_clone = String::from(pieces_dir);
@@ -71,6 +77,7 @@ impl Server {
                 rx,
                 time_to_sleep,
                 &pieces_dir_clone,
+                tracker_service,
             )
         });
 
@@ -85,15 +92,17 @@ impl Server {
         receiver: Receiver<ServerMessage>,
         time_to_sleep: Duration,
         pieces_dir: &str,
+        mut tracker_service: TrackerServiceV2,
     ) -> Result<(), ServerError> {
         let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
-
         let address = format!("{}:{}", address, port);
+
+        let mut last_announce = std::time::Instant::now();
         let listener: TcpListener = TcpListener::bind(&address)?;
         listener.set_nonblocking(true).map_err(|_| {
             ServerError::ServerCreationError("Couldn't set non blocking mode on server".to_string())
         })?;
-        let pool: ThreadPool = ThreadPool::new(POOL_WORKERS)?;
+        let pool: ThreadPool = ThreadPool::new(5)?;
         for stream in listener.incoming() {
             if receiver.try_recv().is_ok() {
                 info!("Server received stop message");
@@ -114,7 +123,13 @@ impl Server {
                 }
                 Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     // This doesen't mean an error ocurred, there just wasn't a connection at the moment
-                    debug!("Server: Not any incoming connection at the moment, going to sleep...");
+                    //debug!("Server: Not any incoming connection at the moment, going to sleep...");
+                    if last_announce.elapsed().as_secs() > TRACKER_INTERVAL_IN_SECONDS {
+                        // hardocdeado, despues configurar con el interval del tracker
+                        println!("announcing");
+                        let _ = tracker_service.announce(None);
+                        last_announce = std::time::Instant::now();
+                    }
 
                     thread::sleep(time_to_sleep);
                 }
@@ -124,6 +139,8 @@ impl Server {
 
         logger.stop();
         handle.join().unwrap();
+
+        let _ = tracker_service.announce(Some(Event::Stopped));
         Ok(())
     }
 
@@ -136,7 +153,7 @@ impl Server {
         pieces_dir: &str,
     ) -> Result<(), ServerError> {
         stream.set_nonblocking(false)?;
-        stream.set_read_timeout(Some(Duration::from_secs(120)))?;
+        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
         stream.set_write_timeout(Some(Duration::from_secs(10)))?;
         let connection_logger = logger;
         let dir_clone = String::from(pieces_dir);

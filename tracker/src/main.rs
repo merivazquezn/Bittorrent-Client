@@ -1,5 +1,4 @@
 use bittorrent_rustico::logger::CustomLogger;
-use bittorrent_rustico::server::POOL_WORKERS;
 use std::thread;
 use tracker::aggregator::Aggregator;
 use tracker::application_constants::STORE_DAYS;
@@ -8,6 +7,7 @@ use tracker::http::HttpServiceFactory;
 use tracker::metrics::new_metrics;
 use tracker::server::TrackerServer;
 
+const TRACKER_INTERVAL_IN_SECONDS: u32 = 10;
 const LOGGER: CustomLogger = CustomLogger::init("Acceptor");
 
 fn bind_server() -> std::net::TcpListener {
@@ -48,8 +48,8 @@ fn main() {
             Box::new(http_service_factory),
             aggregator.sender,
             metrics_sender,
-            POOL_WORKERS,
-            120,
+            5,
+            TRACKER_INTERVAL_IN_SECONDS,
             tracker_receiver,
         );
     });

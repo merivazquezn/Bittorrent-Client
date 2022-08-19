@@ -30,7 +30,7 @@ fn run_client_with_ui() {
 
 fn run_client(ui_message_sender: Option<glib::Sender<UIMessage>>) {
     let mut args = env::args().skip(1);
-    let config_file = args.next().unwrap_or("".to_string());
+    let config_file = args.next().unwrap_or_else(|| "".to_string());
     // iterate through all args and call run_with_torrent for each torrent file
     let mut torrent_handles: Vec<JoinHandle<()>> = vec![];
     for torrent_file in args {

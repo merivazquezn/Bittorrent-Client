@@ -29,7 +29,7 @@ impl IHttpService for MockHttpService {
     fn send_ok_response(
         &mut self,
         content: Vec<u8>,
-        content_type: String,
+        _content_type: String,
     ) -> Result<(), tracker::http::HttpError> {
         download_manager::create_directory(&format!("./tests/{}", self.test_name)).unwrap();
 
@@ -71,6 +71,28 @@ impl IHttpServiceFactory for MockHttpServiceFactory {
     }
 }
 
+pub struct MockHttpServiceFactoryVariableDelays {
+    pub connections: Vec<MockHttpService>,
+    pub current_connection: usize,
+    pub factory_sender: std::sync::mpsc::Sender<()>,
+    pub delay_between_requests: Vec<Duration>,
+}
+
+impl IHttpServiceFactory for MockHttpServiceFactoryVariableDelays {
+    fn get_new_connection(&mut self) -> Result<Box<dyn IHttpService>, HttpError> {
+        if self.current_connection >= self.connections.len() {
+            self.factory_sender.send(()).unwrap();
+            return Err(HttpError::HttpError(
+                "Could not accept connection".to_string(),
+            ));
+        }
+        let connection = self.connections[self.current_connection].clone();
+        thread::sleep(self.delay_between_requests[self.current_connection]);
+        self.current_connection += 1;
+        Ok(Box::new(connection))
+    }
+}
+
 pub fn create_mock_connection(
     left: usize,
     uploaded: usize,
@@ -80,6 +102,7 @@ pub fn create_mock_connection(
     test_name: &str,
     request_number: usize,
     client_address: &str,
+    listening_port: u16,
 ) -> MockHttpService {
     let mut params = HashMap::new();
     params.insert("left".to_string(), left.to_string());
@@ -87,6 +110,38 @@ pub fn create_mock_connection(
     params.insert("downloaded".to_string(), downloaded.to_string());
     params.insert("info_hash".to_string(), info_hash.to_string());
     params.insert("peer_id".to_string(), peer_id.to_string());
+    params.insert("port".to_string(), listening_port.to_string());
+    //creat socket addr (ipv4 version) from client_address
+
+    MockHttpService {
+        path: "announce".to_string(),
+        params,
+        test_name: test_name.to_string(),
+        request_number,
+        client_address: client_address.parse().unwrap(),
+    }
+}
+
+pub fn create_mock_connection_with_event(
+    left: usize,
+    uploaded: usize,
+    downloaded: usize,
+    info_hash: &str,
+    peer_id: &str,
+    test_name: &str,
+    request_number: usize,
+    client_address: &str,
+    listening_port: u16,
+    event: &str,
+) -> MockHttpService {
+    let mut params = HashMap::new();
+    params.insert("left".to_string(), left.to_string());
+    params.insert("uploaded".to_string(), uploaded.to_string());
+    params.insert("downloaded".to_string(), downloaded.to_string());
+    params.insert("info_hash".to_string(), info_hash.to_string());
+    params.insert("peer_id".to_string(), peer_id.to_string());
+    params.insert("port".to_string(), listening_port.to_string());
+    params.insert("event".to_string(), event.to_string());
     //creat socket addr (ipv4 version) from client_address
 
     MockHttpService {
@@ -113,6 +168,61 @@ pub fn run_mock_server(
             connections: peer_connections,
             current_connection: 0,
             delay_between_requests: delay_between_requests.unwrap_or(Duration::from_secs(0)),
+            factory_sender,
+        });
+
+    let main_handle = thread::spawn(move || {
+        let (metrics_sender, mut metrics_worker) = new_metrics(1);
+
+        let aggregator: Aggregator = match Aggregator::start() {
+            Ok(aggregator) => aggregator,
+            Err(_) => {
+                panic!("error creating aggregator");
+            }
+        };
+
+        let mut aggregator_worker = aggregator.worker;
+        let _ = thread::spawn(move || {
+            let _ = metrics_worker.listen();
+        });
+
+        let metrics = metrics_sender.clone();
+        let _ = thread::spawn(move || {
+            let _ = aggregator_worker.listen(metrics);
+        });
+
+        let (tracker_sender, tracker_receiver) = std::sync::mpsc::channel();
+
+        let handle_tracker = thread::spawn(move || {
+            TrackerServer::listen(
+                connections_factory,
+                aggregator.sender,
+                metrics_sender,
+                1,
+                tracker_interval_seconds,
+                tracker_receiver,
+            )
+            .unwrap()
+        });
+
+        factory_receiver.recv().unwrap();
+        tracker_sender.send(()).unwrap();
+        handle_tracker.join().unwrap()
+    });
+    main_handle.join().unwrap();
+}
+
+pub fn run_mock_server_variable_delays(
+    peer_connections: Vec<MockHttpService>,
+    tracker_interval_seconds: u32,
+    delay_between_requests: Vec<Duration>,
+) {
+    let (factory_sender, factory_receiver) = std::sync::mpsc::channel();
+    let connections_factory: Box<dyn IHttpServiceFactory + Send> =
+        Box::new(MockHttpServiceFactoryVariableDelays {
+            connections: peer_connections,
+            current_connection: 0,
+            delay_between_requests,
             factory_sender,
         });
 

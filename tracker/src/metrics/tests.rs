@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
+    use crate::application_constants::*;
     use crate::metrics::worker::types::METRIC_NOT_FOUND;
     use crate::metrics::*;
-    use crate::application_constants::*;
     use chrono::prelude::*;
-    use std::collections::HashMap;  
+    use std::collections::HashMap;
     use std::thread;
 
-    const STARTING_Y_M_D: (i32,u32,u32) = (2022, 1, 1);
+    const STARTING_Y_M_D: (i32, u32, u32) = (2022, 1, 1);
 
     fn setup(store_days: u32) -> MetricsSender {
         let (metrics_sender, mut metrics_worker) = new_metrics(store_days);
@@ -101,9 +101,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(
-            response.matches("moment").count(),
-            24 * 60);
+        assert_eq!(response.matches("moment").count(), 24 * 60);
     }
 
     #[test]
@@ -121,9 +119,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(
-            response.matches("moment").count(),
-            24 * 60);
+        assert_eq!(response.matches("moment").count(), 24 * 60);
     }
 
     #[test]
@@ -143,7 +139,8 @@ mod tests {
 
         assert_eq!(
             response.matches("moment").count(),
-            24 * 60 * requested_days as usize);
+            24 * 60 * requested_days as usize
+        );
     }
 
     #[test]
@@ -164,7 +161,8 @@ mod tests {
 
         assert_eq!(
             response.matches("moment").count(),
-            60 * requested_hours as usize);
+            60 * requested_hours as usize
+        );
     }
 
     #[test]
@@ -185,7 +183,8 @@ mod tests {
 
         assert_eq!(
             response.matches("moment").count(),
-            ((60/groupby_minutes) * requested_hours) as usize);
+            ((60 / groupby_minutes) * requested_hours) as usize
+        );
     }
 
     #[test]
@@ -206,7 +205,8 @@ mod tests {
 
         assert_eq!(
             response.matches("moment").count(),
-            (requested_hours/groupby_hours) as usize);
+            (requested_hours / groupby_hours) as usize
+        );
     }
 
     #[test]
@@ -226,13 +226,14 @@ mod tests {
             .unwrap();
 
         let expected_points = vec![
-        ("2022-01-01 00:00:00",180), 
-        ("2022-01-01 06:00:00",540),
-        ("2022-01-01 12:00:00",900),
-        ("2022-01-01 18:00:00",1260)];
+            ("2022-01-01 03:00:00", 180),
+            ("2022-01-01 09:00:00", 540),
+            ("2022-01-01 15:00:00", 900),
+            ("2022-01-01 21:00:00", 1260),
+        ];
 
         let expected_response = json_response_from_points(expected_points);
-        assert_eq!(response,expected_response);
+        assert_eq!(response, expected_response);
     }
 
     #[test]
@@ -252,12 +253,13 @@ mod tests {
             .unwrap();
 
         let expected_points = vec![
-        ("2022-01-01 00:00:00",360), 
-        ("2022-01-01 06:00:00",720),
-        ("2022-01-01 12:00:00",1080),
-        ("2022-01-01 18:00:00",1440)];
+            ("2022-01-01 03:00:00", 360),
+            ("2022-01-01 09:00:00", 720),
+            ("2022-01-01 15:00:00", 1080),
+            ("2022-01-01 21:00:00", 1440),
+        ];
 
         let expected_response = json_response_from_points(expected_points);
-        assert_eq!(response,expected_response);
+        assert_eq!(response, expected_response);
     }
 }

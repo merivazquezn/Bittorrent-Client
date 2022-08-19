@@ -269,9 +269,7 @@ impl PieceManagerWorker {
                     trace!("Piece manager received bitfield from peer: {:?}", peer_id);
                     self.update_peers_per_piece(&bitfield, peer_id.clone());
                     if self.established_connections != 0 {
-                        self.start_downloading_or_ask_pieces_with_no_peers_if_ready(
-                            &peer_connection_manager_sender,
-                        );
+                        self.ask_for_pieces(&peer_connection_manager_sender);
                     }
                 }
                 PieceManagerMessage::FinishedEstablishingConnections(connections_established) => {

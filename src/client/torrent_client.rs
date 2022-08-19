@@ -1,12 +1,11 @@
 use super::ClientInfo;
 use crate::application_errors::ApplicationError;
 use crate::download_manager;
-use crate::download_manager::get_existing_pieces;
 use crate::peer_connection_manager::*;
 use crate::piece_manager::*;
 use crate::piece_saver::*;
-use crate::tracker::ITrackerService;
-use crate::tracker::TrackerResponse;
+use crate::tracker::Event;
+use crate::tracker::ITrackerServiceV2;
 use crate::ui::UIMessageSender;
 use log::*;
 use std::thread::JoinHandle;
@@ -70,19 +69,13 @@ impl TorrentClient {
     pub fn run(
         mut self,
         client_info: ClientInfo,
-        tracker_service: Box<dyn ITrackerService + Send>,
-        tracker_response: TrackerResponse,
+        tracker_service: &mut (impl ITrackerServiceV2 + Send + 'static),
     ) -> Result<(), ApplicationError> {
         let piece_saver_handle = std::thread::spawn(move || {
             self.workers.piece_saver.listen().unwrap();
         });
 
         let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
-
-        let download_path = format!(
-            "{}/{}",
-            client_info.config.download_path, client_info.metainfo.info.name
-        );
 
         let piece_manager_handle = std::thread::spawn(move || {
             let _ = self
@@ -91,7 +84,10 @@ impl TorrentClient {
                 .listen(peer_connection_manager_sender_clone);
         });
 
+        let tracker_response = tracker_service.announce(Some(Event::Started))?;
+
         let peer_connection_manager_sender_clone = self.senders.peer_connection_manager.clone();
+        let mut tracker_service_clone = tracker_service.clone();
         let peer_connection_manager_handle = std::thread::spawn(move || {
             self.workers.peer_connection_manager.start_peer_connections(
                 tracker_response.peers,
@@ -100,7 +96,7 @@ impl TorrentClient {
             self.workers
                 .peer_connection_manager
                 .listen(
-                    tracker_service,
+                    &mut tracker_service_clone,
                     tracker_response.interval,
                     peer_connection_manager_sender_clone,
                 )
@@ -122,12 +118,26 @@ impl TorrentClient {
             client_info.config.download_path, client_info.metainfo.info.name
         );
 
-        download_manager::make_target_file(
-            client_info.metainfo.get_piece_count(),
-            &client_info.metainfo.info.name,
-            &download_path,
-            client_info.config.persist_pieces,
-        )?;
+        let target_name = format!(
+            "{}/target/{}",
+            download_path, client_info.metainfo.info.name
+        );
+
+        if !client_info.config.persist_pieces {
+            // delete file at target_name
+            let _ = std::fs::remove_file(target_name.clone());
+        }
+
+        if !std::path::Path::new(&target_name).exists() {
+            download_manager::make_target_file(
+                client_info.metainfo.get_piece_count(),
+                &client_info.metainfo.info.name,
+                &download_path,
+                client_info.config.persist_pieces,
+            )?;
+
+            let _ = tracker_service.announce(Some(Event::Completed));
+        }
 
         Ok(())
     }

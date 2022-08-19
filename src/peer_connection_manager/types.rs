@@ -33,8 +33,7 @@ pub fn new_peer_connection_manager(
             metainfo: metainfo.clone(),
             client_peer_id: client_peer_id.to_vec(),
             ui_message_sender,
-            tracker_request_count: 0,
-            last_time_requested: Instant::now(),
+            last_announce: Instant::now(),
         },
     )
 }

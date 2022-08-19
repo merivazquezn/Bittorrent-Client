@@ -12,7 +12,7 @@ const PERSIST_PIECES: &str = "persist_pieces";
 use crate::logger::CustomLogger;
 const LOGGER: CustomLogger = CustomLogger::init("Config");
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Configuration of the bittorrent client
 pub struct Config {
     /// TCP port where client is receiving connections from other peers

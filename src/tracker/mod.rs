@@ -6,7 +6,8 @@ mod utils;
 
 pub use errors::*;
 pub use tracker_service::ITrackerService;
-pub use tracker_service::MockTrackerService;
+pub use tracker_service::ITrackerServiceV2;
+pub use tracker_service::MockTrackerServiceV2;
 pub use tracker_service::TrackerService;
+pub use tracker_service::TrackerServiceV2;
 pub use types::*;
-pub use utils::get_response_from_tracker;

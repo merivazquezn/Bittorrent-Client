@@ -87,8 +87,8 @@ pub fn is_active_peer(last_announce: DateTime<Local>, interval: u32) -> bool {
     time_between_announces < chrono::Duration::seconds((2 * interval).into())
 }
 
-pub fn peer_is_seeder(request: &AnnounceRequest) -> bool {
-    request.left == 0 || request.event == TrackerEvent::Completed
+pub fn has_completed(request: &AnnounceRequest) -> bool {
+    request.event == TrackerEvent::Completed
 }
 
 pub fn is_peer_stopping(request: &AnnounceRequest) -> bool {

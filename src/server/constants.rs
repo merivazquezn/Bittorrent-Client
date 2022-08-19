@@ -1,5 +1,4 @@
 /// Amount of worker threads to use.
-pub const POOL_WORKERS: usize = 5;
 
 /// Localhost ip address
 pub const LOCALHOST: &str = "127.0.0.1";
@@ -14,7 +13,7 @@ pub const LOGS_DIR: &str = "./logs";
 pub const SERVER_LOG_FILE_NAME: &str = "server_log.txt";
 
 /// Timeout for the server read operation
-pub const SERVER_READ_TIMEOUT: u64 = 120;
+pub const SERVER_READ_TIMEOUT: u64 = 10;
 
 /// Timeout for the server write operation
 pub const SERVER_WRITE_TIMEOUT: u64 = 10;

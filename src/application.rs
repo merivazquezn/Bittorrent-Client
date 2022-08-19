@@ -3,8 +3,7 @@ use crate::client::{ClientInfo, TorrentClient};
 use crate::constants::TIME_BETWEEN_ACCEPTS;
 use crate::download_manager::get_existing_pieces;
 use crate::server::Server;
-use crate::server::PIECES_DIR;
-use crate::tracker::get_response_from_tracker;
+use crate::tracker::TrackerServiceV2;
 use crate::ui::{init_ui, UIMessage};
 use gtk::{self, glib};
 use log::*;
@@ -22,12 +21,15 @@ pub fn run_with_torrent(
         client_info.config.download_path, client_info.metainfo.info.name
     );
 
-    let server = Server::run(
+    let mut tracker_service_v2 = TrackerServiceV2::new(client_info.clone());
+
+    let _ = Server::run(
         client_info.peer_id.to_vec(),
         client_info.metainfo.clone(),
         client_info.config.listen_port,
         TIME_BETWEEN_ACCEPTS,
         &pieces_dir,
+        tracker_service_v2.clone(),
     );
     let initial_pieces: Vec<u32> =
         get_existing_pieces(client_info.metainfo.get_piece_count(), pieces_dir.as_str());
@@ -38,15 +40,9 @@ pub fn run_with_torrent(
         ui_message_sender.send_downloaded_piece(client_info.peer_id.to_vec());
     }
 
-    let (tracker_response, tracker_service) = get_response_from_tracker(
-        &mut client_info,
-        ui_message_sender.clone(),
-        initial_pieces.clone(),
-    )?;
-
     let client: TorrentClient =
         TorrentClient::new(&client_info, ui_message_sender, initial_pieces)?;
-    client.run(client_info, Box::new(tracker_service), tracker_response)?;
+    client.run(client_info, &mut tracker_service_v2)?;
 
     //server.stop()?;
 

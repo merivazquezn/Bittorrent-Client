@@ -1,5 +1,4 @@
 mod mocks;
-use bittorrent_rustico::bencode;
 use mocks::*;
 use tracker::server::announce::utils::get_response_bytes;
 use tracker::server::announce::{Peer, TrackerResponse};
@@ -16,11 +15,12 @@ fn first_peer_connection_should_return_empty_peer_list() {
         0,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     run_mock_server(vec![first_connection], 120, None);
@@ -49,22 +49,24 @@ fn second_peer_obtains_first_peer_in_list() {
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     let second_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000001",
         test_name,
         1,
         "0.0.0.1:8080",
+        8000,
     );
 
     run_mock_server(vec![first_connection, second_connection], 120, None);
@@ -79,7 +81,7 @@ fn second_peer_obtains_first_peer_in_list() {
                 .as_bytes()
                 .to_vec(),
             ip: "0.0.0.0".to_string(),
-            port: 8080,
+            port: 8000,
         }],
     };
     let expected = get_response_bytes(expected_tracker_response);
@@ -99,33 +101,36 @@ fn third_peer_obtains_first_and_second_peer_in_list() {
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     let second_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000001",
         test_name,
         1,
         "0.0.0.1:8080",
+        8000,
     );
 
     let third_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000002",
         test_name,
         2,
         "0.0.0.2:8080",
+        8000,
     );
 
     run_mock_server(
@@ -145,14 +150,14 @@ fn third_peer_obtains_first_and_second_peer_in_list() {
                     .as_bytes()
                     .to_vec(),
                 ip: "0.0.0.0".to_string(),
-                port: 8080,
+                port: 8000,
             },
             Peer {
                 peer_id: "b000000000000000000000000000000000000001"
                     .as_bytes()
                     .to_vec(),
                 ip: "0.0.0.1".to_string(),
-                port: 8080,
+                port: 8000,
             },
         ],
     };
@@ -173,44 +178,49 @@ fn first_peer_finishes_download_another_peer_receives_it() {
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     let second_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000001",
         test_name,
         1,
         "0.0.0.1:8080",
+        8000,
     );
 
-    let third_connection = create_mock_connection(
+    let third_connection = create_mock_connection_with_event(
         0,
         50,
         255,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         2,
         "0.0.0.0:8080",
+        8000,
+        "completed",
     );
 
     let fourth_connection = create_mock_connection(
         235,
         10,
         20,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000002",
         test_name,
         3,
         "0.0.0.2:8080",
+        8000,
     );
 
     run_mock_server(
@@ -235,7 +245,7 @@ fn first_peer_finishes_download_another_peer_receives_it() {
                     .as_bytes()
                     .to_vec(),
                 ip: "0.0.0.0".to_string(),
-                port: 8080,
+                port: 8000,
             },
             {
                 Peer {
@@ -243,7 +253,7 @@ fn first_peer_finishes_download_another_peer_receives_it() {
                         .as_bytes()
                         .to_vec(),
                     ip: "0.0.0.1".to_string(),
-                    port: 8080,
+                    port: 8000,
                 }
             },
         ],
@@ -270,17 +280,19 @@ fn peers_of_different_torrents_dont_know_each_other() {
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     let second_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000001",
         test_name,
         1,
         "0.0.0.1:8080",
+        8000,
     );
 
     run_mock_server(vec![first_connection, second_connection], 120, None);
@@ -309,22 +321,24 @@ fn peer_becomes_inactive_gets_removed_from_list() {
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000000",
         test_name,
         0,
         "0.0.0.0:8080",
+        8000,
     );
 
     let second_connection = create_mock_connection(
         255,
         0,
         0,
-        "b111813ce60f42919734823df5ec20bd1e04e7f7",
+        "b000000000000000000000000000000000000000",
         "b000000000000000000000000000000000000001",
         test_name,
         1,
         "0.0.0.1:8080",
+        8000,
     );
 
     run_mock_server(
@@ -335,6 +349,136 @@ fn peer_becomes_inactive_gets_removed_from_list() {
 
     let expected_tracker_response = TrackerResponse {
         interval_in_seconds: 1,
+        complete: 0,
+        incomplete: 0,
+        tracker_id: "Polleria Rustiseria Tracker ID :)".to_string(),
+        peers: vec![],
+    };
+    let expected = get_response_bytes(expected_tracker_response);
+
+    assert_eq!(
+        get_content_from_test(test_name, 1),
+        expected,
+        "contents of response do not match"
+    );
+}
+
+#[test]
+fn multiple_peers_become_inactive_gets_removed_from_list() {
+    let test_name = "multiple_peers_become_inactive";
+
+    let first_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000000",
+        test_name,
+        0,
+        "0.0.0.0:8080",
+        8000,
+    );
+
+    let second_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000001",
+        test_name,
+        1,
+        "0.0.0.1:8080",
+        8000,
+    );
+
+    let third_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000002",
+        test_name,
+        2,
+        "0.0.0.2:8080",
+        8000,
+    );
+
+    let fourth_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000003",
+        test_name,
+        3,
+        "0.0.0.3:8080",
+        8000,
+    );
+
+    run_mock_server_variable_delays(
+        vec![
+            first_connection,
+            second_connection,
+            third_connection,
+            fourth_connection,
+        ],
+        1,
+        vec![
+            std::time::Duration::from_millis(200),
+            std::time::Duration::from_millis(200),
+            std::time::Duration::from_millis(200),
+            std::time::Duration::from_millis(2100),
+        ],
+    );
+
+    let expected_tracker_response = TrackerResponse {
+        interval_in_seconds: 1,
+        complete: 0,
+        incomplete: 0,
+        tracker_id: "Polleria Rustiseria Tracker ID :)".to_string(),
+        peers: vec![],
+    };
+    let expected = get_response_bytes(expected_tracker_response);
+
+    assert_eq!(
+        get_content_from_test(test_name, 3),
+        expected,
+        "contents of response do not match"
+    );
+}
+
+#[test]
+fn same_peer_announce_does_not_get_double_counted() {
+    let test_name = "same_peer_announce_does_not_get_double_counted";
+
+    let first_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000000",
+        test_name,
+        0,
+        "0.0.0.0:8080",
+        8000,
+    );
+
+    let second_connection = create_mock_connection(
+        255,
+        0,
+        0,
+        "b000000000000000000000000000000000000000",
+        "b000000000000000000000000000000000000000",
+        test_name,
+        1,
+        "0.0.0.0:8080",
+        8000,
+    );
+
+    run_mock_server(vec![first_connection, second_connection], 120, None);
+
+    let expected_tracker_response = TrackerResponse {
+        interval_in_seconds: 120,
         complete: 0,
         incomplete: 0,
         tracker_id: "Polleria Rustiseria Tracker ID :)".to_string(),

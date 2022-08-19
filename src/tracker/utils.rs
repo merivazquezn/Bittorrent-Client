@@ -1,52 +1,7 @@
 use super::types::RequestParameters;
-use crate::application_errors::ApplicationError;
-use crate::client::ClientInfo;
-use crate::http::HttpsService;
-use crate::logger::CustomLogger;
-use crate::tracker::ITrackerService;
-use crate::tracker::TrackerResponse;
-use crate::tracker::TrackerService;
-use crate::ui::UIMessageSender;
+use super::Event;
 use std::collections::HashMap;
-
-const LOGGER: CustomLogger = CustomLogger::init("Tracker");
 const WANTED_CONNECTIONS: u32 = 100;
-
-pub fn get_response_from_tracker(
-    client_info: &mut ClientInfo,
-    ui_message_sender: UIMessageSender,
-    initial_pieces: Vec<u32>,
-) -> Result<(TrackerResponse, TrackerService), ApplicationError> {
-    LOGGER.info(format!(
-        "Fetching Peers from tracker at: {}",
-        client_info.metainfo.announce
-    ));
-    let http_service = HttpsService::from_url(&client_info.metainfo.announce)?;
-    let mut tracker_service = TrackerService::from_metainfo(
-        &client_info.metainfo,
-        client_info.config.listen_port,
-        &client_info.peer_id,
-        Box::new(http_service),
-        initial_pieces,
-    );
-
-    let tracker_response = tracker_service.get_response()?;
-    ui_message_sender.send_initial_peers(tracker_response.peers.len() as u32);
-    LOGGER.info(format!(
-        "Received {} peers from tracker",
-        tracker_response.peers.len()
-    ));
-    match tracker_response.interval {
-        Some(interval) => {
-            LOGGER.info(format!("Tracker interval: {:?}", interval));
-        }
-        None => {
-            LOGGER.info_str("Tracker interval not set");
-        }
-    }
-
-    Ok((tracker_response, tracker_service))
-}
 
 // Transforms a slice of bytes into an url-encoded String
 fn to_urlencoded(bytes: &[u8]) -> String {
@@ -71,7 +26,9 @@ fn params_to_dic(params: &RequestParameters) -> HashMap<String, String> {
     dictionary.insert("uploaded".to_string(), params.uploaded.to_string());
     dictionary.insert("downloaded".to_string(), params.downloaded.to_string());
     dictionary.insert("left".to_string(), params.left.to_string());
-    dictionary.insert("event".to_string(), String::from("started"));
+    if params.event != Event::KeepAlive {
+        dictionary.insert("event".to_string(), params.event.as_string());
+    }
     dictionary
 }
 

@@ -1,12 +1,12 @@
-use super::constants::{MAX_RESPONSE_PEERS, TRACKER_ID};
+use super::constants::TRACKER_ID;
 use super::types::ActivePeers;
 use super::types::Peer;
 use super::types::PeerEntry;
 use super::types::TrackerResponse;
+use super::utils::has_completed;
 use super::utils::is_active_peer;
 use super::utils::is_peer_stopping;
-use super::utils::peer_is_seeder;
-use super::{AnnounceMessage, TrackerEvent};
+use super::AnnounceMessage;
 use crate::aggregator::AggregatorSender;
 use crate::application_constants::{ACTIVE_PEERS_STAT, COMPLETED_DOWNLOADS_STAT, TORRENTS_STAT};
 use chrono::prelude::*;
@@ -40,26 +40,14 @@ impl AnnounceManagerWorker {
                         port: announce_request.port,
                         peer_id: announce_request.peer_id.clone(),
                     };
-                    let is_seeder: bool = peer_is_seeder(&announce_request);
+                    let has_completed: bool = has_completed(&announce_request);
                     let is_stopping: bool = is_peer_stopping(&announce_request);
-                    if announce_request.event == TrackerEvent::Completed {
-                        let info_hash_str = match String::from_utf8(info_hash.clone()) {
-                            Ok(s) => s,
-                            Err(_) => {
-                                println!("Invalid info hash");
-                                continue;
-                            }
-                        };
-                        self.aggregator
-                            .increment(format!("{}.complete_download_peers", info_hash_str));
-                    }
 
                     let announce_res = self.handle_announce(
                         info_hash,
                         peer,
-                        announce_request.ip.clone(),
-                        announce_request.port,
-                        is_seeder,
+                        (announce_request.ip.clone(), announce_request.port),
+                        has_completed,
                         is_stopping,
                         interval,
                     );
@@ -75,117 +63,127 @@ impl AnnounceManagerWorker {
     }
 
     fn handle_announce(
-        self,
+        mut self,
         info_hash: Vec<u8>,
         peer: Peer,
-        ip: String,
-        port: u16,
-        is_seeder: bool,
+        ipport: (String, u16),
+        has_completed: bool,
         is_stopping: bool,
         interval: u32,
     ) -> (Self, TrackerResponse) {
         if self.torrent_already_exists(&info_hash) {
-            self.get_peers(
+            self.remove_inactive_peers(&info_hash, interval);
+            if is_stopping {
+                self.remove_peer(&info_hash, peer.peer_id.clone());
+            } else {
+                self.add_peer_if_not_in_list(&info_hash, peer.clone(), has_completed);
+                self.update_peer_if_in_list(&info_hash, peer.clone(), has_completed);
+            }
+            let key: String = format!(
+                "{}.active_peers",
+                String::from_utf8(info_hash.clone()).unwrap()
+            );
+            self.aggregator.set(
+                key,
+                self.peers_by_torrent
+                    .get_mut(&info_hash.clone())
+                    .unwrap()
+                    .peers
+                    .len()
+                    .try_into()
+                    .unwrap(),
+            );
+
+            let response = self.build_tracker_response(info_hash, &peer.peer_id, interval);
+            (self, response)
+        } else {
+            self.add_new_torrent(
                 info_hash,
-                ip,
-                port,
+                ipport.0,
+                ipport.1,
                 peer.peer_id,
-                is_seeder,
-                is_stopping,
+                has_completed,
                 interval,
             )
-        } else {
-            self.add_new_torrent(info_hash, ip, port, peer.peer_id, is_seeder, interval)
         }
     }
 
-    fn get_peers(
-        mut self,
-        info_hash: Vec<u8>,
-        ip: String,
-        port: u16,
-        peer_id: Vec<u8>,
-        is_seeder: bool,
-        is_stopping: bool,
-        interval: u32,
-    ) -> (Self, TrackerResponse) {
-        let sender_peer: Peer = Peer { ip, port, peer_id };
-        println!("sender peer: {:?}", sender_peer);
+    fn remove_inactive_peers(&mut self, info_hash: &[u8], interval: u32) {
+        let active_peers = &mut self.peers_by_torrent.get_mut(info_hash).unwrap().peers;
+        self.peers_by_torrent.get_mut(info_hash).unwrap().peers = active_peers
+            .iter()
+            .filter(|peer| is_active_peer(peer.last_announce, interval))
+            .cloned()
+            .collect();
+    }
 
-        let mut seeder_count: u32 = 0;
-        let mut leecher_count: u32 = 0;
-        let mut active_peers: Vec<Peer> = Vec::new();
-        let mut is_existing_peer = false;
-        let mut should_be_removed_peer_indexis: Vec<usize> = Vec::new();
+    fn remove_peer(&mut self, info_hash: &[u8], sender_peer_id: Vec<u8>) {
+        let active_peers = &mut self.peers_by_torrent.get_mut(info_hash).unwrap().peers;
+        self.peers_by_torrent.get_mut(info_hash).unwrap().peers = active_peers
+            .iter()
+            .filter(|peer_entry| peer_entry.peer.peer_id != sender_peer_id)
+            .cloned()
+            .collect();
+    }
 
-        for (i, torrent_peer_entry) in self
-            .peers_by_torrent
-            .get_mut(&info_hash)
-            .unwrap()
-            .peers
-            .iter_mut()
-            .enumerate()
+    fn add_peer_if_not_in_list(&mut self, info_hash: &[u8], peer: Peer, _is_seeder: bool) {
+        let active_peers = &mut self.peers_by_torrent.get_mut(info_hash).unwrap().peers;
+        if !active_peers
+            .iter()
+            .any(|peer_entry| peer_entry.peer.peer_id == peer.peer_id)
         {
-            if sender_peer.peer_id == torrent_peer_entry.peer.peer_id {
-                torrent_peer_entry.last_announce = Local::now();
-                torrent_peer_entry.is_seeder = is_seeder;
-                is_existing_peer = true;
-                if is_stopping {
-                    should_be_removed_peer_indexis.push(i);
-                }
+            active_peers.push(PeerEntry {
+                is_seeder: false,
+                peer,
+                last_announce: Local::now(),
+            });
+        }
+    }
 
-                continue;
-            }
-
-            if is_active_peer(torrent_peer_entry.last_announce, interval) {
-                if torrent_peer_entry.is_seeder {
-                    seeder_count += 1;
-                } else {
-                    leecher_count += 1;
+    fn update_peer_if_in_list(&mut self, info_hash: &[u8], peer: Peer, has_completed: bool) {
+        let active_peers = &mut self.peers_by_torrent.get_mut(info_hash).unwrap().peers;
+        for peer_entry in active_peers.iter_mut() {
+            if peer_entry.peer.peer_id == peer.peer_id {
+                if has_completed && !peer_entry.is_seeder {
+                    self.aggregator.increment(format!(
+                        "{}.complete_download_peers",
+                        String::from_utf8(info_hash.to_vec()).unwrap()
+                    ));
                 }
-
-                if active_peers.len() >= MAX_RESPONSE_PEERS {
-                    continue;
-                }
-                active_peers.push(torrent_peer_entry.peer.clone());
-            } else {
-                should_be_removed_peer_indexis.push(i);
+                peer_entry.is_seeder = has_completed;
+                peer_entry.last_announce = Local::now();
+                break;
             }
         }
+    }
 
-        for i in should_be_removed_peer_indexis {
-            self.peers_by_torrent
-                .get_mut(&info_hash)
-                .unwrap()
-                .peers
-                .remove(i);
-        }
+    fn get_active_peers_iter(&self, info_hash: &[u8]) -> std::slice::Iter<'_, PeerEntry> {
+        self.peers_by_torrent.get(info_hash).unwrap().peers.iter()
+    }
 
-        if !is_existing_peer && !is_stopping {
-            self.peers_by_torrent
-                .get_mut(&info_hash)
-                .unwrap()
-                .peers
-                .push(PeerEntry {
-                    peer: sender_peer,
-                    last_announce: Local::now(),
-                    is_seeder,
-                })
-        }
-        let active_peers_count = self.peers_by_torrent.get(&info_hash).unwrap().peers.len();
+    fn build_tracker_response(
+        &self,
+        info_hash: Vec<u8>,
+        sender_peer_id: &[u8],
+        interval: u32,
+    ) -> TrackerResponse {
+        let seeder_count = self
+            .get_active_peers_iter(&info_hash)
+            .filter(|peer_entry| peer_entry.is_seeder && peer_entry.peer.peer_id != sender_peer_id)
+            .count();
+        let active_peers_excluding_sender: Vec<Peer> = self
+            .get_active_peers_iter(&info_hash)
+            .filter(|peer_entry| peer_entry.peer.peer_id != sender_peer_id)
+            .map(|peer_entry| peer_entry.peer.clone())
+            .collect();
 
-        let key: String = format!("{}.active_peers", String::from_utf8(info_hash).unwrap());
-        self.aggregator.set(key, active_peers_count as i32);
-
-        let response: TrackerResponse = TrackerResponse {
+        TrackerResponse {
             interval_in_seconds: interval,
             tracker_id: String::from(TRACKER_ID),
-            complete: seeder_count,
-            incomplete: leecher_count,
-            peers: active_peers,
-        };
-
-        (self, response)
+            complete: seeder_count as u32,
+            incomplete: (active_peers_excluding_sender.len() - seeder_count) as u32,
+            peers: active_peers_excluding_sender,
+        }
     }
 
     fn add_new_torrent(
@@ -210,18 +208,20 @@ impl AnnounceManagerWorker {
         self.peers_by_torrent
             .insert(info_hash.clone(), new_active_peers);
 
-        let key: String = format!(
+        let active_peer_stats_key: String = format!(
             "{}.{}",
             String::from_utf8(info_hash.clone()).unwrap(),
             ACTIVE_PEERS_STAT
         );
-        self.aggregator.set(key, 1);
-        let key: String = format!(
+        self.aggregator.set(active_peer_stats_key, 1);
+
+        let complete_downloads_key: String = format!(
             "{}.{}",
             String::from_utf8(info_hash).unwrap(),
             COMPLETED_DOWNLOADS_STAT
         );
-        self.aggregator.set(key, 0);
+        self.aggregator.set(complete_downloads_key, 1);
+
         self.aggregator.increment(TORRENTS_STAT.to_string());
 
         let response: TrackerResponse = TrackerResponse {

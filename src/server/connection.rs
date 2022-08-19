@@ -129,7 +129,7 @@ impl ServerConnection {
         let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length)?;
         let block_number: usize = get_block_index(request.begin, request.length);
         // sleep for having a feeling of internet download
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        std::thread::sleep(std::time::Duration::from_millis(2000));
         let response_message = PeerMessage::piece(request.index, request.begin, block);
         match self.message_service.send_message(&response_message) {
             Ok(()) => {

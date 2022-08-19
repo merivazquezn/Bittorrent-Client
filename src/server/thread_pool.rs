@@ -145,24 +145,19 @@ impl Worker {
     ///
     fn new(id: usize, receiver: Arc<Mutex<Receiver<ThreadPoolMessage>>>) -> Worker {
         let handle = std::thread::spawn(move || loop {
-            match receiver.lock() {
-                Ok(rec) => {
-                    if let Ok(message) = rec.recv() {
-                        match message {
-                            ThreadPoolMessage::ExecuteJob(job) => {
-                                job();
-                            }
-                            ThreadPoolMessage::Stop => {
-                                break;
-                            }
+            if let Ok(rec) = receiver.lock() {
+                if let Ok(message) = rec.recv() {
+                    match message {
+                        ThreadPoolMessage::ExecuteJob(job) => {
+                            job();
                         }
-                    } else {
-                        debug!("Worker {} has been terminated", id);
-                        break;
+                        ThreadPoolMessage::Stop => {
+                            break;
+                        }
                     }
-                }
-                Err(err) => {
-                    // error!("Error trying lock mutex: {:?}", err);
+                } else {
+                    debug!("Worker {} has been terminated", id);
+                    break;
                 }
             }
         });

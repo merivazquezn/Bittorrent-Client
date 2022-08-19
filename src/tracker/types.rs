@@ -1,10 +1,23 @@
 use crate::peer::Peer;
 use std::time::Duration;
 
+#[derive(PartialEq)]
 pub enum Event {
     Started,
     Completed,
     Stopped,
+    KeepAlive,
+}
+
+impl Event {
+    pub fn as_string(&self) -> String {
+        match self {
+            Event::Started => "started".to_string(),
+            Event::Completed => "completed".to_string(),
+            Event::Stopped => "stopped".to_string(),
+            Event::KeepAlive => "".to_string(),
+        }
+    }
 }
 
 pub struct RequestParameters {

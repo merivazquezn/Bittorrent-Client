@@ -1,6 +1,5 @@
 use super::announce::new_announce_manager;
 use super::announce::AnnounceManager;
-use super::constants::POOL_WORKERS;
 use super::controllers::AnnounceController;
 use super::controllers::MetricsController;
 use super::controllers::StaticResourceController;

@@ -55,6 +55,7 @@ pub struct Peer {
 }
 
 /// Represents a peer in a certain torrent network
+#[derive(Clone, Debug)]
 pub struct PeerEntry {
     /// Stores the data of the peer (ip, port and peer_id)
     pub peer: Peer,
@@ -65,6 +66,7 @@ pub struct PeerEntry {
 }
 
 /// Represents a list of peers in a certain torrent network
+#[derive(Debug)]
 pub struct ActivePeers {
     /// The list of peers of the network. There may be inactive peers in the list
     pub peers: Vec<PeerEntry>,
