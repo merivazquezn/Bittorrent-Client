@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::time::Duration;
 use tracker::http::{HttpError, HttpGetRequest, IHttpService, IHttpServiceFactory};
+use tracker::server::announce::new_announce_manager;
 
 use std::thread;
 use tracker::aggregator::Aggregator;
@@ -111,7 +112,6 @@ pub fn create_mock_connection(
     params.insert("info_hash".to_string(), info_hash.to_string());
     params.insert("peer_id".to_string(), peer_id.to_string());
     params.insert("port".to_string(), listening_port.to_string());
-    //creat socket addr (ipv4 version) from client_address
 
     MockHttpService {
         path: "announce".to_string(),
@@ -142,7 +142,6 @@ pub fn create_mock_connection_with_event(
     params.insert("peer_id".to_string(), peer_id.to_string());
     params.insert("port".to_string(), listening_port.to_string());
     params.insert("event".to_string(), event.to_string());
-    //creat socket addr (ipv4 version) from client_address
 
     MockHttpService {
         path: "announce".to_string(),
@@ -157,6 +156,7 @@ pub fn get_content_from_test(test_name: &str, request_number: usize) -> Vec<u8> 
     std::fs::read(format!("./tests/{}/{}", test_name, request_number)).unwrap()
 }
 
+use tracker::aggregator::Timer;
 pub fn run_mock_server(
     peer_connections: Vec<MockHttpService>,
     tracker_interval_seconds: u32,
@@ -174,7 +174,8 @@ pub fn run_mock_server(
     let main_handle = thread::spawn(move || {
         let (metrics_sender, mut metrics_worker) = new_metrics(1);
 
-        let aggregator: Aggregator = match Aggregator::start() {
+        let timer = Timer::new();
+        let aggregator: Aggregator = match Aggregator::start(timer.sender) {
             Ok(aggregator) => aggregator,
             Err(_) => {
                 panic!("error creating aggregator");
@@ -193,14 +194,18 @@ pub fn run_mock_server(
 
         let (tracker_sender, tracker_receiver) = std::sync::mpsc::channel();
 
+        let (announce_manager_sender, announce_manager_receiver) =
+            new_announce_manager(aggregator.sender.clone(), tracker_interval_seconds);
+
         let handle_tracker = thread::spawn(move || {
             TrackerServer::listen(
                 connections_factory,
-                aggregator.sender,
                 metrics_sender,
                 1,
                 tracker_interval_seconds,
                 tracker_receiver,
+                announce_manager_sender,
+                announce_manager_receiver,
             )
             .unwrap()
         });
@@ -229,7 +234,7 @@ pub fn run_mock_server_variable_delays(
     let main_handle = thread::spawn(move || {
         let (metrics_sender, mut metrics_worker) = new_metrics(1);
 
-        let aggregator: Aggregator = match Aggregator::start() {
+        let aggregator: Aggregator = match Aggregator::start(Timer::new().sender) {
             Ok(aggregator) => aggregator,
             Err(_) => {
                 panic!("error creating aggregator");
@@ -248,14 +253,18 @@ pub fn run_mock_server_variable_delays(
 
         let (tracker_sender, tracker_receiver) = std::sync::mpsc::channel();
 
+        let (announce_manager_sender, announce_manager_receiver) =
+            new_announce_manager(aggregator.sender.clone(), tracker_interval_seconds);
+
         let handle_tracker = thread::spawn(move || {
             TrackerServer::listen(
                 connections_factory,
-                aggregator.sender,
                 metrics_sender,
                 1,
                 tracker_interval_seconds,
                 tracker_receiver,
+                announce_manager_sender,
+                announce_manager_receiver,
             )
             .unwrap()
         });

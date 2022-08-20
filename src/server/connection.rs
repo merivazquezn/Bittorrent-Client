@@ -61,11 +61,14 @@ impl ServerConnection {
     /// A `Result` with the `Err` value being a `ServerError`, indicating the underlying cause of the failure
     ///
     pub fn run(&mut self, logger: ServerLogger, pieces_dir: &str) -> Result<(), ServerError> {
+        info!("before init messages");
         self.send_init_messages(pieces_dir)?;
+        info!("after init messages, about to wait for message from client");
 
         loop {
             let message: PeerMessage = match self.message_service.wait_for_message() {
                 Ok(message) => {
+                    info!("message from client got: {:?}", message);
                     let cloned_message = message.clone();
                     let _ = logger.received_message(cloned_message);
                     message
@@ -129,7 +132,7 @@ impl ServerConnection {
         let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length)?;
         let block_number: usize = get_block_index(request.begin, request.length);
         // sleep for having a feeling of internet download
-        std::thread::sleep(std::time::Duration::from_millis(2000));
+        std::thread::sleep(std::time::Duration::from_millis(3000));
         let response_message = PeerMessage::piece(request.index, request.begin, block);
         match self.message_service.send_message(&response_message) {
             Ok(()) => {

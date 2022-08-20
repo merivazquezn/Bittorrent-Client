@@ -1,12 +1,11 @@
-use super::announce::new_announce_manager;
 use super::announce::AnnounceManager;
+use super::announce::AnnounceManagerWorker;
 use super::controllers::AnnounceController;
 use super::controllers::MetricsController;
 use super::controllers::StaticResourceController;
 use super::endpoints::TrackerEndpoint;
 use super::errors::TrackerError;
 use super::utils::parse_path;
-use crate::aggregator::AggregatorSender;
 use crate::http::HttpGetRequest;
 use crate::http::IHttpService;
 use crate::http::IHttpServiceFactory;
@@ -21,14 +20,14 @@ pub struct TrackerServer;
 impl TrackerServer {
     pub fn listen(
         mut http_service_factory: Box<dyn IHttpServiceFactory>,
-        aggregator: AggregatorSender,
         metrics: MetricsSender,
         threads: usize,
         tracker_interval_seconds: u32,
         receiver: std::sync::mpsc::Receiver<()>,
+        announce_manager_sender: AnnounceManager,
+        announce_manager_worker: AnnounceManagerWorker,
     ) -> Result<(), TrackerError> {
         let pool: ThreadPool = ThreadPool::new(threads)?;
-        let (announce_manager_sender, announce_manager_worker) = new_announce_manager(aggregator);
         std::thread::spawn(move || {
             let _ = announce_manager_worker.listen();
         });

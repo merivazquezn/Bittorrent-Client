@@ -17,6 +17,11 @@ impl AnnounceManager {
         AnnounceManager { sender }
     }
 
+    pub fn update(&self) {
+        println!("sending update to announce manager");
+        let _ = self.sender.send(AnnounceMessage::Update);
+    }
+
     pub fn announce_and_get_response(
         &self,
         announce_request: AnnounceRequest,

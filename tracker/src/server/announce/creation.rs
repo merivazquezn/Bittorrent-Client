@@ -5,10 +5,11 @@ use super::announce_manager_worker::AnnounceManagerWorker;
 
 pub fn new_announce_manager(
     aggregator_sender: AggregatorSender,
+    interval: u32,
 ) -> (AnnounceManager, AnnounceManagerWorker) {
     let (sender, receiver) = std::sync::mpsc::channel();
     (
         AnnounceManager::new(sender),
-        AnnounceManagerWorker::new(receiver, aggregator_sender),
+        AnnounceManagerWorker::new(receiver, aggregator_sender, interval),
     )
 }

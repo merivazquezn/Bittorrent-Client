@@ -145,10 +145,13 @@ impl Worker {
     ///
     fn new(id: usize, receiver: Arc<Mutex<Receiver<ThreadPoolMessage>>>) -> Worker {
         let handle = std::thread::spawn(move || loop {
+            info!("about to try to lock receiver of pool");
             if let Ok(rec) = receiver.lock() {
                 if let Ok(message) = rec.recv() {
                     match message {
                         ThreadPoolMessage::ExecuteJob(job) => {
+                            std::mem::drop(rec);
+                            info!("pool about to execute job");
                             job();
                         }
                         ThreadPoolMessage::Stop => {

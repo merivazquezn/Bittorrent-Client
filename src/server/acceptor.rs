@@ -9,6 +9,8 @@ use crate::tracker::Event;
 use crate::tracker::ITrackerServiceV2;
 use crate::tracker::TrackerServiceV2;
 use log::*;
+use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::sync::mpsc;
@@ -17,7 +19,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-const TRACKER_INTERVAL_IN_SECONDS: u64 = 10;
+const TRACKER_INTERVAL_IN_SECONDS: u64 = 20;
 
 enum ServerMessage {
     Stop,
@@ -68,10 +70,11 @@ impl Server {
     ) -> Server {
         let (tx, rx) = mpsc::channel();
         let pieces_dir_clone = String::from(pieces_dir);
+        let address: SocketAddr = socket_from_address(LOCALHOST.to_string(), port);
+
         let handle = std::thread::spawn(move || {
             Self::listen(
-                LOCALHOST,
-                port,
+                address,
                 client_peer_id,
                 metainfo,
                 rx,
@@ -85,8 +88,7 @@ impl Server {
     }
 
     fn listen(
-        address: &str,
-        port: u16,
+        address: SocketAddr,
         client_peer_id: Vec<u8>,
         metainfo: Metainfo,
         receiver: Receiver<ServerMessage>,
@@ -95,8 +97,7 @@ impl Server {
         mut tracker_service: TrackerServiceV2,
     ) -> Result<(), ServerError> {
         let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
-        let address = format!("{}:{}", address, port);
-
+        let address = format!("{}:{}", address.ip(), address.port());
         let mut last_announce = std::time::Instant::now();
         let listener: TcpListener = TcpListener::bind(&address)?;
         listener.set_nonblocking(true).map_err(|_| {
@@ -112,20 +113,21 @@ impl Server {
             match stream {
                 Ok(stream) => {
                     info!("Server: Incoming connection");
-                    let _ = Server::handle_incoming_connection(
-                        stream,
-                        metainfo.clone(),
-                        client_peer_id.clone(),
-                        logger.clone(),
-                        &pool,
-                        pieces_dir,
+                    println!(
+                        "handle incomming connection return data:{:?}",
+                        Server::handle_incoming_connection(
+                            stream,
+                            metainfo.clone(),
+                            client_peer_id.clone(),
+                            logger.clone(),
+                            &pool,
+                            pieces_dir,
+                        )
                     );
                 }
                 Err(ref err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     // This doesen't mean an error ocurred, there just wasn't a connection at the moment
-                    //debug!("Server: Not any incoming connection at the moment, going to sleep...");
                     if last_announce.elapsed().as_secs() > TRACKER_INTERVAL_IN_SECONDS {
-                        // hardocdeado, despues configurar con el interval del tracker
                         println!("announcing");
                         let _ = tracker_service.announce(None);
                         last_announce = std::time::Instant::now();
@@ -158,6 +160,7 @@ impl Server {
         let connection_logger = logger;
         let dir_clone = String::from(pieces_dir);
         pool.execute(move || {
+            info!("inside pool execution");
             let message_service = PeerMessageService::from_peer_connection(stream);
             let _ = ServerConnection::new(client_id, metainfo, Box::new(message_service))
                 .run(connection_logger, &dir_clone);
@@ -185,4 +188,9 @@ impl Server {
 
         Ok(())
     }
+}
+
+fn socket_from_address(ip: String, port: u16) -> SocketAddr {
+    let ip: IpAddr = ip.parse::<IpAddr>().unwrap();
+    SocketAddr::new(ip, port)
 }

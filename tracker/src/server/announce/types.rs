@@ -4,6 +4,7 @@ use std::sync::mpsc::Sender;
 #[allow(dead_code)]
 pub enum AnnounceMessage {
     Announce(AnnounceRequest, Sender<TrackerResponse>, u32),
+    Update,
     Stop,
 }
 
@@ -66,7 +67,7 @@ pub struct PeerEntry {
 }
 
 /// Represents a list of peers in a certain torrent network
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActivePeers {
     /// The list of peers of the network. There may be inactive peers in the list
     pub peers: Vec<PeerEntry>,

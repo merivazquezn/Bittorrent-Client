@@ -18,14 +18,20 @@ pub struct AnnounceManagerWorker {
     peers_by_torrent: HashMap<Vec<u8>, ActivePeers>,
     receiver: Receiver<AnnounceMessage>,
     aggregator: AggregatorSender,
+    interval: u32,
 }
 
 impl AnnounceManagerWorker {
-    pub fn new(receiver: Receiver<AnnounceMessage>, aggregator_sender: AggregatorSender) -> Self {
+    pub fn new(
+        receiver: Receiver<AnnounceMessage>,
+        aggregator_sender: AggregatorSender,
+        interval: u32,
+    ) -> Self {
         AnnounceManagerWorker {
             peers_by_torrent: HashMap::new(),
             receiver,
             aggregator: aggregator_sender,
+            interval,
         }
     }
 
@@ -55,11 +61,34 @@ impl AnnounceManagerWorker {
                     let response: TrackerResponse = announce_res.1;
                     sender.send(response).unwrap();
                 }
+                AnnounceMessage::Update => self.remove_all_inactive_peers(),
                 AnnounceMessage::Stop => break,
             }
         }
 
         Ok(())
+    }
+
+    fn remove_all_inactive_peers(&mut self) {
+        println!("removing all inactive peers due to timer update");
+        let peer_hashmap_clone = self.peers_by_torrent.clone();
+        for (info_hash, _) in peer_hashmap_clone {
+            self.remove_inactive_peers(&info_hash, self.interval);
+            let key: String = format!(
+                "{}.active_peers",
+                String::from_utf8(info_hash.clone()).unwrap()
+            );
+            self.aggregator.set(
+                key,
+                self.peers_by_torrent
+                    .get_mut(&info_hash.clone())
+                    .unwrap()
+                    .peers
+                    .len()
+                    .try_into()
+                    .unwrap(),
+            );
+        }
     }
 
     fn handle_announce(
