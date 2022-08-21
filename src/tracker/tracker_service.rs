@@ -504,7 +504,9 @@ impl ITrackerServiceV2 for MockTrackerServiceV2 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bencode;
     use crate::config::Config;
+    use crate::http::MockHttpsService;
     use crate::metainfo::Metainfo;
     use rand::Rng;
 
@@ -527,47 +529,47 @@ mod tests {
         assert!(matches!(response, Err(TrackerError::InvalidResponse(_))));
     }
 
-    // #[test]
-    // fn test_get_peers_success_on_valid_response_containing_one_peer() {
-    //     const CONFIG_PATH: &str = "src/config/test_files/correct_config.txt";
-    //     let torrent_path = "./example_torrents/ubuntu.torrent";
-    //     let peer_id = rand::thread_rng().gen::<[u8; 20]>();
-    //     let config = Config::from_path(CONFIG_PATH).unwrap();
-    //     let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
-    //     let bencoded_response = BencodeDecodedValue::Dictionary(HashMap::from([(
-    //         PEERS.to_vec(),
-    //         BencodeDecodedValue::List(vec![BencodeDecodedValue::Dictionary(HashMap::from([
-    //             (
-    //                 IP.to_vec(),
-    //                 BencodeDecodedValue::String(b"0.0.0.0".to_vec()),
-    //             ),
-    //             (PORT.to_vec(), BencodeDecodedValue::Integer(10000)),
-    //             (
-    //                 PEER_ID.to_vec(),
-    //                 BencodeDecodedValue::String([0u8; 20].to_vec()),
-    //             ),
-    //         ]))]),
-    //     )]));
+    #[test]
+    fn test_get_peers_success_on_valid_response_containing_one_peer() {
+        const CONFIG_PATH: &str = "src/config/test_files/correct_config.txt";
+        let torrent_path = "./example_torrents/ubuntu.torrent";
+        let peer_id = rand::thread_rng().gen::<[u8; 20]>();
+        let config = Config::from_path(CONFIG_PATH).unwrap();
+        let metainfo = Metainfo::from_torrent(torrent_path).unwrap();
+        let bencoded_response = BencodeDecodedValue::Dictionary(HashMap::from([(
+            PEERS.to_vec(),
+            BencodeDecodedValue::List(vec![BencodeDecodedValue::Dictionary(HashMap::from([
+                (
+                    IP.to_vec(),
+                    BencodeDecodedValue::String(b"0.0.0.0".to_vec()),
+                ),
+                (PORT.to_vec(), BencodeDecodedValue::Integer(10000)),
+                (
+                    PEER_ID.to_vec(),
+                    BencodeDecodedValue::String([0u8; 20].to_vec()),
+                ),
+            ]))]),
+        )]));
 
-    //     let connection = Box::new(MockHttpsService {
-    //         read_bytes: bencode::encode(&bencoded_response),
-    //     });
-    //     let mut tracker_service = TrackerService::from_metainfo(
-    //         &metainfo,
-    //         config.listen_port,
-    //         &peer_id,
-    //         connection,
-    //         vec![],
-    //     );
-    //     assert_eq!(tracker_service.get_response().unwrap().peers.len(), 1);
-    //     assert_eq!(
-    //         tracker_service.get_response().unwrap().peers[0],
-    //         Peer {
-    //             ip: "0.0.0.0".to_string(),
-    //             port: 10000,
-    //             peer_id: [0u8; 20].to_vec(),
-    //             peer_message_service_provider
-    //         }
-    //     );
-    // }
+        let connection = Box::new(MockHttpsService {
+            read_bytes: bencode::encode(&bencoded_response),
+        });
+        let mut tracker_service = TrackerService::from_metainfo(
+            &metainfo,
+            config.listen_port,
+            &peer_id,
+            connection,
+            vec![],
+        );
+        assert_eq!(tracker_service.get_response().unwrap().peers.len(), 1);
+        assert_eq!(
+            tracker_service.get_response().unwrap().peers[0],
+            Peer {
+                ip: "0.0.0.0".to_string(),
+                port: 10000,
+                peer_id: [0u8; 20].to_vec(),
+                peer_message_service_provider
+            }
+        );
+    }
 }

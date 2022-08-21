@@ -16,6 +16,7 @@ mod tests {
         });
         metrics_sender
     }
+
     //generates aggregations (1-min-interval each) for a given amount of days, incrementing values by one
     fn generate_aggregation_for_days(
         n_days: u32,

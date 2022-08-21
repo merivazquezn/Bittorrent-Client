@@ -23,3 +23,4 @@ pub fn new_metrics(store_days: u32) -> (MetricsSender, MetricsWorker) {
         },
     )
 }
+
