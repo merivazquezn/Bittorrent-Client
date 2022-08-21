@@ -5,7 +5,7 @@ use crate::peer_connection_manager::types::PeerConnectionManagerMessage;
 use crate::peer_connection_manager::{open_peer_connection::*, PeerConnectionManagerSender};
 use crate::piece_manager::sender::PieceManagerSender;
 use crate::piece_saver::sender::PieceSaverSender;
-use crate::tracker::ITrackerServiceV2;
+use crate::tracker::ITrackerService;
 use crate::ui::UIMessageSender;
 use log::*;
 use std::collections::HashMap;
@@ -169,7 +169,7 @@ impl PeerConnectionManagerWorker {
 
     pub fn listen(
         mut self,
-        _tracker_service: &mut impl ITrackerServiceV2,
+        _tracker_service: &mut impl ITrackerService,
         interval: Option<Duration>,
         _peer_connection_manager_sender: PeerConnectionManagerSender,
     ) -> Result<(), RecvError> {

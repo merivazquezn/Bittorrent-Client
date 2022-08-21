@@ -11,8 +11,8 @@ use std::time::Duration;
 mod mock_service_creation;
 use bittorrent_rustico::metainfo::{self, Metainfo};
 use bittorrent_rustico::server::Server;
-use bittorrent_rustico::tracker::MockTrackerServiceV2;
-use bittorrent_rustico::tracker::TrackerServiceV2;
+use bittorrent_rustico::tracker::MockTrackerService;
+use bittorrent_rustico::tracker::TrackerService;
 use mock_service_creation::*;
 use rand::Rng;
 use std::net::TcpStream;
@@ -36,7 +36,7 @@ fn get_mock_tracker_responses() -> Vec<Vec<Peer>> {
         peer_id: vec![2],
         peer_message_service_provider: mock_peer_message_service_2,
     };
-    let faulty_peer = Peer {
+    let _faulty_peer = Peer {
         ip: String::from("9.9.9.9"),
         port: 0,
         peer_id: vec![99],
@@ -112,7 +112,7 @@ fn client_integration_test() {
     let client: TorrentClient =
         TorrentClient::new(&client_info, UIMessageSender::no_ui(), vec![]).unwrap();
 
-    let mut tracker_service = MockTrackerServiceV2 {
+    let mut tracker_service = MockTrackerService {
         responses: tracker_responses.to_vec(),
         response_index: 0,
     };
@@ -292,7 +292,7 @@ fn server_integration_test_ask_for_small_pieces() {
         port,
         std::time::Duration::from_secs(2),
         "./downloads/test_server/pieces",
-        TrackerServiceV2::new(client_info),
+        TrackerService::new(client_info),
     );
     let mut socket: TcpStream;
     loop {
@@ -364,7 +364,7 @@ fn server_integration_test_ask_for_blocks_single_piece() {
         port,
         Duration::from_secs(4),
         "./tests/test_server/pieces",
-        TrackerServiceV2::new(client_info),
+        TrackerService::new(client_info),
     );
     let mut socket: TcpStream;
     loop {

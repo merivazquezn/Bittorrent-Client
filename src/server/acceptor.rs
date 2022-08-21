@@ -6,8 +6,8 @@ use super::ServerLogger;
 use crate::metainfo::Metainfo;
 use crate::peer::PeerMessageService;
 use crate::tracker::Event;
-use crate::tracker::ITrackerServiceV2;
-use crate::tracker::TrackerServiceV2;
+use crate::tracker::ITrackerService;
+use crate::tracker::TrackerService;
 use log::*;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -66,7 +66,7 @@ impl Server {
         port: u16,
         time_to_sleep: Duration,
         pieces_dir: &str,
-        tracker_service: TrackerServiceV2,
+        tracker_service: TrackerService,
     ) -> Server {
         let (tx, rx) = mpsc::channel();
         let pieces_dir_clone = String::from(pieces_dir);
@@ -94,7 +94,7 @@ impl Server {
         receiver: Receiver<ServerMessage>,
         time_to_sleep: Duration,
         pieces_dir: &str,
-        mut tracker_service: TrackerServiceV2,
+        mut tracker_service: TrackerService,
     ) -> Result<(), ServerError> {
         let (logger, handle) = ServerLogger::new(LOGS_DIR)?;
         let address = format!("{}:{}", address.ip(), address.port());

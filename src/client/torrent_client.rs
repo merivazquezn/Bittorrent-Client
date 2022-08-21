@@ -5,7 +5,7 @@ use crate::peer_connection_manager::*;
 use crate::piece_manager::*;
 use crate::piece_saver::*;
 use crate::tracker::Event;
-use crate::tracker::ITrackerServiceV2;
+use crate::tracker::ITrackerService;
 use crate::ui::UIMessageSender;
 use log::*;
 use std::thread::JoinHandle;
@@ -69,7 +69,7 @@ impl TorrentClient {
     pub fn run(
         mut self,
         client_info: ClientInfo,
-        tracker_service: &mut (impl ITrackerServiceV2 + Send + 'static),
+        tracker_service: &mut (impl ITrackerService + Send + 'static),
     ) -> Result<(), ApplicationError> {
         let piece_saver_handle = std::thread::spawn(move || {
             self.workers.piece_saver.listen().unwrap();
