@@ -1,5 +1,7 @@
 use super::super::types::MetricsMessage;
 use crate::application_constants::*;
+use crate::metrics::constants::METRICS_DUMP_PATH;
+use crate::metrics::dump_parse::{get_dump_record, get_encoded_record};
 use crate::metrics::grouping_methods::*;
 use crate::metrics::params::*;
 use chrono::prelude::*;
@@ -16,6 +18,7 @@ pub struct MetricsWorker {
     pub receiver: Receiver<MetricsMessage>,
     pub record: HashMap<String, Vec<(i32, DateTime<Local>)>>,
     pub store_minutes: usize,
+    pub should_recover_from_dump: bool,
 }
 
 fn timestamp_to_string(timestamp: DateTime<Local>) -> String {
@@ -69,9 +72,28 @@ impl MetricsWorker {
                 record_vector.remove(0);
             }
         }
+
+        let record: HashMap<String, Vec<(i32, DateTime<Local>)>> = self.record.clone();
+        let _handle = std::thread::spawn(move || {
+            let encoded_record: Vec<u8> = get_encoded_record(record);
+            let _ = std::fs::write("dump/metrics/metrics_dump", encoded_record);
+        });
     }
 
     pub fn listen(&mut self) -> Result<(), RecvError> {
+        if self.should_recover_from_dump {
+            match get_dump_record(METRICS_DUMP_PATH) {
+                Ok(record) => {
+                    println!("Recovered record from dump");
+                    self.record = record;
+                }
+                Err(error) => {
+                    println!("Could not recover record from dump: {}", error);
+                    println!("Starting with empty record");
+                }
+            };
+        }
+
         loop {
             let message = self.receiver.recv()?;
             match message {
@@ -174,7 +196,7 @@ mod tests {
     const STARTING_Y_M_D: (i32, u32, u32) = (2022, 1, 1);
 
     fn setup(store_days: u32) -> MetricsSender {
-        let (metrics_sender, mut metrics_worker) = new_metrics(store_days);
+        let (metrics_sender, mut metrics_worker) = new_metrics(store_days, false);
         let _ = thread::spawn(move || {
             let _ = metrics_worker.listen();
         });

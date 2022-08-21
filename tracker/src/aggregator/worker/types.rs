@@ -6,7 +6,7 @@ use chrono::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
-// import constants
+
 use crate::aggregator::constants::UPDATE_INTERVAL_SECONDS;
 
 pub struct AggregatorWorker {

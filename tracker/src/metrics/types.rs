@@ -12,7 +12,10 @@ pub enum MetricsMessage {
     Stop,
 }
 
-pub fn new_metrics(store_days: u32) -> (MetricsSender, MetricsWorker) {
+pub fn new_metrics(
+    store_days: u32,
+    should_recover_from_dump: bool,
+) -> (MetricsSender, MetricsWorker) {
     let (tx, rx) = mpsc::channel();
     (
         MetricsSender { sender: tx },
@@ -20,7 +23,7 @@ pub fn new_metrics(store_days: u32) -> (MetricsSender, MetricsWorker) {
             receiver: rx,
             record: HashMap::new(),
             store_minutes: (store_days * 24 * 60) as usize,
+            should_recover_from_dump,
         },
     )
 }
-

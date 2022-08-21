@@ -172,7 +172,7 @@ pub fn run_mock_server(
         });
 
     let main_handle = thread::spawn(move || {
-        let (metrics_sender, mut metrics_worker) = new_metrics(1);
+        let (metrics_sender, mut metrics_worker) = new_metrics(1, false);
 
         let timer = Timer::new();
         let aggregator: Aggregator = match Aggregator::start(timer.sender) {
@@ -232,7 +232,7 @@ pub fn run_mock_server_variable_delays(
         });
 
     let main_handle = thread::spawn(move || {
-        let (metrics_sender, mut metrics_worker) = new_metrics(1);
+        let (metrics_sender, mut metrics_worker) = new_metrics(1, false);
 
         let aggregator: Aggregator = match Aggregator::start(Timer::new().sender) {
             Ok(aggregator) => aggregator,

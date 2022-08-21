@@ -3,7 +3,7 @@ use std::thread;
 use tracker::aggregator::Aggregator;
 use tracker::aggregator::Timer;
 use tracker::application_constants::STORE_DAYS;
-use tracker::application_constants::{LISTEN_PORT, LOCALHOST};
+use tracker::application_constants::{LISTEN_PORT, LOCALHOST, RECOVER_METRICS_FLAG};
 use tracker::http::HttpServiceFactory;
 use tracker::metrics::new_metrics;
 use tracker::server::announce::new_announce_manager;
@@ -18,16 +18,25 @@ fn bind_server() -> std::net::TcpListener {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut should_recover_metrics: bool = false;
+    for arg in args {
+        if arg == RECOVER_METRICS_FLAG {
+            println!("Recovering metrics...");
+            should_recover_metrics = true;
+        }
+    }
+
     pretty_env_logger::init();
     LOGGER.info(format!(
-        "Tracker escuchando en {}:{}",
+        "Tracker listening at {}:{}",
         LOCALHOST, LISTEN_PORT
     ));
     let http_service_factory = HttpServiceFactory::new(bind_server());
 
     let timer = Timer::new();
 
-    let (metrics_sender, mut metrics_worker) = new_metrics(STORE_DAYS);
+    let (metrics_sender, mut metrics_worker) = new_metrics(STORE_DAYS, should_recover_metrics);
 
     let aggregator: Aggregator = match Aggregator::start(timer.sender.clone()) {
         Ok(aggregator) => aggregator,

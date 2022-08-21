@@ -16,10 +16,16 @@ Optional: if you will work on frontend code, after running `yarn run build` at l
 
 1. run `yarn run start`, this will start frontend server on port 3000.
 2. change the script tag to
- ```<script defer="defer" src="http://localhost:3000/static/js/bundle.js"></script>``` 
+   `<script defer="defer" src="http://localhost:3000/static/js/bundle.js"></script>`
 
- That way, changes in the frontend will be automatically reflected on the server without having to build envery time
+That way, changes in the frontend will be automatically reflected on the server without having to build envery time
 
 ## How to run the tracker
 
 Use the `RUST_LOG=info cargo run` command on the root tracker folder, where the Cargo.toml file is.
+
+## Recover metrics dump
+
+If you want to recover past metrics stored at `dump/metrics_dump`, you can run the program with the `-- --recover_metrics` flag:
+
+`cargo run -- --recover_metrics`
