@@ -5,34 +5,34 @@ use std::collections::HashMap;
 use std::io;
 
 pub enum MetricsDumpError {
-    IoError(io::Error),
-    BencodeError(BencodeDecoderError),
-    FromUtf8Error(std::string::FromUtf8Error),
-    TryFromIntError(std::num::TryFromIntError),
+    Io(io::Error),
+    Bencode(BencodeDecoderError),
+    FromUtf8(std::string::FromUtf8Error),
+    TryFromInt(std::num::TryFromIntError),
     ParseError,
 }
 
 impl From<std::num::TryFromIntError> for MetricsDumpError {
     fn from(e: std::num::TryFromIntError) -> Self {
-        MetricsDumpError::TryFromIntError(e)
+        MetricsDumpError::TryFromInt(e)
     }
 }
 
 impl From<io::Error> for MetricsDumpError {
     fn from(error: io::Error) -> Self {
-        MetricsDumpError::IoError(error)
+        MetricsDumpError::Io(error)
     }
 }
 
 impl From<BencodeDecoderError> for MetricsDumpError {
     fn from(error: BencodeDecoderError) -> Self {
-        MetricsDumpError::BencodeError(error)
+        MetricsDumpError::Bencode(error)
     }
 }
 
 impl From<std::string::FromUtf8Error> for MetricsDumpError {
     fn from(error: std::string::FromUtf8Error) -> Self {
-        MetricsDumpError::FromUtf8Error(error)
+        MetricsDumpError::FromUtf8(error)
     }
 }
 
@@ -64,9 +64,11 @@ pub fn get_encoded_record(record: HashMap<String, Vec<(i32, DateTime<Local>)>>) 
     encode(&bencoded_hashmap)
 }
 
+type TimeSeriesValue = (i32, DateTime<Local>);
+
 pub fn get_dump_record(
     dump_path: &str,
-) -> Result<HashMap<String, Vec<(i32, DateTime<Local>)>>, MetricsDumpError> {
+) -> Result<HashMap<String, Vec<TimeSeriesValue>>, MetricsDumpError> {
     let content: Vec<u8> = std::fs::read(dump_path)?;
     let bencoded: BencodeDecodedValue = decode(&content)?;
     let bencode_dump: &HashMap<Vec<u8>, BencodeDecodedValue> = bencoded.get_as_dictionary()?;
@@ -106,10 +108,10 @@ pub fn get_dump_record(
 impl std::fmt::Display for MetricsDumpError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            MetricsDumpError::IoError(error) => write!(f, "IO error: {}", error),
-            MetricsDumpError::BencodeError(error) => write!(f, "Bencode error: {}", error),
-            MetricsDumpError::FromUtf8Error(error) => write!(f, "FromUtf8 error: {}", error),
-            MetricsDumpError::TryFromIntError(error) => write!(f, "TryFromInt error: {}", error),
+            MetricsDumpError::Io(error) => write!(f, "IO error: {}", error),
+            MetricsDumpError::Bencode(error) => write!(f, "Bencode error: {}", error),
+            MetricsDumpError::FromUtf8(error) => write!(f, "FromUtf8 error: {}", error),
+            MetricsDumpError::TryFromInt(error) => write!(f, "TryFromInt error: {}", error),
             MetricsDumpError::ParseError => write!(f, "Parse error"),
         }
     }

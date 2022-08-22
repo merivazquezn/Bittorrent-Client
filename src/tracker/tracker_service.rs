@@ -232,12 +232,10 @@ pub struct MockTrackerService {
 impl ITrackerService for MockTrackerService {
     fn announce(&mut self, _: Option<Event>) -> Result<TrackerResponse, TrackerError> {
         if self.response_index < self.responses.len() {
-            let response = Ok(TrackerResponse {
+            Ok(TrackerResponse {
                 peers: self.responses[self.response_index].clone(),
                 interval: None,
-            });
-            self.response_index += 1;
-            response
+            })
         } else {
             Err(TrackerError::InvalidResponse("request failed".to_string()))
         }

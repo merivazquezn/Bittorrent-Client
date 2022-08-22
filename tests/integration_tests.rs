@@ -113,7 +113,7 @@ fn client_integration_test() {
         TorrentClient::new(&client_info, UIMessageSender::no_ui(), vec![]).unwrap();
 
     let mut tracker_service = MockTrackerService {
-        responses: tracker_responses.to_vec(),
+        responses: tracker_responses,
         response_index: 0,
     };
 

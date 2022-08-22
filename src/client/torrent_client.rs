@@ -129,15 +129,15 @@ impl TorrentClient {
         }
 
         if !std::path::Path::new(&target_name).exists() {
-            download_manager::make_target_file(
-                client_info.metainfo.get_piece_count(),
-                &client_info.metainfo.info.name,
-                &download_path,
-                client_info.config.persist_pieces,
-            )?;
-
             let _ = tracker_service.announce(Some(Event::Completed));
         }
+
+        download_manager::make_target_file(
+            client_info.metainfo.get_piece_count(),
+            &client_info.metainfo.info.name,
+            &download_path,
+            client_info.config.persist_pieces,
+        )?;
 
         Ok(())
     }
