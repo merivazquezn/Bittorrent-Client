@@ -14,14 +14,23 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvError;
 
+/// The announce manager worker is responsible of diciding which peers
+/// are active, and stores the active peers for each torrent.
+/// When a new peer announces, the announce manager worker will
+/// return the list of active peers and other response parameters.
 pub struct AnnounceManagerWorker {
+    /// The key is the torrent's info_hash, the value is currently active peers of that torrent
     peers_by_torrent: HashMap<Vec<u8>, ActivePeers>,
+    /// For receiving AnnounceMessages from announcing peers
     receiver: Receiver<AnnounceMessage>,
+    /// So that the AnnounceManager can send events metrics to the aggregator
     aggregator: AggregatorSender,
+    /// Interval in seconds tha peers hace to wait between requests
     interval: u32,
 }
 
 impl AnnounceManagerWorker {
+    /// Creates a new AnnounceManagerWorker
     pub fn new(
         receiver: Receiver<AnnounceMessage>,
         aggregator_sender: AggregatorSender,
@@ -35,6 +44,26 @@ impl AnnounceManagerWorker {
         }
     }
 
+    /// Starts the announce manager worker
+    ///
+    /// # Returns:
+    /// ## On Success:
+    /// - Nothing
+    ///
+    /// ## On Failure:
+    /// - A `RecvError` if the receiver fails to receive messages
+    ///
+    /// The announce manager starts listening for messages, which can:
+    /// - Stop the AnnounceManager
+    ///
+    /// - Announce a new peer
+    ///
+    /// - Remove inactive peers
+    ///
+    /// In the announce case, the Announce Manager will also
+    /// remove all of that torrent inactive peers.
+    /// It will also trigger the active_peers, completed_downloads
+    /// and amonunt of torrents events when necessry.
     pub fn listen(mut self) -> Result<(), RecvError> {
         loop {
             let message: AnnounceMessage = self.receiver.recv()?;
@@ -187,9 +216,12 @@ impl AnnounceManagerWorker {
     }
 
     fn get_active_peers_iter(&self, info_hash: &[u8]) -> std::slice::Iter<'_, PeerEntry> {
+        // This unwrap shouldn't fail, because we already checked that the torrent exists
         self.peers_by_torrent.get(info_hash).unwrap().peers.iter()
     }
 
+    /// Builds the tracker response struct, so that the main connection thread will
+    /// send it to the peer.
     fn build_tracker_response(
         &self,
         info_hash: Vec<u8>,

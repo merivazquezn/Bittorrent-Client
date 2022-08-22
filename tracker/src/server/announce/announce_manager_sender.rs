@@ -13,15 +13,26 @@ pub struct AnnounceManager {
 }
 
 impl AnnounceManager {
+    /// Creates a new AnnounceManager sender
     pub fn new(sender: Sender<AnnounceMessage>) -> Self {
         AnnounceManager { sender }
     }
 
+    /// Sends a update message to the AnnounceManager, which will
+    /// update all the active peers entries for all torrents.
     pub fn update(&self) {
         println!("sending update to announce manager");
         let _ = self.sender.send(AnnounceMessage::Update);
     }
 
+    /// Sends a announce message to the AnnounceManager, which will
+    /// Build the response for the announce request.
+    /// This response contains the list of peers that are currently
+    /// active for the torrent.
+    /// If the torrent doesnot exist, it will create a new torrent entry, but
+    /// the active peers response will be empty
+    ///
+    /// It returns an error if sending the message through the channel fails
     pub fn announce_and_get_response(
         &self,
         announce_request: AnnounceRequest,

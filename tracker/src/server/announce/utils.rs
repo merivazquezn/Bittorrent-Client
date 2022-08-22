@@ -1,4 +1,5 @@
 use super::{AnnounceRequest, TrackerEvent};
+use crate::server::announce::constants;
 use crate::server::announce::TrackerResponse;
 use crate::server::errors::AnnounceError;
 use bittorrent_rustico::bencode::encode;
@@ -7,8 +8,19 @@ use chrono::prelude::*;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-const DEFAULT_NUMWANT: u32 = 50;
-
+/// Parses the peer announce request
+/// Receives the HTTP request query params
+/// It demands default values, and if they are not present, it will return an error
+/// It will also replace optional values such as events acordingly
+///
+/// # Returns:
+///
+/// ## On Success:
+/// Returns the parsed announce request
+///
+/// ## On Error:
+/// Returns an error if the request is not valid
+/// Or if any of the required fields are not present
 pub fn parse_request_from_params(
     params: HashMap<String, String>,
     address: SocketAddr,
@@ -39,7 +51,7 @@ pub fn parse_request_from_params(
         }
     }
 
-    let mut numwant: u32 = DEFAULT_NUMWANT;
+    let mut numwant: u32 = constants::DEFAULT_NUMWANT;
     if params.contains_key("numwant") {
         numwant = parse_entry_to_u32(&params, "numwant")?;
     }
@@ -82,19 +94,25 @@ fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String>
     missing_params
 }
 
+/// Decides whether the peer is active or not, according to the last_announce timestamp
+/// It is not active if it has passed more than 2 times the tracker interval
 pub fn is_active_peer(last_announce: DateTime<Local>, interval: u32) -> bool {
     let time_between_announces: chrono::Duration = Local::now() - last_announce;
     time_between_announces < chrono::Duration::seconds((2 * interval).into())
 }
 
+/// Decides if a peer request says that it is a seeder or not
 pub fn has_completed(request: &AnnounceRequest) -> bool {
     request.event == TrackerEvent::Completed
 }
 
+/// Decides if a peer request says that it is stopping their server
 pub fn is_peer_stopping(request: &AnnounceRequest) -> bool {
     request.event == TrackerEvent::Stopped
 }
 
+/// It encodes the tracker response and return the bytes of the response
+/// It is encoded with bencoding encoding.
 pub fn get_response_bytes(response: TrackerResponse) -> Vec<u8> {
     let mut response_map: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
 

@@ -1,10 +1,15 @@
 use chrono::prelude::*;
 use std::sync::mpsc::Sender;
 
-#[allow(dead_code)]
+/// Messages sent to the announce manager
 pub enum AnnounceMessage {
+    /// Anounces a peer, updating that specific torrent active peers
+    /// and selecting a list of active peers
+    /// It also triggers the apropiate events for the aggregator
     Announce(AnnounceRequest, Sender<TrackerResponse>, u32),
+    /// Updates the active peers for all torrents
     Update,
+    /// Stops the Announce manager
     Stop,
 }
 
