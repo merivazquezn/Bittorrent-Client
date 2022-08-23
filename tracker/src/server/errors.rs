@@ -1,9 +1,9 @@
+use crate::http::HttpError;
 use bittorrent_rustico::server::ThreadPoolError;
 use std::fmt;
 use std::io;
-use std::sync::mpsc::RecvError;
 use std::num::ParseIntError;
-use crate::http::HttpError;
+use std::sync::mpsc::RecvError;
 
 #[derive(Debug)]
 pub enum TrackerError {

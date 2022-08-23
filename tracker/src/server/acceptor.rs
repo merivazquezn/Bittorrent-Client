@@ -96,6 +96,9 @@ impl TrackerServer {
                 request,
                 metrics,
             )?),
+            TrackerEndpoint::Torrents => {
+                Ok(MetricsController::get_torrents(http_service, metrics)?)
+            }
         }
     }
 }

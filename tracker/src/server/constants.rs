@@ -1,6 +1,7 @@
 pub const ANNOUNCE_ENDPOINT: &str = "announce";
 pub const STATS_ENDPOINT: &str = "stats";
 pub const METRICS_ENDPOINT: &str = "metrics";
+pub const CATEGORIES_ENDPOINT: &str = "torrents";
 
 pub const METRIC_KEY: &str = "key";
 pub const TIME_FRAME_INTERVAL_KEY: &str = "timeFrameInterval";

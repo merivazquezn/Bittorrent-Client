@@ -3,4 +3,5 @@ pub enum TrackerEndpoint {
     Announce,
     StaticResource,
     Metrics,
+    Torrents,
 }

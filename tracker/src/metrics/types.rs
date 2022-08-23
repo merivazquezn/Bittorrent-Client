@@ -8,6 +8,7 @@ use std::sync::mpsc::Sender;
 
 pub enum MetricsMessage {
     SendMetric(Sender<String>, String, TimeFrame, GroupBy),
+    GetTorrents(Sender<String>),
     Update(HashMap<String, i32>, DateTime<Local>),
     Stop,
 }

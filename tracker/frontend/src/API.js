@@ -1,7 +1,12 @@
 
 export class API {
     get(path, queryParams) {
-        const url = 'http://localhost:7878/' + path + '?' + this.queryString(queryParams);
+        let url = "";
+        if (queryParams) {
+            url = 'http://localhost:7878/' + path + '?' + this.queryString(queryParams);
+        } else {
+            url = 'http://localhost:7878/' + path;
+        }
         return fetch(url, {
             method: 'GET',
             headers: {

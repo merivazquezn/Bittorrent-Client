@@ -8,7 +8,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use chrono::DurationRound;
 use serde_json::{json, Map, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{Receiver, RecvError};
 
@@ -56,6 +56,23 @@ impl MetricsWorker {
         let _ = sender.send(json);
     }
 
+    fn get_torrents(&mut self, sender: Sender<String>) {
+        let mut torrents: HashSet<String> = HashSet::new();
+        for key in self.record.keys() {
+            let category = key.split(KEY_DELIMITER).next();
+            if let Some(cat) = category {
+                torrents.insert(cat.into());
+            }
+        }
+
+        let torrents: Vec<String> = torrents
+            .into_iter()
+            .filter(|cat| cat != "torrents")
+            .collect();
+        let json: String = Self::get_json_from_torrents(&torrents);
+        let _ = sender.send(json);
+    }
+
     fn update(&mut self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
         println!("hashmap of aggregation: {:?}", aggregation);
         for (key, value) in aggregation.iter() {
@@ -100,6 +117,7 @@ impl MetricsWorker {
                 MetricsMessage::SendMetric(sender, key, time_frame, groupby) => {
                     self.send_metric(sender, key, time_frame, groupby)
                 }
+                MetricsMessage::GetTorrents(sender) => self.get_torrents(sender),
                 MetricsMessage::Update(aggregation, timestamp) => {
                     self.update(aggregation, timestamp)
                 }
@@ -167,6 +185,13 @@ impl MetricsWorker {
             grouped.push((stat_value, chunk[0].1.duration_round(round_to).unwrap()));
         }
         grouped
+    }
+
+    fn get_json_from_torrents(torrents: &[String]) -> String {
+        let mut map = Map::new();
+        map.insert(DATA_JSON_KEY.to_string(), json!(torrents));
+        let json = Value::Object(map);
+        json.to_string()
     }
 
     fn get_json_from_slice(grouped_slice: Vec<(i32, String)>) -> String {

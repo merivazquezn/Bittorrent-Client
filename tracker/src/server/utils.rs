@@ -9,6 +9,8 @@ pub fn parse_path(path: &str) -> TrackerEndpoint {
         TrackerEndpoint::Announce
     } else if path == METRICS_ENDPOINT {
         TrackerEndpoint::Metrics
+    } else if path == CATEGORIES_ENDPOINT {
+        TrackerEndpoint::Torrents
     } else {
         TrackerEndpoint::StaticResource
     }

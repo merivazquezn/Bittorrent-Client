@@ -1,0 +1,4 @@
+listen_port=7881
+download_path=downloads_chiken_seeder
+log_path=logs_chiken_seeder
+persist_pieces=true

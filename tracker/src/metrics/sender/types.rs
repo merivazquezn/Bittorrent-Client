@@ -25,6 +25,14 @@ impl MetricsSender {
         Ok(response)
     }
 
+    pub fn get_torrents(&self) -> Result<String, RecvError> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let _ = self.sender.send(MetricsMessage::GetTorrents(sender));
+
+        let response = receiver.recv()?;
+        Ok(response)
+    }
+
     pub fn update(&self, aggregation: HashMap<String, i32>, timestamp: DateTime<Local>) {
         let _ = self
             .sender
