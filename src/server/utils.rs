@@ -36,7 +36,6 @@ pub fn payload_from_request_message(request: RequestMessage) -> Vec<u8> {
 
 pub fn client_has_piece(piece_index: usize, pieces_dir: &str) -> bool {
     let piece_path = format!("{}/{}", pieces_dir, piece_index);
-    println!("piece path: {:?}", piece_path);
     Path::new(&piece_path).exists()
 }
 

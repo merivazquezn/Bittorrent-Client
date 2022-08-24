@@ -8,4 +8,4 @@ pub const DATA_JSON_KEY: &str = "data";
 pub const TIMESTAMP_JSON_KEY: &str = "moment";
 pub const VALUE_JSON_KEY: &str = "value";
 pub const STORE_DAYS: u32 = 5;
-pub const RECOVER_METRICS_FLAG: &str = "--recover_metrics";
+pub const RECOVER_METRICS_FLAG: &str = "--recover-metrics";

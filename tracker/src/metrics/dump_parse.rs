@@ -1,8 +1,8 @@
 use bittorrent_rustico::bencode::{decode, encode, BencodeDecodedValue, BencodeDecoderError};
-use chrono::offset::LocalResult;
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
+use chrono::{DateTime, Local};
 use std::collections::HashMap;
 use std::io;
+use std::str::FromStr;
 
 pub enum MetricsDumpError {
     Io(io::Error),
@@ -84,21 +84,11 @@ pub fn get_dump_record(
             let timestamp_string: String =
                 String::from_utf8(stat_timestamp.get_as_list()?[1].get_as_string()?.clone())?;
 
-            let from: NaiveDateTime = timestamp_string
-                .parse()
+            let timestamp: DateTime<Local> = DateTime::<Local>::from_str(&timestamp_string)
                 .map_err(|_| MetricsDumpError::ParseError)?;
-
-            let datetime_result: LocalResult<DateTime<Local>> = Local.from_local_datetime(&from);
-            let timestamp: DateTime<Local> = match datetime_result {
-                LocalResult::None => {
-                    return Err(MetricsDumpError::ParseError);
-                }
-                LocalResult::Single(datetime) => datetime,
-                LocalResult::Ambiguous(datetime, _) => datetime,
-            };
-
             stat_timestamp_list.push((stat, timestamp));
         }
+
         result.insert(key, stat_timestamp_list);
     }
 

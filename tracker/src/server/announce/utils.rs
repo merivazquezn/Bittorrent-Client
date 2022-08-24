@@ -79,11 +79,17 @@ fn parse_entry_to_u32(params: &HashMap<String, String>, key: &str) -> Result<u32
 
 fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String> {
     let mut missing_params: Vec<String> = Vec::new();
-    let mandatory_params: Vec<String> =
-        vec![INFO_HASH_KEY, PEER_ID_KEY, UPLOADED_KEY, DOWNLOADED_KEY, LEFT_KEY, PORT_KEY]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+    let mandatory_params: Vec<String> = vec![
+        INFO_HASH_KEY,
+        PEER_ID_KEY,
+        UPLOADED_KEY,
+        DOWNLOADED_KEY,
+        LEFT_KEY,
+        PORT_KEY,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
 
     for param in mandatory_params {
         if !params.contains_key(&param) {

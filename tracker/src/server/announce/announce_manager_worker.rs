@@ -88,7 +88,9 @@ impl AnnounceManagerWorker {
                     );
                     self = announce_res.0;
                     let response: TrackerResponse = announce_res.1;
-                    sender.send(response).unwrap();
+                    if let Err(err) = sender.send(response) {
+                        println!("Error sending tracker response to threadpool: {:?}", err);
+                    };
                 }
                 AnnounceMessage::Update => self.remove_all_inactive_peers(),
                 AnnounceMessage::Stop => break,

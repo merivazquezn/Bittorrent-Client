@@ -4,11 +4,13 @@ use crate::metrics::constants::METRICS_DUMP_PATH;
 use crate::metrics::dump_parse::{get_dump_record, get_encoded_record};
 use crate::metrics::grouping_methods::*;
 use crate::metrics::params::*;
+use bittorrent_rustico::download_manager::create_directory;
 use chrono::prelude::*;
 use chrono::Duration;
 use chrono::DurationRound;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{Receiver, RecvError};
 
@@ -93,11 +95,26 @@ impl MetricsWorker {
         let record: HashMap<String, Vec<(i32, DateTime<Local>)>> = self.record.clone();
         let _handle = std::thread::spawn(move || {
             let encoded_record: Vec<u8> = get_encoded_record(record);
-            let _ = std::fs::write("dump/metrics/metrics_dump", encoded_record);
+
+            println!("Trying to write metrics dump on: dump/metrics_dump");
+            match std::fs::write(METRICS_DUMP_PATH, encoded_record) {
+                Ok(_) => println!("Metrics dump successfully written"),
+                Err(e) => println!("Error writing metrics dump: {}", e),
+            }
         });
     }
 
     pub fn listen(&mut self) -> Result<(), RecvError> {
+        if !Path::new("./dump").is_dir() {
+            println!("Creating metrics dump directory");
+            match create_directory("dump") {
+                Ok(()) => {
+                    println!("Created directory: {}", METRICS_DUMP_PATH);
+                }
+                Err(e) => println!("Error creating dump directory for metrics: {:?}", e),
+            }
+        }
+
         if self.should_recover_from_dump {
             match get_dump_record(METRICS_DUMP_PATH) {
                 Ok(record) => {
@@ -109,6 +126,8 @@ impl MetricsWorker {
                     println!("Starting with empty record");
                 }
             };
+        } else {
+            println!("Starting with empty record");
         }
 
         loop {
