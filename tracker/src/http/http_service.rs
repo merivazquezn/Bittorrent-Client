@@ -54,11 +54,11 @@ impl IHttpService for HttpService {
         LOGGER.info_str("Finished reading request");
         if !is_get_request(&buffer) {
             return Err(HttpError::InvalidRequest(
-                request_as_str(&buffer).to_string(),
+                request_as_str(&buffer)?.to_string(),
             ));
         }
 
-        let request: &str = request_as_str(&buffer);
+        let request: &str = request_as_str(&buffer)?;
         let path: String = get_path_from_request(request)?;
         let params: HashMap<String, String> = parse_query_params_from_path(&path)?;
         let endpoint: String = endpoint_from_path(&path)?;

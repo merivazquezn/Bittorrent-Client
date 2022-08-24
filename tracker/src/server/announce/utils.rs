@@ -1,5 +1,5 @@
 use super::{AnnounceRequest, TrackerEvent};
-use crate::server::announce::constants;
+use crate::server::announce::constants::*;
 use crate::server::announce::TrackerResponse;
 use crate::server::errors::AnnounceError;
 use bittorrent_rustico::bencode::encode;
@@ -30,12 +30,12 @@ pub fn parse_request_from_params(
         return Err(AnnounceError::MissingParam(missing_params.join(", ")));
     }
 
-    let info_hash: Vec<u8> = params.get("info_hash").unwrap().clone().into_bytes();
-    let peer_id: Vec<u8> = params.get("peer_id").unwrap().clone().into_bytes();
-    let uploaded: u32 = parse_entry_to_u32(&params, "uploaded")?;
-    let downloaded: u32 = parse_entry_to_u32(&params, "downloaded")?;
-    let left: u32 = parse_entry_to_u32(&params, "left")?;
-    let listening_port: u32 = parse_entry_to_u32(&params, "port")?;
+    let info_hash: Vec<u8> = params.get(INFO_HASH_KEY).unwrap().clone().into_bytes();
+    let peer_id: Vec<u8> = params.get(PEER_ID_KEY).unwrap().clone().into_bytes();
+    let uploaded: u32 = parse_entry_to_u32(&params, UPLOADED_KEY)?;
+    let downloaded: u32 = parse_entry_to_u32(&params, DOWNLOADED_KEY)?;
+    let left: u32 = parse_entry_to_u32(&params, LEFT_KEY)?;
+    let listening_port: u32 = parse_entry_to_u32(&params, PORT_KEY)?;
 
     let mut event: TrackerEvent = TrackerEvent::KeepAlive;
     if params.contains_key("event") {
@@ -51,7 +51,7 @@ pub fn parse_request_from_params(
         }
     }
 
-    let mut numwant: u32 = constants::DEFAULT_NUMWANT;
+    let mut numwant: u32 = DEFAULT_NUMWANT;
     if params.contains_key("numwant") {
         numwant = parse_entry_to_u32(&params, "numwant")?;
     }
@@ -80,7 +80,7 @@ fn parse_entry_to_u32(params: &HashMap<String, String>, key: &str) -> Result<u32
 fn get_missing_mandatory_params(params: &HashMap<String, String>) -> Vec<String> {
     let mut missing_params: Vec<String> = Vec::new();
     let mandatory_params: Vec<String> =
-        vec!["info_hash", "peer_id", "uploaded", "downloaded", "left"]
+        vec![INFO_HASH_KEY, PEER_ID_KEY, UPLOADED_KEY, DOWNLOADED_KEY, LEFT_KEY, PORT_KEY]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -129,7 +129,7 @@ pub fn get_response_bytes(response: TrackerResponse) -> Vec<u8> {
     for peer in response.peers {
         let mut peer_map: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
         peer_map.insert(
-            "peer_id".as_bytes().to_vec(),
+            PEER_ID_KEY.as_bytes().to_vec(),
             BencodeDecodedValue::String(peer.peer_id),
         );
         peer_map.insert(
@@ -137,7 +137,7 @@ pub fn get_response_bytes(response: TrackerResponse) -> Vec<u8> {
             BencodeDecodedValue::String(peer.ip.as_bytes().to_vec()),
         );
         peer_map.insert(
-            "port".as_bytes().to_vec(),
+            PORT_KEY.as_bytes().to_vec(),
             BencodeDecodedValue::Integer(peer.port as i64),
         );
         benencoded_peers.push(BencodeDecodedValue::Dictionary(peer_map));

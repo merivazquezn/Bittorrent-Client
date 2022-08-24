@@ -14,7 +14,6 @@ pub fn parse_query_params_from_path(path: &str) -> Result<HashMap<String, String
     }
 
     let query_params = path.split(QUERY_PARAMS_START).nth(1);
-    println!("query_params: {}", query_params.unwrap());
     match query_params {
         Some(query_params) => {
             let mut params: HashMap<String, String> = HashMap::new();
@@ -27,10 +26,9 @@ pub fn parse_query_params_from_path(path: &str) -> Result<HashMap<String, String
                     )));
                 }
                 if key_value[0] == "peer_id" || key_value[0] == "info_hash" {
-                    // println!("el info hash en bytes {:?}", from_urlencoded(key_value[1]));
                     params.insert(
                         key_value[0].to_string(),
-                        to_hex(&from_urlencoded(key_value[1])),
+                        to_hex(&from_urlencoded(key_value[1])?),
                     );
                 } else {
                     params.insert(key_value[0].to_string(), key_value[1].to_string());
@@ -67,8 +65,8 @@ pub fn is_get_request(request: &[u8]) -> bool {
     request.starts_with(b"GET")
 }
 
-pub fn request_as_str(request: &[u8]) -> &str {
-    std::str::from_utf8(request).unwrap()
+pub fn request_as_str(request: &[u8]) -> Result<&str, HttpError> {
+    Ok(std::str::from_utf8(request)?)
 }
 
 pub fn format_http_response(content: Vec<u8>, content_type: String) -> String {
@@ -87,13 +85,13 @@ pub fn format_http_response(content: Vec<u8>, content_type: String) -> String {
 }
 
 // Transforms a url-encoded String to a vector of bytes
-fn from_urlencoded(urlencoded: &str) -> Vec<u8> {
+fn from_urlencoded(urlencoded: &str) -> Result<Vec<u8>,HttpError> {
     let mut bytes = vec![];
     let mut index = 0;
     while index < urlencoded.len() {
         if urlencoded.get(index..index + 1) == Some("%") {
             let hex = urlencoded.get(index + 1..index + 3).unwrap();
-            let hex_byte = u8::from_str_radix(hex, 16).unwrap();
+            let hex_byte = u8::from_str_radix(hex, 16)?;
             bytes.push(hex_byte);
             index += 3;
         } else {
@@ -101,7 +99,7 @@ fn from_urlencoded(urlencoded: &str) -> Vec<u8> {
             index += 1;
         }
     }
-    bytes
+    Ok(bytes)
 }
 
 // transform a vector of bytes into a string of hexadecimal characters
