@@ -62,7 +62,7 @@ fn main() {
         let _ = TrackerServer::listen(
             Box::new(http_service_factory),
             metrics_sender,
-            5,
+            100,
             TRACKER_INTERVAL_IN_SECONDS,
             tracker_receiver,
             announce_manager_sender_clone,

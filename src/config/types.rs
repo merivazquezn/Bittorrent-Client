@@ -1,6 +1,7 @@
 use super::errors::ConfigError;
 use crate::download_manager;
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::path;
 use std::str;
@@ -10,6 +11,7 @@ const DOWNLOAD_PATH: &str = "download_path";
 const SEPARATOR: &str = "=";
 const PERSIST_PIECES: &str = "persist_pieces";
 use crate::logger::CustomLogger;
+
 const LOGGER: CustomLogger = CustomLogger::init("Config");
 
 #[derive(Debug, Clone)]
@@ -57,35 +59,39 @@ impl Config {
 }
 
 fn create_config(config_dict: &HashMap<String, String>) -> Result<Config, ConfigError> {
-    let listen_port = config_dict
+    let index = env::var("INDEX").unwrap_or_else(|_| "".to_string());
+    println!("index: {}", index);
+    let listen_port: u16 = config_dict
         .get(LISTEN_PORT)
         .ok_or_else(|| ConfigError::MissingKey(LISTEN_PORT.to_string()))?
         .parse()?;
+    let listen_port = listen_port + index.parse::<u16>().unwrap_or(0);
 
     let log_path = config_dict
         .get(LOG_PATH)
         .ok_or_else(|| ConfigError::MissingKey(LOG_PATH.to_string()))?;
-
+    let log_path = log_path.to_owned() + &index;
     let download_path = config_dict
         .get(DOWNLOAD_PATH)
         .ok_or_else(|| ConfigError::MissingKey(DOWNLOAD_PATH.to_string()))?;
+    let download_path = download_path.to_owned() + &index;
 
     let persist_pieces = config_dict
         .get(PERSIST_PIECES)
         .ok_or_else(|| ConfigError::MissingKey(PERSIST_PIECES.to_string()))?;
 
-    download_manager::create_directory(download_path)
+    download_manager::create_directory(&download_path)
         .map_err(|_| ConfigError::CreateDirectoryError)?;
 
-    download_manager::create_directory(log_path).map_err(|_| ConfigError::CreateDirectoryError)?;
+    download_manager::create_directory(&log_path).map_err(|_| ConfigError::CreateDirectoryError)?;
 
-    validate_path(download_path)?;
-    validate_path(log_path)?;
+    validate_path(&download_path)?;
+    validate_path(&log_path)?;
 
     Ok(Config {
         listen_port,
-        log_path: log_path.into(),
-        download_path: download_path.into(),
+        log_path,
+        download_path,
         persist_pieces: persist_pieces == "true",
     })
 }

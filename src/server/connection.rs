@@ -7,6 +7,8 @@ use crate::peer::PeerMessage;
 use crate::peer::PeerMessageId;
 use log::*;
 
+pub const SEED_DELAY: f64 = 2_f64 * 100000_f64;
+
 /// Struct that handles the server's acceptor thread.
 /// It is spawned each time a connection is accepted.
 /// It handles the connection's messages and answers them accordingly.
@@ -131,8 +133,9 @@ impl ServerConnection {
         let piece_data: Vec<u8> = read_piece(&piece_path)?;
         let block: Vec<u8> = get_block_from_piece(piece_data, request.begin, request.length)?;
         let block_number: usize = get_block_index(request.begin, request.length);
-        // sleep for having a feeling of internet download
-        std::thread::sleep(std::time::Duration::from_millis(3000));
+        let random = rand::random::<f64>();
+        let delay = random * SEED_DELAY / self.metainfo.info.pieces.len() as f64;
+        std::thread::sleep(std::time::Duration::from_millis(delay as u64));
         let response_message = PeerMessage::piece(request.index, request.begin, block);
         match self.message_service.send_message(&response_message) {
             Ok(()) => {

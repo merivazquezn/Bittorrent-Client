@@ -12,7 +12,23 @@ Bittorrent Client in Rust
 
 2. install gtk3 dev library for your system
 
-## Running 
+## Running as executable
+
+1. from /tracker, run:
+./tracker.exe
+
+2. from the root of the repo, run:
+./peer.exe <config file path> <torrent1> <torrent2> ...
+
+## Running simulation of multiple peers and torrents
+
+1. from /tracker, run:
+./tracker.exe
+
+2. from the root of the repo, run:
+./run_simulation.sh
+
+## Running with cargo run
 
 example:
 ```

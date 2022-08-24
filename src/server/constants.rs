@@ -13,7 +13,7 @@ pub const LOGS_DIR: &str = "./logs";
 pub const SERVER_LOG_FILE_NAME: &str = "server_log.txt";
 
 /// Timeout for the server read operation
-pub const SERVER_READ_TIMEOUT: u64 = 10;
+pub const SERVER_READ_TIMEOUT: u64 = 100;
 
 /// Timeout for the server write operation
-pub const SERVER_WRITE_TIMEOUT: u64 = 10;
+pub const SERVER_WRITE_TIMEOUT: u64 = 100;

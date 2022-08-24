@@ -1,4 +1,4 @@
-pub const MESSAGE_TIMEOUT: u64 = 90;
+pub const MESSAGE_TIMEOUT: u64 = 100;
 pub const MAX_RETRIES: u8 = 3;
 pub const PSTRLEN: u8 = 19;
 pub const HANDSHAKE_LENGTH: usize = 68;

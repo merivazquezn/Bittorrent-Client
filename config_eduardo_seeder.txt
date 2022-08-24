@@ -1,0 +1,4 @@
+listen_port=6001
+download_path=downloads_eduardo_seeder
+log_path=logs_eduardo_seeder
+persist_pieces=true

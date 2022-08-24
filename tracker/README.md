@@ -26,6 +26,6 @@ Use the `RUST_LOG=info cargo run` command on the root tracker folder, where the 
 
 ## Recover metrics dump
 
-If you want to recover past metrics stored at `dump/metrics_dump`, you can run the program with the `-- --recover_metrics` flag:
+If you want to recover past metrics stored at `dump/metrics_dump`, you can run the program with the `-- --recover-metrics` flag:
 
-`cargo run -- --recover_metrics`
+`cargo run -- --recover-metrics`

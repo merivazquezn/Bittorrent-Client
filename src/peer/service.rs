@@ -22,7 +22,7 @@ impl PeerMessageService {
         trace!("Connecting to peer at IP: {}:{}", ip, port);
         let ipv4addr: SocketAddrV4 = format!("{}:{}", ip, port).parse().unwrap();
         let ipvaddr = SocketAddr::from(ipv4addr);
-        let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(5))
+        let stream = TcpStream::connect_timeout(&ipvaddr, Duration::from_secs(100))
             .map_err(|e| PeerConnectionError::InitialConnectionError(e.to_string()))?;
         stream
             .set_write_timeout(Some(Duration::new(MESSAGE_TIMEOUT, 0)))

@@ -95,19 +95,6 @@ function App() {
       return;
     }
 
-    // let cfg = { ...config, key: config.keys[0] };
-
-
-    // try {
-    //   let res = await api.get("metrics", cfg);
-    //   console.log(res);
-    //   setChartData(res.data);
-    // } catch (err) {
-    //   console.log(err);
-    //   message.error('There was an error getting data from the server. Make sure you input valid parameters');
-
-    // }
-
     const myPromiseArray = config.keys.map(key => {
       let cfg = { ...config, key };
       return api.get("metrics", cfg);
@@ -146,7 +133,12 @@ function App() {
   useInterval(() => {
     updateTorrentList();
     updateChartData();
-  }, 1000 * 5);
+  }, 1000 * 60);
+
+  React.useEffect(() => {
+    updateTorrentList();
+    updateChartData();
+  }, []);
 
   // update metrics if config changes
   React.useEffect(() => {

@@ -9,7 +9,6 @@ use gtk::{
     ResponseType,
 };
 use gtk::{PolicyType, ScrolledWindow};
-use sha1::{Digest, Sha1};
 
 use crate::metainfo::File;
 
@@ -224,9 +223,7 @@ impl GeneralInformationTab {
     }
 
     fn sha1_of(&self, vec: &[u8]) -> String {
-        let mut hasher = Sha1::new();
-        hasher.update(vec);
-        self.bytes_to_ascii(&hasher.finalize())
+        self.bytes_to_ascii(vec)
     }
 
     fn bytes_to_megabytes(&self, bytes: u64) -> u64 {

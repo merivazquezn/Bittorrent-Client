@@ -1,4 +1,0 @@
-listen_port=7882
-download_path=downloads_chiken_leecher_1
-log_path=logs_chiken_leecher_1
-persist_pieces=true

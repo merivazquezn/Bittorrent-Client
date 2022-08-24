@@ -103,7 +103,7 @@ impl Server {
         listener.set_nonblocking(true).map_err(|_| {
             ServerError::ServerCreationError("Couldn't set non blocking mode on server".to_string())
         })?;
-        let pool: ThreadPool = ThreadPool::new(5)?;
+        let pool: ThreadPool = ThreadPool::new(25)?;
         for stream in listener.incoming() {
             if receiver.try_recv().is_ok() {
                 info!("Server received stop message");
@@ -155,8 +155,8 @@ impl Server {
         pieces_dir: &str,
     ) -> Result<(), ServerError> {
         stream.set_nonblocking(false)?;
-        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+        stream.set_read_timeout(Some(Duration::from_secs(100)))?;
+        stream.set_write_timeout(Some(Duration::from_secs(100)))?;
         let connection_logger = logger;
         let dir_clone = String::from(pieces_dir);
         pool.execute(move || {

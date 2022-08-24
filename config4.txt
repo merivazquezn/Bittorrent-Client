@@ -1,4 +1,0 @@
-listen_port=6884
-download_path=downloads4
-log_path=logs4
-persist_pieces=true
