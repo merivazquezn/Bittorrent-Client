@@ -9,7 +9,7 @@ use tracker::metrics::new_metrics;
 use tracker::server::announce::new_announce_manager;
 use tracker::server::TrackerServer;
 
-const TRACKER_INTERVAL_IN_SECONDS: u32 = 20;
+const TRACKER_INTERVAL_IN_SECONDS: u32 = 60;
 const LOGGER: CustomLogger = CustomLogger::init("Acceptor");
 
 fn bind_server() -> std::net::TcpListener {

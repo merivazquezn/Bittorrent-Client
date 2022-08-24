@@ -36,6 +36,24 @@ impl From<std::string::FromUtf8Error> for MetricsDumpError {
     }
 }
 
+fn fill_in_missing_timestamps(record: &mut HashMap<String, Vec<(i32, DateTime<Local>)>>) {
+    for (_key, record_vector) in record.iter_mut() {
+        if record_vector.is_empty() {
+            println!("empty record vector, this shouldn't happen...");
+            continue;
+        }
+
+        let record_clone = record_vector.clone();
+        let last_entry = record_clone.last().unwrap();
+        let time_to_fill = Local::now()
+            .signed_duration_since(last_entry.1)
+            .num_minutes();
+
+        for i in 0..time_to_fill {
+            record_vector.push((0, last_entry.1 + chrono::Duration::minutes(1 + i)));
+        }
+    }
+}
 pub fn get_encoded_record(record: HashMap<String, Vec<(i32, DateTime<Local>)>>) -> Vec<u8> {
     let mut hashmap: HashMap<Vec<u8>, BencodeDecodedValue> = HashMap::new();
     for (key, value) in record.iter() {
@@ -91,7 +109,7 @@ pub fn get_dump_record(
 
         result.insert(key, stat_timestamp_list);
     }
-
+    fill_in_missing_timestamps(&mut result);
     Ok(result)
 }
 
